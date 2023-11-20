@@ -6,13 +6,14 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    container: archlinux:latest
     permissions:
       contents: write
     steps:
       - name: install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgpgme-dev libdevmapper-dev libbtrfs-dev
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm gpgme device-mapper shadow docker gcc btrfs-progs pkgconf
 
       - uses: actions/checkout@v4
 
