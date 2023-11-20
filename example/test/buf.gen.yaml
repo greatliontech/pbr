@@ -1,0 +1,12 @@
+version: v1
+plugins:
+  - plugin: bsr.greatlion.tech/protocolbuffers/go
+    out: gen/go
+    opt:
+      - paths=source_relative
+  - plugin: bsr.greatlion.tech/protocolbuffers/ts
+    out: app/src/gen
+    opt:
+      - generate_dependencies
+      - long_type_number
+      - add_pb_suffix

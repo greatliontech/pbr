@@ -1,0 +1,6 @@
+version: v1
+name: bsr.greatlion.tech/test/test
+# name: buf.build/test/test
+deps:
+  - bsr.greatlion.tech/thegrumpylion/test-pbr
+  - buf.build/googleapis/googleapis
