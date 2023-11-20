@@ -2,13 +2,18 @@ name: release
 on:
   push:
     branches:
-      - master
+      - main
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgpgme-dev libdevmapper-dev libbtrfs-dev
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v4
