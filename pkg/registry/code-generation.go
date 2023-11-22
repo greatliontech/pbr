@@ -60,15 +60,11 @@ func (reg *Registry) GenerateCode(ctx context.Context, req *connect.Request[regi
 
 func (reg *Registry) getPlugin(ref *registryv1alpha1.CuratedPluginReference) (*codegen.Plugin, error) {
 	name := ref.Owner + "/" + ref.Name
-	plugConf, ok := reg.conf.Plugins[name]
+	plug, ok := reg.plugins[name]
 	if !ok {
 		return nil, fmt.Errorf("plugin config not found: %s", name)
 	}
-	img := strings.TrimSuffix(plugConf.Registry, "/") + "/" + name
-	if plugConf.Image != "" {
-		img = plugConf.Image
-	}
-	return codegen.NewPlugin(reg.store, "docker://"+img+":"+ref.Version), nil
+	return plug, nil
 }
 
 func toFileDescriptorProto(f *imagev1.ImageFile) *descriptorpb.FileDescriptorProto {

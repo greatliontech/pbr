@@ -146,12 +146,6 @@ func (p *Plugin) pullImage(imageName string) (string, error) {
 		return "", err
 	}
 
-	// systemCtx := &types.SystemContext{}
-	// policy, err := signature.DefaultPolicy(systemCtx)
-	// if err != nil {
-	// 	fmt.Printf("Error getting default policy\n")
-	// 	return err
-	// }
 	policy := &signature.Policy{
 		Default: signature.PolicyRequirements{
 			signature.NewPRInsecureAcceptAnything(),

@@ -11,20 +11,21 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/gobwas/glob"
 	"golang.org/x/crypto/sha3"
 )
 
 type Repository struct {
-	Repo          *git.Repository
-	Path          string
-	LastFetch     time.Time
-	FetchPeriod   time.Duration
+	lastFetch     time.Time
+	auth          transport.AuthMethod
+	repo          *git.Repository
+	SHAKE256Cache map[string]string
+	cachePath     string
 	token         string
-	SHAKE256Cache map[string]string // Cache SHAKE256 hashes
+	root          string
 	filters       []glob.Glob
-	httpAuth      *http.BasicAuth
+	fetchPeriod   time.Duration
 }
 
 type File struct {
@@ -40,8 +41,21 @@ type Manifest struct {
 	SHAKE256 string
 }
 
+var protoGlob = glob.MustCompile("**.proto")
+
 // New clones the repository and returns a new Repository struct
-func New(repoUrl, token string, fetchPeriodSec int) (*Repository, error) {
+func New(repoUrl string, opts ...Option) (*Repository, error) {
+	repo := &Repository{
+		fetchPeriod:   time.Duration(60) * time.Second,
+		lastFetch:     time.Now(),
+		SHAKE256Cache: make(map[string]string),
+	}
+
+	// apply options
+	for _, opt := range opts {
+		opt(repo)
+	}
+
 	// determine cache directory
 	cacheHome := os.Getenv("XDG_CACHE_HOME")
 	if cacheHome == "" {
@@ -56,75 +70,66 @@ func New(repoUrl, token string, fetchPeriodSec int) (*Repository, error) {
 	urlParts := strings.Split(repoUrl, "/")
 	repoPath := filepath.Join(cacheHome, "pbr", strings.Join(urlParts[len(urlParts)-2:], "/"))
 
-	// construct the HTTP auth struct
-	var httpAuth *http.BasicAuth
-	if token != "" {
-		httpAuth = &http.BasicAuth{
-			Username: "git",
-			Password: token,
-		}
-	}
+	repo.cachePath = repoPath
+
+	// open the repository
+	r, err := git.PlainOpen(repoPath)
+	repo.repo = r
 
 	// check if the repository already exists
-	r, err := git.PlainOpen(repoPath)
 	if err == git.ErrRepositoryNotExists {
 		// repository does not exist, clone it
 		r, err = git.PlainClone(repoPath, true, &git.CloneOptions{
 			URL:        repoUrl,
-			Auth:       httpAuth,
+			Auth:       repo.auth,
 			Tags:       git.AllTags,
 			NoCheckout: true,
 		})
 		if err != nil {
 			return nil, err
 		}
+		repo.repo = r
 	} else if err != nil {
 		// some other error occurred while opening the repository
 		return nil, err
 	} else {
 		// Repository exists, perform a fetch
-		err = r.Fetch(&git.FetchOptions{
-			Auth:     httpAuth,
-			Tags:     git.AllTags,
-			RefSpecs: []config.RefSpec{"+refs/heads/*:refs/remotes/origin/*"},
-		})
-		if err != nil && err != git.NoErrAlreadyUpToDate {
+		if err := repo.fetch(); err != nil {
 			return nil, err
 		}
 	}
 
-	return &Repository{
-		Repo:          r,
-		Path:          repoPath,
-		LastFetch:     time.Now(),
-		FetchPeriod:   time.Duration(fetchPeriodSec) * time.Second,
-		token:         token,
-		SHAKE256Cache: make(map[string]string),
-		httpAuth:      httpAuth,
-	}, nil
+	return repo, nil
+}
+
+func (repo *Repository) fetch() error {
+	err := repo.repo.Fetch(&git.FetchOptions{
+		Auth:     repo.auth,
+		Tags:     git.AllTags,
+		RefSpecs: []config.RefSpec{"+refs/heads/*:refs/remotes/origin/*"},
+	})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return err
+	}
+	return nil
 }
 
 // FilesAndManifest retrieves all files and their SHAs for a given ref
 func (repo *Repository) FilesAndManifest(ref string) ([]File, *Manifest, error) {
 	// Check if fetch is needed
-	if time.Since(repo.LastFetch) > repo.FetchPeriod {
+	if time.Since(repo.lastFetch) > repo.fetchPeriod {
 		// Perform a fetch
-		err := repo.Repo.Fetch(&git.FetchOptions{
-			Auth:     repo.httpAuth,
-			Tags:     git.AllTags,
-			RefSpecs: []config.RefSpec{"+refs/heads/*:refs/remotes/origin/*"},
-		})
-		if err != nil && err != git.NoErrAlreadyUpToDate {
+		if err := repo.fetch(); err != nil {
 			return nil, nil, err
 		}
-		repo.LastFetch = time.Now()
+		repo.lastFetch = time.Now()
 	}
 
 	var hash plumbing.Hash
 
 	// If ref is empty, use the default branch
 	if ref == "" {
-		head, err := repo.Repo.Head()
+		head, err := repo.repo.Head()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -139,7 +144,7 @@ func (repo *Repository) FilesAndManifest(ref string) ([]File, *Manifest, error) 
 	}
 
 	// Get the commit object
-	commit, err := repo.Repo.CommitObject(hash)
+	commit, err := repo.repo.CommitObject(hash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,7 +159,15 @@ func (repo *Repository) FilesAndManifest(ref string) ([]File, *Manifest, error) 
 
 	err = filesItr.ForEach(func(f *object.File) error {
 		// trim the repository path from the file name, if any
-		name := strings.TrimPrefix(f.Name, repo.Path)
+		name := strings.TrimPrefix(f.Name, repo.cachePath)
+
+		// trim the root path from the file name, if any
+		name = strings.TrimPrefix(name, repo.root)
+
+		// skip files that are not protobuf or buf meta files
+		if name != "buf.yaml" && name != "buf.lock" && !protoGlob.Match(name) {
+			return nil
+		}
 
 		// check if the file matches any of the filters, if any
 		matched := true
@@ -232,7 +245,7 @@ func (repo *Repository) findRefHash(ref string) (plumbing.Hash, error) {
 	// first, check if the ref is a valid commit SHA
 	if hash := plumbing.NewHash(ref); hash != plumbing.ZeroHash {
 		// Check if this hash corresponds to a valid commit
-		_, err := repo.Repo.CommitObject(hash)
+		_, err := repo.repo.CommitObject(hash)
 		if err == nil {
 			// The commit exists, return its hash
 			return hash, nil
@@ -244,21 +257,21 @@ func (repo *Repository) findRefHash(ref string) (plumbing.Hash, error) {
 
 	// check if it's a remote tracking branch
 	remoteBranchRef := plumbing.NewRemoteReferenceName("origin", ref)
-	remoteBranch, err := repo.Repo.Reference(remoteBranchRef, true)
+	remoteBranch, err := repo.repo.Reference(remoteBranchRef, true)
 	if err == nil {
 		return remoteBranch.Hash(), nil
 	}
 
 	// check if it's a tag
 	tagRef := plumbing.NewTagReferenceName(ref)
-	tag, err := repo.Repo.Reference(tagRef, true)
+	tag, err := repo.repo.Reference(tagRef, true)
 	if err == nil {
 		return tag.Hash(), nil
 	}
 
 	// check if it's a local branch
 	branchRef := plumbing.NewBranchReferenceName(ref)
-	branch, err := repo.Repo.Reference(branchRef, true)
+	branch, err := repo.repo.Reference(branchRef, true)
 	if err == nil {
 		return branch.Hash(), nil
 	}

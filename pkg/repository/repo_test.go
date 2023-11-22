@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 func TestPlainClone(t *testing.T) {
@@ -11,7 +13,13 @@ func TestPlainClone(t *testing.T) {
 	if tok == "" {
 		t.Fatal("GITHUB_TOKEN not set")
 	}
-	repo, err := New("https://github.com/greatliontech/test-pbr", tok, 60)
+
+	httpAuth := &http.BasicAuth{
+		Username: "git",
+		Password: tok,
+	}
+
+	repo, err := New("https://github.com/greatliontech/test-pbr", WithAuth(httpAuth))
 	if err != nil {
 		t.Fatal(err)
 	}

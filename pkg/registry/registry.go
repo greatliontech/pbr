@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/containers/storage"
 	"github.com/containers/storage/types"
+	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/repository"
 	"golang.org/x/net/http2"
@@ -19,28 +20,32 @@ import (
 )
 
 type Registry struct {
-	conf    *config.Config
-	remotes map[string]registryv1alpha1connect.ResolveServiceClient
-	repos   map[string]*repository.Repository
-	store   storage.Store
-	server  *http.Server
-	cert    *tls.Certificate
+	store      storage.Store
+	modules    map[string]config.Module
+	plugins    map[string]*codegen.Plugin
+	bsrRemotes map[string]registryv1alpha1connect.ResolveServiceClient
+	repos      map[string]*repository.Repository
+	server     *http.Server
+	cert       *tls.Certificate
+	repoCreds  *repository.CredentialStore
+	hostName   string
+	addr       string
 }
 
-func New(c *config.Config, opts ...Option) (*Registry, error) {
+func New(hostName string, opts ...Option) (*Registry, error) {
 	reg := &Registry{
-		conf:    c,
-		remotes: map[string]registryv1alpha1connect.ResolveServiceClient{},
-	}
-
-	// apply options
-	for _, o := range opts {
-		o(reg)
+		addr:     ":443",
+		hostName: hostName,
 	}
 
 	// init container storage
 	if err := reg.initStorage(); err != nil {
 		return nil, err
+	}
+
+	// apply options
+	for _, o := range opts {
+		o(reg)
 	}
 
 	mux := http.NewServeMux()
@@ -50,13 +55,8 @@ func New(c *config.Config, opts ...Option) (*Registry, error) {
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewRepositoryServiceHandler(reg))
 
-	addr := ":443"
-	if reg.conf.Address != "" {
-		addr = reg.conf.Address
-	}
-
 	reg.server = &http.Server{
-		Addr:         addr,
+		Addr:         reg.addr,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Handler:      mux,
@@ -66,24 +66,17 @@ func New(c *config.Config, opts ...Option) (*Registry, error) {
 		reg.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*reg.cert}}
 	}
 
-	for k, v := range c.Credentials.Bsr {
-		reg.remotes[k] = registryv1alpha1connect.NewResolveServiceClient(
-			http.DefaultClient,
-			"https://"+k,
-			connect.WithInterceptors(newAuthInterceptor(v)),
-		)
-	}
 	return reg, nil
 }
 
 func (reg *Registry) Serve() error {
-	if err := http2.ConfigureServer(reg.server, nil); err != nil {
-		return err
+	if reg.cert != nil {
+		reg.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*reg.cert}}
+		if err := http2.ConfigureServer(reg.server, nil); err != nil {
+			return err
+		}
+		return reg.server.ListenAndServeTLS("", "")
 	}
-	return reg.server.ListenAndServeTLS("", "")
-}
-
-func (reg *Registry) ServeH2C() error {
 	h2s := &http2.Server{}
 	handler := h2c.NewHandler(reg.server.Handler, h2s)
 	reg.server.Handler = handler
@@ -112,7 +105,7 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 	}
 	key := owner + "/" + repo
 	if reg.repos[key] == nil {
-		mod, ok := reg.conf.Modules[key]
+		mod, ok := reg.modules[key]
 		if !ok {
 			return nil, fmt.Errorf("module not found for %s", key)
 		}
@@ -120,7 +113,20 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 		if mod.Replace {
 			target = mod.Remote
 		}
-		repo, err := repository.New("https://"+target, reg.conf.Credentials.GitToken(target), 60)
+		repoOpts := []repository.Option{}
+		if reg.repoCreds != nil {
+			auth := reg.repoCreds.Auth(target)
+			if auth != nil {
+				repoOpts = append(repoOpts, repository.WithAuth(auth))
+			}
+		}
+		if mod.Path != "" {
+			repoOpts = append(repoOpts, repository.WithRoot(mod.Path))
+		}
+		if mod.Filters != nil {
+			repoOpts = append(repoOpts, repository.WithFilters(mod.Filters))
+		}
+		repo, err := repository.New(target, repoOpts...)
 		if err != nil {
 			return nil, err
 		}

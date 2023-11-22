@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/drone/envsubst"
-	"github.com/gobwas/glob"
 	"gopkg.in/yaml.v3"
 )
 
@@ -12,6 +11,7 @@ type Config struct {
 	Credentials Credentials
 	Modules     map[string]Module
 	Plugins     map[string]Plugin
+	TLS         *TLS
 	Host        string
 	Address     string
 }
@@ -23,28 +23,24 @@ type Module struct {
 	Replace bool
 }
 
+type TLS struct {
+	CertFile string
+	KeyFile  string
+}
+
 type Plugin struct {
-	Registry string
-	Image    string
+	Image string
+}
+
+type GitAuth struct {
+	Token      string
+	SSHKey     string
+	SSHKeyFile string
 }
 
 type Credentials struct {
 	Bsr map[string]string
-	Git map[string]string
-}
-
-func (creds Credentials) BsrToken(remote string) string {
-	return creds.Bsr[remote]
-}
-
-func (creds Credentials) GitToken(remote string) string {
-	for k, v := range creds.Git {
-		g := glob.MustCompile(k)
-		if g.Match(remote) {
-			return v
-		}
-	}
-	return ""
+	Git map[string]GitAuth
 }
 
 func ParseConfig(b []byte) (*Config, error) {
@@ -60,14 +56,17 @@ func ParseConfig(b []byte) (*Config, error) {
 		c.Credentials.Bsr[k] = v
 	}
 	for k, v := range c.Credentials.Git {
-		v, err := envsubst.EvalEnv(v)
+		sshKey, err := envsubst.EvalEnv(v.SSHKey)
 		if err != nil {
 			return nil, err
 		}
+		v.SSHKey = sshKey
+		token, err := envsubst.EvalEnv(v.Token)
+		if err != nil {
+			return nil, err
+		}
+		v.Token = token
 		c.Credentials.Git[k] = v
-	}
-	if c.Address == "" {
-		c.Address = ":443"
 	}
 	return c, nil
 }

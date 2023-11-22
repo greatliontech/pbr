@@ -18,7 +18,7 @@ func (reg *Registry) GetModulePins(ctx context.Context, req *connect.Request[reg
 	reqPerRemote := requeststPerRemote(req)
 
 	for remote, req := range reqPerRemote {
-		if remote == reg.conf.Host {
+		if remote == reg.hostName {
 			out, err := reg.handleLocalGetModulePins(ctx, req)
 			if err != nil {
 				fmt.Println("local get module pins error", err)
@@ -28,7 +28,7 @@ func (reg *Registry) GetModulePins(ctx context.Context, req *connect.Request[reg
 			resp.Msg.ModulePins = append(resp.Msg.ModulePins, out.Msg.ModulePins...)
 			continue
 		}
-		rmtSvc, ok := reg.remotes[remote]
+		rmtSvc, ok := reg.bsrRemotes[remote]
 		if !ok {
 			fmt.Println("remote not found", remote)
 			continue
