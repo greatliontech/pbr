@@ -6,7 +6,7 @@ require (
 	buf.build/gen/go/bufbuild/buf/connectrpc/go v1.11.1-20230831142733-ae27b5df1437.1
 	buf.build/gen/go/bufbuild/buf/protocolbuffers/go v1.31.0-20230831142733-ae27b5df1437.1
 	connectrpc.com/connect v1.11.1
-	github.com/containers/image/v5 v5.29.0
+	github.com/containers/image/v5 v5.29.2
 	github.com/containers/storage v1.51.0
 	github.com/drone/envsubst v1.0.3
 	github.com/go-git/go-git/v5 v5.10.0
