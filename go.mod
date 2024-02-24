@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	buf.build/gen/go/bufbuild/buf/connectrpc/go v1.11.1-20230831142733-ae27b5df1437.1
-	buf.build/gen/go/bufbuild/buf/protocolbuffers/go v1.31.0-20230831142733-ae27b5df1437.1
+	buf.build/gen/go/bufbuild/buf/protocolbuffers/go v1.32.0-20240216212713-17e2816fa66f.1
 	connectrpc.com/connect v1.11.1
 	github.com/containers/image/v5 v5.29.0
 	github.com/containers/storage v1.51.0
@@ -15,7 +15,7 @@ require (
 	golang.org/x/net v0.18.0
 	golang.org/x/sys v0.14.0
 	google.golang.org/grpc v1.59.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.32.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
