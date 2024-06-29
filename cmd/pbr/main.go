@@ -6,23 +6,15 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/containers/storage/pkg/reexec"
-	"github.com/containers/storage/pkg/unshare"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/registry"
 	"github.com/greatliontech/pbr/pkg/repository"
 )
 
 func main() {
-	if reexec.Init() {
-		return
-	}
-
 	slog.Info("Starting PBR")
 
-	unshare.MaybeReexecUsingUserNamespace(false)
-
-	c, err := config.FromFile("config.yaml")
+	c, err := config.FromFile("./config.yaml")
 	if err != nil {
 		slog.Error("Failed to load config", "err", err)
 		os.Exit(1)

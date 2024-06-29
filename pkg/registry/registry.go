@@ -10,8 +10,7 @@ import (
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
 	"connectrpc.com/connect"
-	"github.com/containers/storage"
-	"github.com/containers/storage/types"
+	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/repository"
@@ -20,7 +19,7 @@ import (
 )
 
 type Registry struct {
-	store      storage.Store
+	ofs        *ocifs.OCIFS
 	modules    map[string]config.Module
 	plugins    map[string]*codegen.Plugin
 	bsrRemotes map[string]registryv1alpha1connect.ResolveServiceClient
@@ -38,10 +37,12 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		hostName: hostName,
 	}
 
-	// init container storage
-	if err := reg.initStorage(); err != nil {
+	// init ocifs
+	ofs, err := ocifs.New(ocifs.WithExtraDirs([]string{"/proc", "/sys"}))
+	if err != nil {
 		return nil, err
 	}
+	reg.ofs = ofs
 
 	// apply options
 	for _, o := range opts {
@@ -81,22 +82,6 @@ func (reg *Registry) Serve() error {
 	handler := h2c.NewHandler(reg.server.Handler, h2s)
 	reg.server.Handler = handler
 	return reg.server.ListenAndServe()
-}
-
-func (reg *Registry) initStorage() error {
-	options, err := types.DefaultStoreOptionsAutoDetectUID()
-	if err != nil {
-		return err
-	}
-
-	store, err := storage.GetStore(options)
-	if err != nil {
-		return err
-	}
-	store.Free()
-
-	reg.store = store
-	return nil
 }
 
 func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*repository.Repository, error) {

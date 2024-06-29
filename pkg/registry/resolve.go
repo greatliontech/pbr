@@ -120,3 +120,11 @@ func (reg *Registry) GetMavenVersion(ctx context.Context, req *connect.Request[r
 func (reg *Registry) GetNPMVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetNPMVersionRequest]) (*connect.Response[registryv1alpha1.GetNPMVersionResponse], error) {
 	return &connect.Response[registryv1alpha1.GetNPMVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
 }
+
+func (reg *Registry) GetCargoVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetCargoVersionRequest]) (*connect.Response[registryv1alpha1.GetCargoVersionResponse], error) {
+	return &connect.Response[registryv1alpha1.GetCargoVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
+}
+
+func (reg *Registry) GetPythonVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetPythonVersionRequest]) (*connect.Response[registryv1alpha1.GetPythonVersionResponse], error) {
+	return &connect.Response[registryv1alpha1.GetPythonVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
+}

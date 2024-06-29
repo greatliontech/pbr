@@ -54,7 +54,7 @@ func WithPlugins(plugins map[string]config.Plugin) Option {
 	return func(r *Registry) {
 		r.plugins = make(map[string]*codegen.Plugin)
 		for k, v := range plugins {
-			r.plugins[k] = codegen.NewPlugin(r.store, v.Image)
+			r.plugins[k] = codegen.NewPlugin(r.ofs, v.Image)
 		}
 	}
 }
