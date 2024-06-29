@@ -6,7 +6,6 @@ require (
 	buf.build/gen/go/bufbuild/buf/connectrpc/go v1.16.2-20240517182809-0b7e724f50eb.1
 	buf.build/gen/go/bufbuild/buf/protocolbuffers/go v1.34.1-20240517182809-0b7e724f50eb.1
 	connectrpc.com/connect v1.16.2
-	github.com/containers/storage v1.51.0
 	github.com/drone/envsubst v1.0.3
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/gobwas/glob v0.2.3
@@ -29,7 +28,6 @@ require (
 	github.com/docker/cli v27.0.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
-	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
@@ -46,14 +44,11 @@ require (
 	github.com/moby/sys/mountinfo v0.7.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
-	github.com/opencontainers/runc v1.1.10 // indirect
-	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
-	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/mod v0.13.0 // indirect

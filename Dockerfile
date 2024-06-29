@@ -1,15 +1,13 @@
-FROM archlinux:latest
+FROM alpine:latest
 
-RUN pacman -Syu --noconfirm \
-  && pacman -S --noconfirm gpgme device-mapper shadow fuse-overlayfs ca-certificates \
-  && pacman -Scc --noconfirm
+RUN apk add --update fuse
 
 ARG USERNAME=pbruser
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN groupadd --gid $USER_GID $USERNAME \
-  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
+RUN addgroup -S -g $USER_GID $USERNAME \
+  && adduser -S -u $USER_GID -G $USERNAME $USERNAME
 
 COPY pbr /app/pbr
 
