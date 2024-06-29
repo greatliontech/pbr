@@ -1,6 +1,5 @@
 version: v1
-name: bsr.greatlion.tech/test/test
-# name: buf.build/test/test
+name: pbr-example.greatlion.tech/test/test
 deps:
-  - bsr.greatlion.tech/thegrumpylion/test-pbr
   - buf.build/googleapis/googleapis
+  - buf.build/greatliontech/protoc-gen-rtk-query

@@ -5,9 +5,10 @@ modules:
     remote: github.com
 plugins:
   greatliontech/rtk-query:
-    image: ghcr.io/greatliontech/protoc-gen-rtk-query
+    image: ghcr.io/greatliontech/protoc-gen-rtk-query:v0.4.7
 credentials:
   bsr:
     buf.build: ${BUF_TOKEN}
   git:
-    github.com/thegrumpylion/*: ${GITHUB_TOKEN}
+    github.com/thegrumpylion/*:
+      token: ${GITHUB_TOKEN}

@@ -4,16 +4,16 @@ package com.example;
 
 option go_package = "github.com/chicnglossy/salon/proto";
 
-import "google/api/resource.proto";
+import "rtkquery/rtkquery.proto";
 
-service HelloService { rpc SayHello(HelloRequest) returns (HelloResponse); }
-
-message HelloRequest {
-  option (google.api.resource) = {
-    type : "chicnglossy.salon/Cart"
-    pattern : "users/{user}/carts/{cart}"
+service HelloService {
+  rpc GetHello(HelloRequest) returns (HelloResponse) {
+    option (rtkquery.endpoint) = {
+      type : QUERY
+    };
   };
-  string name = 1;
 }
+
+message HelloRequest { string name = 1; }
 
 message HelloResponse { string message = 1; }
