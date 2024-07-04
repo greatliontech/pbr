@@ -44,8 +44,12 @@ func (reg *Registry) GenerateCode(ctx context.Context, req *connect.Request[regi
 			return nil, err
 		}
 
+		fmt.Println("plugin reference:", request.PluginReference)
+
+		pluginVersion := request.PluginReference.Version
+
 		// run codegen
-		out, err := plugin.CodeGen(genReq)
+		out, err := plugin.CodeGen(pluginVersion, genReq)
 		if err != nil {
 			return nil, err
 		}

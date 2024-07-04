@@ -29,9 +29,14 @@ func (p *Plugin) Image() string {
 	return p.image
 }
 
-func (p *Plugin) CodeGen(in *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse, error) {
+func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse, error) {
+	img := p.Image()
+	if ver != "" {
+		img = fmt.Sprintf("%s:%s", img, ver)
+	}
+
 	// mount the image
-	im, err := p.ofs.Mount(p.image)
+	im, err := p.ofs.Mount(img)
 	if err != nil {
 		slog.Error("failed to mount image", "msg", err)
 		return nil, err
