@@ -1,37 +1,55 @@
 name: release
+
 on:
   push:
     branches:
       - main
+
+permissions:
+  contents: write
+
 jobs:
-  release:
+  goreleaser:
     runs-on: ubuntu-latest
-    container: archlinux:latest
-    permissions:
-      contents: write
     steps:
-      - name: install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm gpgme device-mapper shadow docker gcc btrfs-progs pkgconf
-
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          go-version: 1.21
+          fetch-depth: 0
 
-      - uses: docker/login-action@v1
+      - id: semrel
+        uses: greatliontech/semrel-action@main
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+
+      - name: Create Tag
+        run: |
+          if [ "v${{ steps.semrel.outputs.next-version }}" == "v${{ steps.semrel.outputs.current-version }}" ]; then
+            echo "No new version to release"
+            exit 0
+          fi
+          git tag v${{ steps.semrel.outputs.next-version }}
+          git push origin v${{ steps.semrel.outputs.next-version }}
+
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: thegrumpylion
-          password: ${{ secrets.GLT_PACKAGE_TOKEN }}
+          password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
 
-      - uses: go-semantic-release/action@v1
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          allow-initial-development-versions: true
-          hooks: goreleaser
+          # either 'goreleaser' (default) or 'goreleaser-pro'
+          distribution: goreleaser
+          # 'latest', 'nightly', or a semver
+          version: "~> v2"
+          args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GLT_PACKAGE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
           FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
+          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          GORELEASER_CURRENT_TAG: v${{ steps.semrel.outputs.next-version }}
+          GORELEASER_PREVIOUS_TAG: v${{ steps.semrel.outputs.current-version }}
