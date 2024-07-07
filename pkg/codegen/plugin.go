@@ -147,11 +147,13 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 	// Marshal the input to protobuf binary format
 	inData, err := proto.Marshal(in)
 	if err != nil {
+		slog.Error("failed to marshal input", "msg", err)
 		return nil, err
 	}
 
 	// Write the marshaled data to stdin
 	if _, err := stdin.Write(inData); err != nil {
+		slog.Error("failed to write to stdin", "msg", err)
 		return nil, err
 	}
 	stdin.Close()
