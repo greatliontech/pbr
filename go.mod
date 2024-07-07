@@ -9,7 +9,7 @@ require (
 	github.com/drone/envsubst v1.0.3
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/gobwas/glob v0.2.3
-	github.com/greatliontech/container v0.0.0-20240629101630-d901bd859100
+	github.com/greatliontech/container v0.0.0-20240707143701-f6b47e78833f
 	github.com/greatliontech/ocifs v0.0.0-20240626155415-aafbd4a35bf2
 	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.23.0

@@ -62,8 +62,8 @@ github.com/google/go-containerregistry v0.19.2 h1:TannFKE1QSajsP6hPWb5oJNgKe1IKj
 github.com/google/go-containerregistry v0.19.2/go.mod h1:YCMFNQeeXeLF+dnhhWkqDItx/JSkH01j1Kis4PsjzFI=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/greatliontech/container v0.0.0-20240629101630-d901bd859100 h1:FPe7TyhHndrlJlNRUTZhVy8EQ2w44IbHmvF+hX1XnBQ=
-github.com/greatliontech/container v0.0.0-20240629101630-d901bd859100/go.mod h1:kJfbkUI2LLQHyuDrJm8DrtuHnECvt3Ap6SUu97SzBIs=
+github.com/greatliontech/container v0.0.0-20240707143701-f6b47e78833f h1:O3UjDfeozbVrn38BjqeVtFywuqGdj2AwtqFTlZskgr4=
+github.com/greatliontech/container v0.0.0-20240707143701-f6b47e78833f/go.mod h1:kJfbkUI2LLQHyuDrJm8DrtuHnECvt3Ap6SUu97SzBIs=
 github.com/greatliontech/ocifs v0.0.0-20240626155415-aafbd4a35bf2 h1:R32OylRgMPNuFjODjL4CK8X0Zr3Wv0Xu3GZoakHAIn8=
 github.com/greatliontech/ocifs v0.0.0-20240626155415-aafbd4a35bf2/go.mod h1:3fBdEw0X9009jZbMH/k8ILML2YO4g3o2FqnML11J1pc=
 github.com/hanwen/go-fuse/v2 v2.5.1 h1:OQBE8zVemSocRxA4OaFJbjJ5hlpCmIWbGr7r0M4uoQQ=
