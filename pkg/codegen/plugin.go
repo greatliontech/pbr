@@ -79,11 +79,6 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 				Type:   "auto",
 				Flags:  syscall.MS_BIND | syscall.MS_RDONLY,
 			},
-			{
-				Source: "none",
-				Target: trgtroot + "/proc",
-				Type:   "proc",
-			},
 		},
 		UidMappings: []syscall.SysProcIDMap{
 			{
