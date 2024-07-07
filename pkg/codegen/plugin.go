@@ -84,11 +84,6 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 				Target: trgtroot + "/proc",
 				Type:   "proc",
 			},
-			{
-				Source: "none",
-				Target: trgtroot + "/sys",
-				Type:   "sysfs",
-			},
 		},
 		UidMappings: []syscall.SysProcIDMap{
 			{
