@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"flag"
 	"log"
 	"log/slog"
 	"os"
@@ -14,7 +15,13 @@ import (
 func main() {
 	slog.Info("Starting PBR")
 
-	c, err := config.FromFile("./config.yaml")
+	configFile := ""
+
+	flag.StringVar(&configFile, "config-file", "/config/config.yaml", "path to config file")
+
+	flag.Parse()
+
+	c, err := config.FromFile(configFile)
 	if err != nil {
 		slog.Error("Failed to load config", "err", err)
 		os.Exit(1)
