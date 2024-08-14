@@ -8,8 +8,6 @@ import (
 	modulev1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/module/v1alpha1"
 	registryv1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/registry/v1alpha1"
 	"connectrpc.com/connect"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (reg *Registry) DownloadManifestAndBlobs(ctx context.Context, req *connect.Request[registryv1alpha1.DownloadManifestAndBlobsRequest]) (*connect.Response[registryv1alpha1.DownloadManifestAndBlobsResponse], error) {
@@ -59,8 +57,4 @@ func (reg *Registry) DownloadManifestAndBlobs(ctx context.Context, req *connect.
 	resp.Msg.Manifest = maniBlob
 
 	return resp, nil
-}
-
-func (reg *Registry) Download(_ context.Context, _ *connect.Request[registryv1alpha1.DownloadRequest]) (*connect.Response[registryv1alpha1.DownloadResponse], error) {
-	return &connect.Response[registryv1alpha1.DownloadResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
 }

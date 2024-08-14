@@ -19,6 +19,10 @@ import (
 )
 
 type Registry struct {
+	registryv1alpha1connect.UnimplementedResolveServiceHandler
+	registryv1alpha1connect.UnimplementedDownloadServiceHandler
+	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
+	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
 	ofs        *ocifs.OCIFS
 	modules    map[string]config.Module
 	plugins    map[string]*codegen.Plugin
@@ -38,7 +42,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	}
 
 	// init ocifs
-	ofs, err := ocifs.New(ocifs.WithExtraDirs([]string{"/proc", "/sys"}))
+	ofs, err := ocifs.New()
 	if err != nil {
 		return nil, err
 	}

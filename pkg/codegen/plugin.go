@@ -41,6 +41,8 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 		slog.Error("failed to mount image", "msg", err)
 		return nil, err
 	}
+	defer im.Unmount()
+	defer os.Remove(im.MountPoint())
 
 	// get config
 	conf, err := im.ConfigFile()
@@ -59,8 +61,8 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 		slog.Error("failed to create trgt temp dir", "msg", err)
 		return nil, err
 	}
-
 	defer os.RemoveAll(trgtroot)
+
 	cfg := container.Config{
 		Root:     trgtroot,
 		Hostname: "test",
@@ -102,8 +104,17 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 		return nil, err
 	}
 
+	args := []string{}
+	if len(entrypoint) > 1 {
+		args = entrypoint[1:]
+	}
+	if len(conf.Config.Cmd) > 0 {
+		args = append(args, conf.Config.Cmd...)
+	}
+
 	pr := &container.Process{
 		Cmd:        entrypoint[0],
+		Args:       args,
 		StdinPipe:  true,
 		StdoutPipe: true,
 		StderrPipe: true,
@@ -148,23 +159,17 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 	}
 	stdin.Close()
 
-	slog.Info("stdin written")
-
 	// Read the output from stdout
 	outData, err := io.ReadAll(stdout)
 	if err != nil {
 		return nil, err
 	}
 
-	slog.Info("stdout read")
-
 	// Also read from stderr
 	errData, err := io.ReadAll(stderr)
 	if err != nil {
 		return nil, err
 	}
-
-	slog.Info("stderr read")
 
 	// Print anything that was sent to stderr
 	if len(errData) > 0 {

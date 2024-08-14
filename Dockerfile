@@ -1,6 +1,6 @@
-FROM alpine:latest
+FROM alpine:3.20.1
 
-RUN apk add --update fuse
+RUN apk add --no-cache fuse=2.9.9-r5
 
 ARG USERNAME=pbruser
 ARG USER_UID=1000

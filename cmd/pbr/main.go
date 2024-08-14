@@ -12,6 +12,8 @@ import (
 	"github.com/greatliontech/pbr/pkg/repository"
 )
 
+var version = "0.0.0-dev"
+
 func main() {
 	slog.Info("Starting PBR")
 

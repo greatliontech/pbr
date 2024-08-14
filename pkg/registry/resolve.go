@@ -7,8 +7,6 @@ import (
 	modulev1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/module/v1alpha1"
 	registryv1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/registry/v1alpha1"
 	"connectrpc.com/connect"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (reg *Registry) GetModulePins(ctx context.Context, req *connect.Request[registryv1alpha1.GetModulePinsRequest]) (*connect.Response[registryv1alpha1.GetModulePinsResponse], error) {
@@ -103,28 +101,4 @@ func requeststPerRemote(req *connect.Request[registryv1alpha1.GetModulePinsReque
 	}
 
 	return reqPerRemote
-}
-
-func (reg *Registry) GetGoVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetGoVersionRequest]) (*connect.Response[registryv1alpha1.GetGoVersionResponse], error) {
-	return &connect.Response[registryv1alpha1.GetGoVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
-}
-
-func (reg *Registry) GetSwiftVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetSwiftVersionRequest]) (*connect.Response[registryv1alpha1.GetSwiftVersionResponse], error) {
-	return &connect.Response[registryv1alpha1.GetSwiftVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
-}
-
-func (reg *Registry) GetMavenVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetMavenVersionRequest]) (*connect.Response[registryv1alpha1.GetMavenVersionResponse], error) {
-	return &connect.Response[registryv1alpha1.GetMavenVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
-}
-
-func (reg *Registry) GetNPMVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetNPMVersionRequest]) (*connect.Response[registryv1alpha1.GetNPMVersionResponse], error) {
-	return &connect.Response[registryv1alpha1.GetNPMVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
-}
-
-func (reg *Registry) GetCargoVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetCargoVersionRequest]) (*connect.Response[registryv1alpha1.GetCargoVersionResponse], error) {
-	return &connect.Response[registryv1alpha1.GetCargoVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
-}
-
-func (reg *Registry) GetPythonVersion(ctx context.Context, req *connect.Request[registryv1alpha1.GetPythonVersionRequest]) (*connect.Response[registryv1alpha1.GetPythonVersionResponse], error) {
-	return &connect.Response[registryv1alpha1.GetPythonVersionResponse]{}, status.Errorf(codes.Unimplemented, "not implemented")
 }
