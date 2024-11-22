@@ -39,8 +39,9 @@ type GitAuth struct {
 }
 
 type Credentials struct {
-	Bsr map[string]string
-	Git map[string]GitAuth
+	Bsr               map[string]string
+	Git               map[string]GitAuth
+	ContainerRegistry map[string]string
 }
 
 func ParseConfig(b []byte) (*Config, error) {
