@@ -1,0 +1,22 @@
+name: oci helm chart
+on:
+  release:
+    types:
+      - published
+jobs:
+  oci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Chart | Push
+        uses: appany/helm-oci-chart-releaser@v0.3.0
+        with:
+          name: pbr-chart
+          repository: greatliontech
+          tag: ${{github.event.release.tag_name}}
+          path: chart
+          registry: ghcr.io
+          registry_username: thegrumpylion
+          registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
