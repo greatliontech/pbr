@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
+	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/pkg/codegen"
@@ -19,20 +20,17 @@ import (
 )
 
 type Registry struct {
-	registryv1alpha1connect.UnimplementedResolveServiceHandler
-	registryv1alpha1connect.UnimplementedDownloadServiceHandler
-	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
-	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
-	ofs        *ocifs.OCIFS
-	modules    map[string]config.Module
-	plugins    map[string]*codegen.Plugin
-	bsrRemotes map[string]registryv1alpha1connect.ResolveServiceClient
-	repos      map[string]*repository.Repository
-	server     *http.Server
-	cert       *tls.Certificate
-	repoCreds  *repository.CredentialStore
-	hostName   string
-	addr       string
+	// modulev1connect.UnimplementedDownloadServiceHandler
+	// registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
+	ofs       *ocifs.OCIFS
+	modules   map[string]config.Module
+	plugins   map[string]*codegen.Plugin
+	repos     map[string]*repository.Repository
+	server    *http.Server
+	cert      *tls.Certificate
+	repoCreds *repository.CredentialStore
+	hostName  string
+	addr      string
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -55,10 +53,10 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 
 	mux := http.NewServeMux()
 
-	mux.Handle(registryv1alpha1connect.NewResolveServiceHandler(reg))
-	mux.Handle(registryv1alpha1connect.NewDownloadServiceHandler(reg))
+	mux.Handle(modulev1connect.NewCommitServiceHandler(reg))
+	mux.Handle(modulev1connect.NewDownloadServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg))
-	mux.Handle(registryv1alpha1connect.NewRepositoryServiceHandler(reg))
+	// mux.Handle(registryv1connect.NewRepositoryServiceHandler(reg))
 
 	reg.server = &http.Server{
 		Addr:         reg.addr,

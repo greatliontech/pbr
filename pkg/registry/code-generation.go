@@ -14,6 +14,7 @@ import (
 )
 
 func (reg *Registry) GenerateCode(ctx context.Context, req *connect.Request[registryv1alpha1.GenerateCodeRequest]) (*connect.Response[registryv1alpha1.GenerateCodeResponse], error) {
+	fmt.Println("GenerateCode")
 	genReq := &pluginpb.CodeGeneratorRequest{}
 
 	for _, f := range req.Msg.Image.File {

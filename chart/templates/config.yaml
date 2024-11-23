@@ -1,0 +1,21 @@
+apiVersion: v1
+data:
+  config.yaml: |
+    host: pbr.bookingexpress.app
+    address: ":8080"
+    modules:
+      thegrumpylion/test-pbr:
+        remote: github.com
+    plugins:
+      greatliontech/rtk-query:
+        image: ghcr.io/greatliontech/protoc-gen-rtk-query
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"config.yaml":"host: pbr.bookingexpress.app\naddress: \":8080\"\nmodules:\n  thegrumpylion/test-pbr:\n    remote: github.com\nplugins:\n  greatliontech/rtk-query:\n    image: ghcr.io/greatliontech/protoc-gen-rtk-query\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"pbr-config","namespace":"pbrtest"}}
+  creationTimestamp: "2024-10-04T17:37:19Z"
+  name: pbr-config
+  namespace: pbrtest
+  resourceVersion: "26959"
+  uid: fd8efb2a-e665-498a-8fcf-056fd649d2f8

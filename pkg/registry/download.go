@@ -7,8 +7,15 @@ import (
 
 	modulev1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/module/v1alpha1"
 	registryv1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/registry/v1alpha1"
+	modulev1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1"
 	"connectrpc.com/connect"
 )
+
+func (reg *Registry) Download(ctx context.Context, req *connect.Request[modulev1.DownloadRequest]) (*connect.Response[modulev1.DownloadResponse], error) {
+	fmt.Printf("Download: %v\n", req)
+
+	return nil, nil
+}
 
 func (reg *Registry) DownloadManifestAndBlobs(ctx context.Context, req *connect.Request[registryv1alpha1.DownloadManifestAndBlobsRequest]) (*connect.Response[registryv1alpha1.DownloadManifestAndBlobsResponse], error) {
 	fmt.Printf("DownloadManifestAndBlobs: %v\n", req)

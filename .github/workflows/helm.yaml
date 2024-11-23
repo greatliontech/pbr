@@ -14,7 +14,7 @@ jobs:
         uses: appany/helm-oci-chart-releaser@v0.3.0
         with:
           name: pbr-chart
-          repository: greatliontech
+          repository: greatliontech/charts
           tag: ${{github.event.release.tag_name}}
           path: chart
           registry: ghcr.io
