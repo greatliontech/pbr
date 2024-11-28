@@ -58,10 +58,6 @@ address: ":8080"
 		t.Errorf("Expected plugin1 image 'imageName', got '%s'", config.Plugins["plugin1"].Image)
 	}
 
-	if config.Credentials.Bsr["key1"] != "value1" {
-		t.Errorf("Expected bsr key1 'value1', got '%s'", config.Credentials.Bsr["key1"])
-	}
-
 	if config.Credentials.Git["gitKey"].Token != "tokenValue" {
 		t.Errorf("Expected git gitKey token 'tokenValue', got '%s'", config.Credentials.Git["gitKey"].Token)
 	}

@@ -20,7 +20,9 @@ type Module struct {
 	Remote  string
 	Path    string
 	Filters []string
-	Replace bool
+	// Format is a go template string that will be used to format the target git repository.
+	// If empty, the result will <remote>/{{.Owner}}/{{.Repository}}.
+	Format string
 }
 
 type TLS struct {
@@ -29,7 +31,10 @@ type TLS struct {
 }
 
 type Plugin struct {
-	Image string
+	Registry string
+	// Format is a go template string that will be used to format the target image.
+	// If empty, the result will be <registry>/{{.Owner}}/{{.Repository}}.
+	Format string
 }
 
 type GitAuth struct {
@@ -39,7 +44,6 @@ type GitAuth struct {
 }
 
 type Credentials struct {
-	Bsr               map[string]string
 	Git               map[string]GitAuth
 	ContainerRegistry map[string]string
 }
@@ -48,13 +52,6 @@ func ParseConfig(b []byte) (*Config, error) {
 	c := &Config{}
 	if err := yaml.Unmarshal(b, c); err != nil {
 		return nil, err
-	}
-	for k, v := range c.Credentials.Bsr {
-		v, err := envsubst.EvalEnv(v)
-		if err != nil {
-			return nil, err
-		}
-		c.Credentials.Bsr[k] = v
 	}
 	for k, v := range c.Credentials.Git {
 		sshKey, err := envsubst.EvalEnv(v.SSHKey)

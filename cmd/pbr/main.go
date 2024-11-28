@@ -40,9 +40,6 @@ func main() {
 	if c.Plugins != nil {
 		regOpts = append(regOpts, registry.WithPlugins(c.Plugins))
 	}
-	if c.Credentials.Bsr != nil {
-		regOpts = append(regOpts, registry.WithBSRCreds(c.Credentials.Bsr))
-	}
 	if c.Credentials.Git != nil {
 		credStore, err := repository.NewCredentialStore(c.Credentials.Git)
 		if err != nil {

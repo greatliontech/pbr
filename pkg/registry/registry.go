@@ -1,15 +1,18 @@
 package registry
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
 	"connectrpc.com/connect"
+	"github.com/gobwas/glob"
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
@@ -24,7 +27,7 @@ type Registry struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
 	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
 	ofs        *ocifs.OCIFS
-	modules    map[string]config.Module
+	modules    map[glob.Glob]config.Module
 	plugins    map[string]*codegen.Plugin
 	bsrRemotes map[string]registryv1alpha1connect.ResolveServiceClient
 	repos      map[string]*repository.Repository
@@ -39,6 +42,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	reg := &Registry{
 		addr:     ":443",
 		hostName: hostName,
+		repos:    map[string]*repository.Repository{},
 	}
 
 	// init ocifs
@@ -88,19 +92,30 @@ func (reg *Registry) Serve() error {
 	return reg.server.ListenAndServe()
 }
 
+type tplContext struct {
+	Remote     string
+	Owner      string
+	Repository string
+}
+
 func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*repository.Repository, error) {
-	if reg.repos == nil {
-		reg.repos = map[string]*repository.Repository{}
-	}
 	key := owner + "/" + repo
 	if reg.repos[key] == nil {
-		mod, ok := reg.modules[key]
+		mod, ok := reg.getModule(owner, repo)
 		if !ok {
 			return nil, fmt.Errorf("module not found for %s", key)
 		}
-		target := strings.TrimSuffix(mod.Remote, "/") + "/" + owner + "/" + repo
-		if mod.Replace {
-			target = mod.Remote
+		format := "{{.Remote}}/{{.Owner}}/{{.Repository}}"
+		if mod.Format != "" {
+			format = mod.Format
+		}
+		target, err := formatTarget(format, tplContext{
+			Remote:     strings.TrimSuffix(mod.Remote, "/"),
+			Owner:      owner,
+			Repository: repo,
+		})
+		if err != nil {
+			return nil, err
 		}
 		repoOpts := []repository.Option{}
 		if reg.repoCreds != nil {
@@ -122,6 +137,28 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 		reg.repos[key] = repo
 	}
 	return reg.repos[key], nil
+}
+
+func (reg *Registry) getModule(owner, repo string) (config.Module, bool) {
+	key := owner + "/" + repo
+	for g, mod := range reg.modules {
+		if g.Match(key) {
+			return mod, true
+		}
+	}
+	return config.Module{}, false
+}
+
+func formatTarget(format string, tplCtx tplContext) (string, error) {
+	tpl, err := template.New("").Parse(format)
+	if err != nil {
+		return "", err
+	}
+	out := &bytes.Buffer{}
+	if err := tpl.Execute(out, tplCtx); err != nil {
+		return "", nil
+	}
+	return out.String(), nil
 }
 
 const (
