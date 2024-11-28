@@ -21,13 +21,18 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
+type Module struct {
+	Match glob.Glob
+	Mod   config.Module
+}
+
 type Registry struct {
 	registryv1alpha1connect.UnimplementedResolveServiceHandler
 	registryv1alpha1connect.UnimplementedDownloadServiceHandler
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
 	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
 	ofs        *ocifs.OCIFS
-	modules    map[glob.Glob]config.Module
+	modules    []Module
 	plugins    map[string]*codegen.Plugin
 	bsrRemotes map[string]registryv1alpha1connect.ResolveServiceClient
 	repos      map[string]*repository.Repository
@@ -141,9 +146,9 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 
 func (reg *Registry) getModule(owner, repo string) (config.Module, bool) {
 	key := owner + "/" + repo
-	for g, mod := range reg.modules {
-		if g.Match(key) {
-			return mod, true
+	for _, mod := range reg.modules {
+		if mod.Match.Match(key) {
+			return mod.Mod, true
 		}
 	}
 	return config.Module{}, false

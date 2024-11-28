@@ -3,7 +3,6 @@ package registry
 import (
 	"crypto/tls"
 
-	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/repository"
@@ -29,7 +28,7 @@ func WithAddress(addr string) Option {
 	}
 }
 
-func WithModules(mods map[glob.Glob]config.Module) Option {
+func WithModules(mods []Module) Option {
 	return func(r *Registry) {
 		r.modules = mods
 	}

@@ -36,14 +36,17 @@ func main() {
 		regOpts = append(regOpts, registry.WithAddress(c.Address))
 	}
 	if c.Modules != nil {
-		mods := make(map[glob.Glob]config.Module)
+		mods := []registry.Module{}
 		for k, v := range c.Modules {
 			g, err := glob.Compile(k)
 			if err != nil {
 				slog.Error("Failed to compile glob", "str", k, "err", err)
 				os.Exit(1)
 			}
-			mods[g] = v
+			mods = append(mods, registry.Module{
+				Match: g,
+				Mod:   v,
+			})
 		}
 		if len(mods) != 0 {
 			regOpts = append(regOpts, registry.WithModules(mods))
