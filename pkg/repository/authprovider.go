@@ -62,9 +62,9 @@ func (t *TokenAuthProvider) AuthMethod() (transport.AuthMethod, error) {
 var _ AuthProvider = &GithubAppAuthProvider{}
 
 type GithubAppAuthProvider struct {
-	AppID         int64
-	IntallationID int64
-	PrivateKey    []byte
+	AppID          int64
+	InstallationID int64
+	PrivateKey     []byte
 
 	privateKey *rsa.PrivateKey
 }
@@ -79,7 +79,7 @@ func (g *GithubAppAuthProvider) AuthMethod() (transport.AuthMethod, error) {
 	}
 
 	appID := strconv.FormatInt(g.AppID, 10)
-	instID := strconv.FormatInt(g.IntallationID, 10)
+	instID := strconv.FormatInt(g.InstallationID, 10)
 
 	token, err := getInstallationToken(appID, instID, g.privateKey)
 	if err != nil {

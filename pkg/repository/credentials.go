@@ -21,13 +21,6 @@ func NewCredentialStore(creds map[string]config.GitAuth) (*CredentialStore, erro
 		if err != nil {
 			return nil, err
 		}
-		if v.SSHKeyFile != "" {
-			publicKeys, err := ssh.NewPublicKeysFromFile("git", v.SSHKey, "")
-			if err != nil {
-				return nil, err
-			}
-			cs.creds[&g] = publicKeys
-		}
 		if v.SSHKey != "" {
 			publicKeys, err := ssh.NewPublicKeys("git", []byte(v.SSHKey), "")
 			if err != nil {

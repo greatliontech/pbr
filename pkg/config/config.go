@@ -31,16 +31,29 @@ type TLS struct {
 }
 
 type Plugin struct {
+	Image    string
 	Registry string
 	// Format is a go template string that will be used to format the target image.
 	// If empty, the result will be <registry>/{{.Owner}}/{{.Repository}}.
 	Format string
 }
 
+type BasicGitAuth struct {
+	Username string
+	Password string
+}
+
+type GithubAppGitAuth struct {
+	AppID          int64
+	InstallationID int64
+	PrivateKey     string
+}
+
 type GitAuth struct {
-	Token      string
-	SSHKey     string
-	SSHKeyFile string
+	Token     string
+	SSHKey    string
+	Basic     *BasicGitAuth
+	GithubApp *GithubAppGitAuth
 }
 
 type Credentials struct {

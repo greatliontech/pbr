@@ -8,10 +8,8 @@ import (
 func TestParseValidConfig(t *testing.T) {
 	yamlData := []byte(`
 credentials:
-  bsr:
-    key1: "value1"
   git:
-    gitKey:
+		https://github.com/
       token: "tokenValue"
       sshKey: "sshKeyValue"
 modules:
@@ -48,10 +46,6 @@ address: ":8080"
 
 	if config.Modules["module1"].Filters != nil {
 		t.Errorf("Expected module1 filters nil, got '%s'", config.Modules["module1"].Filters)
-	}
-
-	if config.Modules["module1"].Replace != false {
-		t.Errorf("Expected module1 replace false, got '%v'", config.Modules["module1"].Replace)
 	}
 
 	if config.Plugins["plugin1"].Image != "imageName" {

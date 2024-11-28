@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package com.example;
 
-option go_package = "github.com/chicnglossy/salon/proto";
+option go_package = "com/example/test";
 
 import "rtkquery/rtkquery.proto";
 

@@ -1,14 +1,8 @@
 host: pbr-example.greatlion.tech
 address: ":8080"
 modules:
-  thegrumpylion/test-pbr:
+  greatliontech/protoc-gen-rtk-query:
     remote: github.com
 plugins:
   greatliontech/rtk-query:
     image: ghcr.io/greatliontech/protoc-gen-rtk-query
-credentials:
-  bsr:
-    buf.build: ${BUF_TOKEN}
-  git:
-    github.com/thegrumpylion/*:
-      token: ${GITHUB_TOKEN}
