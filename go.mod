@@ -5,8 +5,10 @@ go 1.22.4
 require (
 	buf.build/gen/go/bufbuild/buf/connectrpc/go v1.17.0-20241118190430-a003124baeb1.1
 	buf.build/gen/go/bufbuild/buf/protocolbuffers/go v1.34.2-20241118190430-a003124baeb1.2
+	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.35.2-20241125212318-4a305dc3b757.1
 	connectrpc.com/connect v1.17.0
 	github.com/drone/envsubst v1.0.3
+	github.com/elimity-com/scim v0.0.0-20240320110924-172bf2aee9c8
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v5 v5.2.1
@@ -14,11 +16,12 @@ require (
 	github.com/greatliontech/ocifs v0.0.0-20240626155415-aafbd4a35bf2
 	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.23.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.2-20240401165935-b983156c5e99.1 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // indirect
@@ -30,7 +33,6 @@ require (
 	github.com/docker/cli v27.0.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
-	github.com/elimity-com/scim v0.0.0-20240320110924-172bf2aee9c8 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
