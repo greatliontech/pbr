@@ -114,6 +114,14 @@ func (repo *Repository) fetch() error {
 	return nil
 }
 
+func (repo *Repository) FilesAndManifestByCommitID(id string) ([]File, *Manifest, error) {
+	_, err := repo.repo.CommitObjects()
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, nil, nil
+}
+
 // FilesAndManifest retrieves all files and their SHAs for a given ref
 func (repo *Repository) FilesAndManifest(ref string) ([]File, *Manifest, error) {
 	// Check if fetch is needed

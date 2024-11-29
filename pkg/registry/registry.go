@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
+	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
+	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/ocifs"
@@ -41,6 +43,7 @@ type Registry struct {
 	repoCreds  *repository.CredentialStore
 	hostName   string
 	addr       string
+	commits    map[string]*v1beta1.Commit
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -68,6 +71,8 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	mux.Handle(registryv1alpha1connect.NewDownloadServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewRepositoryServiceHandler(reg))
+	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg))
+	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg))
 
 	reg.server = &http.Server{
 		Addr:         reg.addr,

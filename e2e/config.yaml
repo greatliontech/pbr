@@ -2,7 +2,7 @@ host: pbr-example.greatlion.tech
 address: ":8080"
 modules:
   greatliontech/protoc-gen-rtk-query:
-    remote: github.com
+    remote: https://github.com
 plugins:
   greatliontech/rtk-query:
     image: ghcr.io/greatliontech/protoc-gen-rtk-query

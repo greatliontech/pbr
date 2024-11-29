@@ -5,6 +5,7 @@ go 1.22.4
 require (
 	buf.build/gen/go/bufbuild/buf/connectrpc/go v1.17.0-20241118190430-a003124baeb1.1
 	buf.build/gen/go/bufbuild/buf/protocolbuffers/go v1.34.2-20241118190430-a003124baeb1.2
+	buf.build/gen/go/bufbuild/registry/connectrpc/go v1.17.0-20241125212318-4a305dc3b757.1
 	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.35.2-20241125212318-4a305dc3b757.1
 	connectrpc.com/connect v1.17.0
 	github.com/drone/envsubst v1.0.3
