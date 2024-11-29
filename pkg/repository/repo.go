@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/gobwas/glob"
@@ -114,12 +115,98 @@ func (repo *Repository) fetch() error {
 	return nil
 }
 
-func (repo *Repository) FilesAndManifestByCommitID(id string) ([]File, *Manifest, error) {
-	_, err := repo.repo.CommitObjects()
-	if err != nil {
-		return nil, nil, err
+func (repo *Repository) Files(ref string) ([]File, error) {
+	// Check if fetch is needed
+	if time.Since(repo.lastFetch) > repo.fetchPeriod {
+		// Perform a fetch
+		if err := repo.fetch(); err != nil {
+			return nil, err
+		}
+		repo.lastFetch = time.Now()
 	}
-	return nil, nil, nil
+
+	var hash plumbing.Hash
+
+	// If ref is empty, use the default branch
+	if ref == "" {
+		head, err := repo.repo.Head()
+		if err != nil {
+			return nil, err
+		}
+		hash = head.Hash()
+	} else {
+		// Look for the ref in heads, then tags
+		var err error
+		hash, err = repo.findRefHash(ref)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Get the commit object
+	commit, err := repo.repo.CommitObject(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	if repo.root != "" {
+		root, err := tree.FindEntry(repo.root)
+		if err != nil {
+			return nil, err
+		}
+		if root.Mode != filemode.Dir {
+			return nil, fmt.Errorf("root path is not a directory")
+		}
+		tree, err = repo.repo.TreeObject(root.Hash)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var files []File
+	iter := tree.Files()
+
+	err = iter.ForEach(func(f *object.File) error {
+		if f.Name == "buf.yaml" || f.Name == "buf.lock" || protoGlob.Match(f.Name) {
+			// get file contents
+			content, err := f.Contents()
+			if err != nil {
+				return err
+			}
+
+			sha := f.Hash.String()
+			shake256Hash, ok := repo.SHAKE256Cache[sha]
+			if !ok {
+				// calculate SHAKE256 hash
+				h := sha3.NewShake256()
+				_, err := h.Write([]byte(content))
+				if err != nil {
+					return err
+				}
+				var shake256Sum [64]byte
+				h.Read(shake256Sum[:])
+				shake256Hash = fmt.Sprintf("%x", shake256Sum)
+				repo.SHAKE256Cache[sha] = shake256Hash
+			}
+
+			files = append(files, File{
+				Name:     f.Name,
+				SHA:      sha,
+				Content:  content,
+				SHAKE256: shake256Hash,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 // FilesAndManifest retrieves all files and their SHAs for a given ref
@@ -160,17 +247,29 @@ func (repo *Repository) FilesAndManifest(ref string) ([]File, *Manifest, error) 
 	var files []File
 	var manifestContentBuilder strings.Builder
 
-	filesItr, err := commit.Files()
+	tree, err := commit.Tree()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = filesItr.ForEach(func(f *object.File) error {
-		// trim the repository path from the file name, if any
-		name := strings.TrimPrefix(f.Name, repo.cachePath)
+	if repo.root != "" {
+		root, err := tree.FindEntry(repo.root)
+		if err != nil {
+			return nil, nil, err
+		}
+		if root.Mode != filemode.Dir {
+			return nil, nil, fmt.Errorf("root path is not a directory")
+		}
+		tree, err = repo.repo.TreeObject(root.Hash)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 
-		// trim the root path from the file name, if any
-		name = strings.TrimPrefix(name, repo.root)
+	filesItr := tree.Files()
+
+	err = filesItr.ForEach(func(f *object.File) error {
+		name := f.Name
 
 		// skip files that are not protobuf or buf meta files
 		if name != "buf.yaml" && name != "buf.lock" && !protoGlob.Match(name) {

@@ -56,6 +56,13 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 			},
 		}
 		reg.commits[comt.Id] = comt
+		reg.commitHashes[comt.Id] = mani.Commit
+		reg.moduleIds[comt.ModuleId] = &internalModule{
+			Owner:  m.Owner,
+			Module: m.Module,
+		}
+		reg.commitToModule[comt.Id] = reg.moduleIds[comt.ModuleId]
+
 		resp.Msg.Commits = append(resp.Msg.Commits, comt)
 	}
 

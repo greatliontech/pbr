@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -33,10 +32,6 @@ func WithFilters(filters []string) Option {
 
 func WithRoot(root string) Option {
 	return func(r *Repository) {
-		root = strings.TrimPrefix(root, "/")
-		if !strings.HasSuffix(root, "/") {
-			root += "/"
-		}
 		r.root = root
 	}
 }

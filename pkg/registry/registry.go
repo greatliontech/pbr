@@ -28,30 +28,42 @@ type Module struct {
 	Mod   config.Module
 }
 
+type internalModule struct {
+	Owner  string
+	Module string
+	Repo   string
+}
+
 type Registry struct {
 	registryv1alpha1connect.UnimplementedResolveServiceHandler
 	registryv1alpha1connect.UnimplementedDownloadServiceHandler
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
 	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
-	ofs        *ocifs.OCIFS
-	modules    []Module
-	plugins    map[string]*codegen.Plugin
-	bsrRemotes map[string]registryv1alpha1connect.ResolveServiceClient
-	repos      map[string]*repository.Repository
-	server     *http.Server
-	cert       *tls.Certificate
-	repoCreds  *repository.CredentialStore
-	hostName   string
-	addr       string
-	commits    map[string]*v1beta1.Commit
+	ofs            *ocifs.OCIFS
+	modules        []Module
+	plugins        map[string]*codegen.Plugin
+	bsrRemotes     map[string]registryv1alpha1connect.ResolveServiceClient
+	repos          map[string]*repository.Repository
+	server         *http.Server
+	cert           *tls.Certificate
+	repoCreds      *repository.CredentialStore
+	hostName       string
+	addr           string
+	commits        map[string]*v1beta1.Commit
+	commitHashes   map[string]string
+	moduleIds      map[string]*internalModule
+	commitToModule map[string]*internalModule
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
 	reg := &Registry{
-		addr:     ":443",
-		hostName: hostName,
-		repos:    map[string]*repository.Repository{},
-		commits:  map[string]*v1beta1.Commit{},
+		addr:           ":443",
+		hostName:       hostName,
+		repos:          map[string]*repository.Repository{},
+		commits:        map[string]*v1beta1.Commit{},
+		commitHashes:   map[string]string{},
+		moduleIds:      map[string]*internalModule{},
+		commitToModule: map[string]*internalModule{},
 	}
 
 	// init ocifs
@@ -69,11 +81,11 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	mux := http.NewServeMux()
 
 	mux.Handle(registryv1alpha1connect.NewResolveServiceHandler(reg))
-	mux.Handle(registryv1alpha1connect.NewDownloadServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewRepositoryServiceHandler(reg))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg))
 	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg))
+	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg))
 
 	reg.server = &http.Server{
 		Addr:         reg.addr,
@@ -136,6 +148,7 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 			}
 		}
 		if mod.Path != "" {
+			fmt.Println("mod.Path", mod.Path)
 			repoOpts = append(repoOpts, repository.WithRoot(mod.Path))
 		}
 		if mod.Filters != nil {

@@ -3,7 +3,7 @@ address: ":8080"
 modules:
   greatliontech/protoc-gen-rtk-query:
     remote: https://github.com
+    path: proto
 plugins:
   greatliontech/rtk-query:
     image: ghcr.io/greatliontech/protoc-gen-rtk-query
-    path: proto/
