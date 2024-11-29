@@ -2,18 +2,22 @@ syntax = "proto3";
 
 package com.example;
 
-option go_package = "com/example/test";
-
+import "com/example/private/test.proto";
 import "rtkquery/rtkquery.proto";
+
+option go_package = "com/example/test";
 
 service HelloService {
   rpc GetHello(HelloRequest) returns (HelloResponse) {
-    option (rtkquery.endpoint) = {
-      type : QUERY
-    };
-  };
+    option (rtkquery.endpoint) = {type: QUERY};
+  }
 }
 
-message HelloRequest { string name = 1; }
+message HelloRequest {
+  string name = 1;
+  com.example.private.PrivateEnum enm = 2;
+}
 
-message HelloResponse { string message = 1; }
+message HelloResponse {
+  string message = 1;
+}

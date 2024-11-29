@@ -1,9 +1,18 @@
 host: pbr-example.greatlion.tech
 address: ":8080"
+credentials:
+  git:
+    https://github.com/greatliontech/private-test-protos:
+      githubapp:
+        appid: 1072076
+        installationid: 57714146
+        privatekey: ${PBR_TEST_GH_KEY}
 modules:
   greatliontech/protoc-gen-rtk-query:
     remote: https://github.com
     path: proto
+  greatliontech/private-test-protos:
+    remote: https://github.com
 plugins:
   greatliontech/rtk-query:
     image: ghcr.io/greatliontech/protoc-gen-rtk-query

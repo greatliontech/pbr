@@ -3,3 +3,4 @@ name: pbr-example.greatlion.tech/test/test
 deps:
   # - pbr-example.greatlion.tech/googleapis/googleapis
   - pbr-example.greatlion.tech/greatliontech/protoc-gen-rtk-query
+  - pbr-example.greatlion.tech/greatliontech/private-test-protos
