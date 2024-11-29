@@ -3,7 +3,9 @@ package registry
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -78,11 +80,13 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 
 	mux := http.NewServeMux()
 
-	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg))
-	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg))
-	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg))
-	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg))
-	mux.Handle(modulev1connect.NewModuleServiceHandler(reg))
+	interceptors := connect.WithInterceptors(newAuthInterceptor("verySecure42"))
+
+	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg, interceptors))
+	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg, interceptors))
+	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg, interceptors))
+	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg, interceptors))
+	mux.Handle(modulev1connect.NewModuleServiceHandler(reg, interceptors))
 
 	reg.server = &http.Server{
 		Addr:         reg.addr,
@@ -187,11 +191,27 @@ const (
 )
 
 func newAuthInterceptor(token string) connect.UnaryInterceptorFunc {
-	interceptor := func(next connect.UnaryFunc) connect.UnaryFunc {
-		return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			req.Header().Set(authenticationHeader, authenticationTokenPrefix+token)
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			hdr := req.Header().Get(authenticationHeader)
+			if hdr == "" {
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("no token provided"))
+			}
+
+			if !strings.HasPrefix(hdr, authenticationTokenPrefix) {
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid auth header"))
+			}
+
+			tokenString := strings.TrimSpace(strings.TrimPrefix(hdr, authenticationTokenPrefix))
+			if tokenString == "" {
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token missing"))
+			}
+
+			if subtle.ConstantTimeCompare([]byte(tokenString), []byte(token)) != 1 {
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))
+			}
+
 			return next(ctx, req)
-		})
+		}
 	}
-	return connect.UnaryInterceptorFunc(interceptor)
 }
