@@ -15,10 +15,12 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 	}
 
 	for _, ref := range req.Msg.ResourceRefs {
-		switch ref := ref.Value.(type) {
+		switch ref := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
-			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Commit{
-				Id: ref.Id,
+			commit := reg.commits[ref.Id]
+			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
+				Commit:   commit,
+				Registry: reg.hostName,
 			})
 		case *v1beta1.ResourceRef_Name_:
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")

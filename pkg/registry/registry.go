@@ -51,6 +51,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		addr:     ":443",
 		hostName: hostName,
 		repos:    map[string]*repository.Repository{},
+		commits:  map[string]*v1beta1.Commit{},
 	}
 
 	// init ocifs
