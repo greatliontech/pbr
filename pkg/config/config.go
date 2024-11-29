@@ -67,16 +67,26 @@ func ParseConfig(b []byte) (*Config, error) {
 		return nil, err
 	}
 	for k, v := range c.Credentials.Git {
+		// ssh key env secret
 		sshKey, err := envsubst.EvalEnv(v.SSHKey)
 		if err != nil {
 			return nil, err
 		}
 		v.SSHKey = sshKey
+		// token env secret
 		token, err := envsubst.EvalEnv(v.Token)
 		if err != nil {
 			return nil, err
 		}
 		v.Token = token
+		// gh app env secret
+		if v.GithubApp != nil {
+			key, err := envsubst.EvalEnv(v.GithubApp.PrivateKey)
+			if err != nil {
+				return nil, err
+			}
+			v.GithubApp.PrivateKey = key
+		}
 		c.Credentials.Git[k] = v
 	}
 	return c, nil

@@ -143,7 +143,10 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 		}
 		repoOpts := []repository.Option{}
 		if reg.repoCreds != nil {
-			auth := reg.repoCreds.Auth(target)
+			auth, err := reg.repoCreds.Auth(target)
+			if err != nil {
+				return nil, err
+			}
 			if auth != nil {
 				repoOpts = append(repoOpts, repository.WithAuth(auth))
 			}

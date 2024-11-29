@@ -1,20 +1,21 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/pkg/config"
 )
 
 type CredentialStore struct {
-	creds map[*glob.Glob]transport.AuthMethod
+	creds map[*glob.Glob]AuthProvider
 }
 
 func NewCredentialStore(creds map[string]config.GitAuth) (*CredentialStore, error) {
+	fmt.Println("new cred store", creds)
 	cs := &CredentialStore{
-		creds: map[*glob.Glob]transport.AuthMethod{},
+		creds: map[*glob.Glob]AuthProvider{},
 	}
 	for k, v := range creds {
 		g, err := glob.Compile(k)
@@ -22,29 +23,33 @@ func NewCredentialStore(creds map[string]config.GitAuth) (*CredentialStore, erro
 			return nil, err
 		}
 		if v.SSHKey != "" {
-			publicKeys, err := ssh.NewPublicKeys("git", []byte(v.SSHKey), "")
-			if err != nil {
-				return nil, err
+			cs.creds[&g] = &SSHAuthProvider{
+				Key: []byte(v.SSHKey),
 			}
-			cs.creds[&g] = publicKeys
 		}
 		if v.Token != "" {
-			cs.creds[&g] = &http.BasicAuth{
-				Username: "git",
-				Password: v.Token,
+			cs.creds[&g] = &TokenAuthProvider{
+				Token: v.Token,
 			}
 		}
-
+		if v.GithubApp != nil {
+			cs.creds[&g] = &GithubAppAuthProvider{
+				AppID:          v.GithubApp.AppID,
+				InstallationID: v.GithubApp.InstallationID,
+				PrivateKey:     []byte(v.GithubApp.PrivateKey),
+			}
+		}
 	}
 	return cs, nil
 }
 
-func (cs *CredentialStore) Auth(remote string) transport.AuthMethod {
+func (cs *CredentialStore) Auth(remote string) (transport.AuthMethod, error) {
+	fmt.Println("creds for:", remote)
 	for k, v := range cs.creds {
 		g := *k
 		if g.Match(remote) {
-			return v
+			return v.AuthMethod()
 		}
 	}
-	return nil
+	return nil, nil
 }
