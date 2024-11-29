@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
+	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
@@ -35,10 +36,7 @@ type internalModule struct {
 }
 
 type Registry struct {
-	registryv1alpha1connect.UnimplementedResolveServiceHandler
-	registryv1alpha1connect.UnimplementedDownloadServiceHandler
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
-	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
 	ofs            *ocifs.OCIFS
 	modules        []Module
 	plugins        map[string]*codegen.Plugin
@@ -80,12 +78,11 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 
 	mux := http.NewServeMux()
 
-	mux.Handle(registryv1alpha1connect.NewResolveServiceHandler(reg))
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg))
-	mux.Handle(registryv1alpha1connect.NewRepositoryServiceHandler(reg))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg))
 	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg))
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg))
+	mux.Handle(modulev1connect.NewModuleServiceHandler(reg))
 
 	reg.server = &http.Server{
 		Addr:         reg.addr,
@@ -148,7 +145,6 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 			}
 		}
 		if mod.Path != "" {
-			fmt.Println("mod.Path", mod.Path)
 			repoOpts = append(repoOpts, repository.WithRoot(mod.Path))
 		}
 		if mod.Filters != nil {
