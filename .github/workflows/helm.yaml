@@ -25,13 +25,9 @@ jobs:
           registry_username: thegrumpylion
           registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
 
-      - name: Chart | Push latest
-        uses: appany/helm-oci-chart-releaser@v0.3.0
-        with:
-          name: pbr-chart
-          repository: greatliontech
-          tag: latest
-          path: chart
-          registry: ghcr.io
-          registry_username: thegrumpylion
-          registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+      - name: Docker | Pull and Retag as latest
+        run: |
+          docker login ghcr.io -u thegrumpylion -p "${{ secrets.GORELEASER_GITHUB_TOKEN }}"
+          docker pull ghcr.io/greatliontech/pbr-chart:${{ github.event.release.tag_name }}
+          docker tag ghcr.io/greatliontech/pbr-chart:${{ github.event.release.tag_name }} ghcr.io/greatliontech/pbr-chart:latest
+          docker push ghcr.io/greatliontech/pbr-chart:latest
