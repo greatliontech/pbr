@@ -24,3 +24,14 @@ jobs:
           registry: ghcr.io
           registry_username: thegrumpylion
           registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+
+      - name: Chart | Push latest
+        uses: appany/helm-oci-chart-releaser@v0.3.0
+        with:
+          name: pbr-chart
+          repository: greatliontech
+          tag: latest
+          path: chart
+          registry: ghcr.io
+          registry_username: thegrumpylion
+          registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
