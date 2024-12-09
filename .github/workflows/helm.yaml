@@ -10,24 +10,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Change app version
-        run: |
-          yq -i '.appVersion = "${{github.event.release.tag_name}}"' chart/Chart.yaml
-
       - name: Chart | Push
         uses: appany/helm-oci-chart-releaser@v0.3.0
         with:
           name: pbr-chart
           repository: greatliontech
           tag: ${{github.event.release.tag_name}}
+          app_version: ${{github.event.release.tag_name}}
           path: chart
           registry: ghcr.io
           registry_username: thegrumpylion
           registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
 
-      - name: Docker | Pull and Retag as latest
-        run: |
-          docker login ghcr.io -u thegrumpylion -p "${{ secrets.GORELEASER_GITHUB_TOKEN }}"
-          docker pull ghcr.io/greatliontech/pbr-chart:${{ github.event.release.tag_name }}
-          docker tag ghcr.io/greatliontech/pbr-chart:${{ github.event.release.tag_name }} ghcr.io/greatliontech/pbr-chart:latest
-          docker push ghcr.io/greatliontech/pbr-chart:latest
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: thegrumpylion
+          password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+
+      - uses: oras-project/setup-oras@v1
+
+      - name: copy image to latest
+        run: oras cp ghcr.io/greatliontech/pbr-chart:${{github.event.release.tag_name}} ghcr.io/greatliontech/pbr-chart:latest
