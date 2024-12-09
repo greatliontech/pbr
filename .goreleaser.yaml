@@ -21,8 +21,6 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-    hooks:
-      pre: npm run build --prefix web
 
 archives:
   - format: tar.gz
