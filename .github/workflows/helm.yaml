@@ -10,6 +10,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Change app version
+        run: |
+          yq -i '.appVersion = "${{github.event.release.tag_name}}"' chart/Chart.yaml
+
       - name: Chart | Push
         uses: appany/helm-oci-chart-releaser@v0.3.0
         with:

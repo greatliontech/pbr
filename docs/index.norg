@@ -1,3 +1,14 @@
 * pbr
 
   Protobuf Registry, compatible with buf cli.
+
+** todo
+   - ( ) helm chart
+   -- ( ) github action, push image
+   -- ( ) resources
+   -- ( ) install in booking
+   -- ( ) install in management
+   - ( ) module find buf.yaml & buf lock
+   - ( ) repo find commits
+   - ( ) use store
+
