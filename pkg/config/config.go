@@ -20,9 +20,6 @@ type Module struct {
 	Remote  string
 	Path    string
 	Filters []string
-	// Format is a go template string that will be used to format the target git repository.
-	// If empty, the result will <remote>/{{.Owner}}/{{.Repository}}.
-	Format string
 }
 
 type TLS struct {

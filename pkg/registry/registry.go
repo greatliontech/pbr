@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"bytes"
 	"context"
 	"crypto/subtle"
 	"crypto/tls"
@@ -9,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"text/template"
 	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
@@ -136,18 +134,7 @@ func (reg *Registry) getRepository(ctx context.Context, owner, repo string) (*re
 		if !ok {
 			return nil, fmt.Errorf("module not found for %s", key)
 		}
-		format := "{{.Remote}}/{{.Owner}}/{{.Repository}}"
-		if mod.Format != "" {
-			format = mod.Format
-		}
-		target, err := formatTarget(format, tplContext{
-			Remote:     strings.TrimSuffix(mod.Remote, "/"),
-			Owner:      owner,
-			Repository: repo,
-		})
-		if err != nil {
-			return nil, err
-		}
+		target := mod.Remote
 		repoOpts := []repository.Option{}
 		if reg.repoCreds != nil {
 			auth, err := reg.repoCreds.Auth(target)
@@ -181,18 +168,6 @@ func (reg *Registry) getModule(owner, repo string) (config.Module, bool) {
 		}
 	}
 	return config.Module{}, false
-}
-
-func formatTarget(format string, tplCtx tplContext) (string, error) {
-	tpl, err := template.New("").Parse(format)
-	if err != nil {
-		return "", err
-	}
-	out := &bytes.Buffer{}
-	if err := tpl.Execute(out, tplCtx); err != nil {
-		return "", nil
-	}
-	return out.String(), nil
 }
 
 const (
