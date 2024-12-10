@@ -88,6 +88,13 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg, interceptors))
 	mux.Handle(modulev1connect.NewModuleServiceHandler(reg, interceptors))
 
+	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "ready")
+	}))
+	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "live")
+	}))
+
 	reg.server = &http.Server{
 		Addr:         reg.addr,
 		ReadTimeout:  5 * time.Second,
