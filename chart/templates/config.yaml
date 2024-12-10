@@ -3,4 +3,5 @@ kind: ConfigMap
 metadata:
   name: pbr
 data:
-  config.yaml: {{ .Values.config | toYaml | nindent 2 }}
+  config.yaml: |
+    {{- .Values.config | toYaml | nindent 4 }}
