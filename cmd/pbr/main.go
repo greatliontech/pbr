@@ -16,8 +16,6 @@ import (
 var version = "0.0.0-dev"
 
 func main() {
-	slog.Info("Starting PBR")
-
 	configFile := ""
 
 	flag.StringVar(&configFile, "config-file", "/config/config.yaml", "path to config file")
@@ -29,6 +27,23 @@ func main() {
 		slog.Error("Failed to load config", "err", err)
 		os.Exit(1)
 	}
+
+	logLevel := new(slog.Level)
+	*logLevel = slog.LevelError
+	if c.LogLevel != "" {
+		if err := logLevel.UnmarshalText([]byte(c.LogLevel)); err != nil {
+			slog.Error("Failed to parse log level", "err", err)
+			os.Exit(1)
+		}
+	}
+
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	})
+
+	slog.SetDefault(slog.New(handler))
+
+	slog.Info("Starting PBR")
 
 	regOpts := []registry.Option{}
 

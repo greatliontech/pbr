@@ -14,6 +14,7 @@ type Config struct {
 	TLS         *TLS
 	Host        string
 	Address     string
+	LogLevel    string
 }
 
 type Module struct {
