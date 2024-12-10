@@ -47,7 +47,7 @@ var protoGlob = glob.MustCompile("**.proto")
 // New clones the repository and returns a new Repository struct
 func New(repoUrl string, opts ...Option) (*Repository, error) {
 	repo := &Repository{
-		fetchPeriod:   time.Duration(60) * time.Second,
+		fetchPeriod:   time.Duration(120) * time.Second,
 		lastFetch:     time.Now(),
 		SHAKE256Cache: make(map[string]string),
 	}
@@ -85,6 +85,7 @@ func New(repoUrl string, opts ...Option) (*Repository, error) {
 			Auth:       repo.auth,
 			Tags:       git.AllTags,
 			NoCheckout: true,
+			Depth:      1,
 		})
 		if err != nil {
 			return nil, err
@@ -108,6 +109,7 @@ func (repo *Repository) fetch() error {
 		Auth:     repo.auth,
 		Tags:     git.AllTags,
 		RefSpecs: []config.RefSpec{"+refs/heads/*:refs/remotes/origin/*"},
+		Depth:    1,
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
