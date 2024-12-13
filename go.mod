@@ -41,6 +41,8 @@ require (
 	github.com/google/go-containerregistry v0.19.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hanwen/go-fuse/v2 v2.5.1 // indirect
+	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
