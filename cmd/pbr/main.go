@@ -7,10 +7,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/gobwas/glob"
+	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/registry"
-	"github.com/greatliontech/pbr/pkg/repository"
 )
 
 var version = "0.0.0-dev"
@@ -51,21 +50,7 @@ func main() {
 		regOpts = append(regOpts, registry.WithAddress(c.Address))
 	}
 	if c.Modules != nil {
-		mods := []registry.Module{}
-		for k, v := range c.Modules {
-			g, err := glob.Compile(k)
-			if err != nil {
-				slog.Error("Failed to compile glob", "str", k, "err", err)
-				os.Exit(1)
-			}
-			mods = append(mods, registry.Module{
-				Match: g,
-				Mod:   v,
-			})
-		}
-		if len(mods) != 0 {
-			regOpts = append(regOpts, registry.WithModules(mods))
-		}
+		regOpts = append(regOpts, registry.WithModules(c.Modules))
 	}
 	if c.Plugins != nil {
 		regOpts = append(regOpts, registry.WithPlugins(c.Plugins))

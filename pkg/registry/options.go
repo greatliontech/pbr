@@ -3,9 +3,9 @@ package registry
 import (
 	"crypto/tls"
 
+	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
-	"github.com/greatliontech/pbr/pkg/repository"
 )
 
 type Option func(*Registry)
@@ -28,7 +28,7 @@ func WithAddress(addr string) Option {
 	}
 }
 
-func WithModules(mods []Module) Option {
+func WithModules(mods map[string]config.Module) Option {
 	return func(r *Registry) {
 		r.modules = mods
 	}
@@ -40,5 +40,11 @@ func WithPlugins(plugins map[string]config.Plugin) Option {
 		for k, v := range plugins {
 			r.plugins[k] = codegen.NewPlugin(r.ofs, v.Image)
 		}
+	}
+}
+
+func WithCacheDir(cacheDir string) Option {
+	return func(r *Registry) {
+		r.cacheDir = cacheDir
 	}
 }

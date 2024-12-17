@@ -26,7 +26,7 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 	}
 
 	for _, m := range refs {
-		repo, err := reg.getRepository(ctx, m.Owner, m.Module)
+		mod, err := reg.getModule(m.Owner, m.Module)
 		if err != nil {
 			fmt.Println("GetCommits error", err)
 			return nil, err
@@ -38,7 +38,7 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 		case *v1beta1.ResourceRef_Name_Ref:
 			ref = chld.Ref
 		}
-		_, mani, err := repo.FilesAndManifest(ref)
+		_, mani, err := mod.FilesAndManifest(ref)
 		if err != nil {
 			return nil, err
 		}

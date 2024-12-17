@@ -15,12 +15,14 @@ type Config struct {
 	Host        string
 	Address     string
 	LogLevel    string
+	CacheDir    string
 }
 
 type Module struct {
 	Remote  string
 	Path    string
 	Filters []string
+	Shallow bool
 }
 
 type TLS struct {
