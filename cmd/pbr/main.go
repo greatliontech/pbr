@@ -44,6 +44,8 @@ func main() {
 
 	slog.Info("Starting PBR")
 
+	slog.Debug("config", "config", c)
+
 	regOpts := []registry.Option{}
 
 	if c.Address != "" {
@@ -69,6 +71,9 @@ func main() {
 			log.Fatal(err)
 		}
 		regOpts = append(regOpts, registry.WithTLSCert(&cert))
+	}
+	if c.CacheDir != "" {
+		regOpts = append(regOpts, registry.WithCacheDir(c.CacheDir))
 	}
 
 	reg, err := registry.New(c.Host, regOpts...)

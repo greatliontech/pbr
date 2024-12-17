@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ type File struct {
 }
 
 func NewRepository(url, path string, opts ...Option) *Repository {
+	slog.Debug("new repository", "url", url, "path", path)
 	csh := &cache.ObjectLRU{
 		MaxSize: 50 * cache.KiByte,
 	}
@@ -74,6 +76,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 				config.RefSpec("+HEAD:HEAD"),
 			},
 			Force: true,
+			Auth:  r.auth,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, nil, err
@@ -90,6 +93,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 				refspec,
 			},
 			Force: true,
+			Auth:  r.auth,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			// try fetch tag
@@ -101,6 +105,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 					refspec,
 				},
 				Force: true,
+				Auth:  r.auth,
 			})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, nil, err
@@ -125,6 +130,7 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 			},
 			Tags:  git.NoTags,
 			Force: true,
+			Auth:  r.auth,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, nil, err
@@ -163,6 +169,7 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 					config.RefSpec(fmt.Sprintf("+%s:%s", rf.Name().String(), rf.Name().String())),
 				},
 				Force: true,
+				Auth:  r.auth,
 			})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, nil, err

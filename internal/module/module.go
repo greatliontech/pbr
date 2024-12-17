@@ -2,6 +2,7 @@ package module
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -45,6 +46,7 @@ func New(owner, module string, repo *repository.Repository, root string, filters
 }
 
 func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
+	slog.Debug("module files and manifest", "ref", ref)
 	filters, err := m.compileFilters()
 	if err != nil {
 		return nil, nil, err

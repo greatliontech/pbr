@@ -32,7 +32,7 @@ func (reg *Registry) Download(ctx context.Context, req *connect.Request[v1beta1.
 			return nil, err
 		}
 
-		files, _, err := modl.FilesAndManifest(refStr)
+		files, _, err := modl.FilesAndManifestCommit(refStr)
 		if err != nil {
 			return nil, err
 		}

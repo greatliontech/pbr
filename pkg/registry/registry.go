@@ -6,10 +6,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"hash/maphash"
+	"hash/fnv"
 	"net/http"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -141,7 +140,11 @@ func (reg *Registry) getModule(owner, modl string) (*module.Module, error) {
 	if modConf.Shallow {
 		repoOpts = append(repoOpts, repository.WithShallow())
 	}
-	repoPath := filepath.Join(reg.cacheDir, repoName(target))
+	repoNm, err := repoName(target)
+	if err != nil {
+		return nil, err
+	}
+	repoPath := filepath.Join(reg.cacheDir, repoNm)
 	repo := repository.NewRepository(target, repoPath, repoOpts...)
 	filters := []glob.Glob{}
 	for _, fltr := range modConf.Filters {
@@ -186,8 +189,11 @@ func newAuthInterceptor(token string) connect.UnaryInterceptorFunc {
 	}
 }
 
-func repoName(rmt string) string {
-	var h maphash.Hash
-	h.WriteString(rmt)
-	return strconv.FormatUint(h.Sum64(), 16)
+func repoName(rmt string) (string, error) {
+	h := fnv.New128a()
+	_, err := h.Write([]byte(rmt))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
