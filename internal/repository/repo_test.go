@@ -68,7 +68,7 @@ func TestFilesFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files, err := repo.Files("a3211f3", "", filter)
+	_, files, err := repo.Files("a3211f3", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestNotShallow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := repo.FilesCommit("a3211f3", "", filter)
+	_, files, err := repo.FilesCommit("a3211f3", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestShallow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := repo.FilesCommit("27156597f", "", filter)
+	_, files, err := repo.FilesCommit("27156597f", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestShallowBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := repo.Files("master", "", filter)
+	_, files, err := repo.Files("master", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestNotShallowBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := repo.Files("master", "", filter)
+	_, files, err := repo.Files("master", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestShallowHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := repo.Files("", "", filter)
+	_, files, err := repo.Files("", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestShallowTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := repo.Files("common-protos-1_3_1", "", filter)
+	_, files, err := repo.Files("common-protos-1_3_1", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -59,7 +59,7 @@ func (r *Repository) Delete() error {
 	return os.RemoveAll(r.path)
 }
 
-func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) ([]File, error) {
+func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
 	depth := 0
 	if r.shallow {
 		depth = 1
@@ -76,11 +76,11 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) ([]File, 
 			Force: true,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
-			return nil, err
+			return nil, nil, err
 		}
 		ref, err = r.storer.Reference(plumbing.NewBranchReferenceName("HEAD"))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		refspec := config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", trgtRef, trgtRef))
@@ -103,19 +103,19 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) ([]File, 
 				Force: true,
 			})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		ref, err = r.storer.Reference(plumbing.ReferenceName(refspec.Src()))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	return r.files(ref.Hash(), root, filters...)
 }
 
-func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) ([]File, error) {
+func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
 	var h plumbing.Hash
 
 	if !r.shallow {
@@ -127,11 +127,11 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) ([]Fil
 			Force: true,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
-			return nil, err
+			return nil, nil, err
 		}
 		iter, err := r.storer.IterEncodedObjects(plumbing.CommitObject)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		err = iter.ForEach(func(eo plumbing.EncodedObject) error {
 			if strings.HasPrefix(eo.Hash().String(), cmmt) {
@@ -146,7 +146,7 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) ([]Fil
 			PeelingOption: git.AppendPeeled,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		var rf *plumbing.Reference
@@ -165,42 +165,42 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) ([]Fil
 				Force: true,
 			})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
 
 	if h.IsZero() {
-		return nil, fmt.Errorf("commit not found: %s", cmmt)
+		return nil, nil, fmt.Errorf("commit not found: %s", cmmt)
 	}
 	return r.files(h, root, filters...)
 }
 
-func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob) ([]File, error) {
+func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
 	// get the commit
 	commit, err := object.GetCommit(r.storer, cmmt)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// get the tree
 	tree, err := commit.Tree()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// chroot if requested
 	if root != "" {
 		root, err := tree.FindEntry(root)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if root.Mode != filemode.Dir {
-			return nil, fmt.Errorf("root path is not a directory")
+			return nil, nil, fmt.Errorf("root path is not a directory")
 		}
 		tree, err = object.GetTree(r.storer, root.Hash)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -238,5 +238,5 @@ func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob
 		return nil
 	})
 
-	return files, nil
+	return commit, files, nil
 }
