@@ -42,7 +42,7 @@ static_resources:
                     filename: "cert/server.key"
   clusters:
     - name: backend_service
-      connect_timeout: 0.25s
+      connect_timeout: 180s
       type: LOGICAL_DNS
       lb_policy: ROUND_ROBIN
       load_assignment:

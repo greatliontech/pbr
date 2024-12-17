@@ -1,6 +1,7 @@
 host: pbr-example.greatlion.tech
 address: ":8080"
 loglevel: debug
+cachedir: /home/nikolas/.cache/pbr
 credentials:
   git:
     https://github.com/greatliontech/private-test-protos:
@@ -12,8 +13,10 @@ modules:
   greatliontech/protoc-gen-rtk-query:
     remote: https://github.com/greatliontech/protoc-gen-rtk-query
     path: proto
+    shallow: true
   greatliontech/private-test-protos:
     remote: https://github.com/greatliontech/private-test-protos
+    shallow: true
   googleapis/googleapis:
     remote: https://github.com/googleapis/googleapis
 plugins:
