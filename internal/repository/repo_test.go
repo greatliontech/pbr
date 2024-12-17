@@ -68,11 +68,107 @@ func TestFilesFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files, err := repo.Files("common-protos-1_3_1", "", filter)
+	files, err := repo.Files("a3211f3", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	for _, file := range files {
+		fmt.Println(file.Name)
+		break
+	}
+}
+
+func TestNotShallow(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo")
+	filter, err := glob.Compile("**.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := repo.FilesCommit("a3211f3", "", filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name)
+		break
+	}
+}
+
+func TestShallow(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	filter, err := glob.Compile("**.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := repo.FilesCommit("27156597f", "", filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name)
+		break
+	}
+}
+
+func TestShallowBranch(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	filter, err := glob.Compile("**.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := repo.Files("master", "", filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name)
+		break
+	}
+}
+
+func TestNotShallowBranch(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo")
+	filter, err := glob.Compile("**.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := repo.Files("master", "", filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name)
+		break
+	}
+}
+
+func TestShallowHead(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	filter, err := glob.Compile("**.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := repo.Files("", "", filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		fmt.Println(file.Name)
+		break
+	}
+}
+
+func TestShallowTag(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	filter, err := glob.Compile("**.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := repo.Files("common-protos-1_3_1", "", filter)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, file := range files {
 		fmt.Println(file.Name)
 		break

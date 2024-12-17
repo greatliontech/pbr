@@ -19,3 +19,9 @@ func WithSyncPeriod(period int) Option {
 		r.fetchPeriod = time.Duration(period) * time.Second
 	}
 }
+
+func WithShallow() Option {
+	return func(r *Repository) {
+		r.shallow = true
+	}
+}

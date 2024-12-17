@@ -26,6 +26,7 @@ type Repository struct {
 	fetchPeriod time.Duration
 	remote      *git.Remote
 	storer      storage.Storer
+	shallow     bool
 }
 
 type File struct {
@@ -59,67 +60,127 @@ func (r *Repository) Delete() error {
 }
 
 func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) ([]File, error) {
-	// get all remote refs
-	refs, err := r.remote.List(&git.ListOptions{
-		Auth: r.auth,
-	})
-	if err != nil {
-		return nil, err
+	depth := 0
+	if r.shallow {
+		depth = 1
 	}
 
-	branchName := plumbing.NewBranchReferenceName(trgtRef)
-	if trgtRef == "" {
-		branchName = plumbing.HEAD
-	}
-	tagName := plumbing.NewTagReferenceName(trgtRef)
-
-	// find target ref
-	var trgt *plumbing.Reference
-	for _, ref := range refs {
-		if ref.Name() == branchName || ref.Name() == tagName {
-			trgt = ref
-			break
-		}
-		if trgtRef != "" && strings.HasSuffix(ref.Hash().String(), trgtRef) {
-			trgt = ref
-			break
-		}
-	}
-	if trgt == nil {
-		return nil, fmt.Errorf("reference not found: %s", trgtRef)
-	}
-
-	rmtName := "refs/remotes/origin/" + trgt.Name().Short()
-	err = r.remote.Fetch(&git.FetchOptions{
-		Depth: 1,
-		RefSpecs: []config.RefSpec{
-			config.RefSpec(fmt.Sprintf("+%s:%s", trgt.Name(), rmtName)),
-		},
-		Force: true,
-	})
-	if err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, err
-	}
+	var ref *plumbing.Reference
 
 	if trgtRef == "" {
-		trgt, err = r.storer.Reference(plumbing.ReferenceName(rmtName))
+		err := r.remote.Fetch(&git.FetchOptions{
+			Depth: depth,
+			RefSpecs: []config.RefSpec{
+				config.RefSpec("+HEAD:HEAD"),
+			},
+			Force: true,
+		})
+		if err != nil && err != git.NoErrAlreadyUpToDate {
+			return nil, err
+		}
+		ref, err = r.storer.Reference(plumbing.NewBranchReferenceName("HEAD"))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		refspec := config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", trgtRef, trgtRef))
+		err := r.remote.Fetch(&git.FetchOptions{
+			Depth: depth,
+			RefSpecs: []config.RefSpec{
+				refspec,
+			},
+			Force: true,
+		})
+		if err != nil && err != git.NoErrAlreadyUpToDate {
+			// try fetch tag
+			fmt.Println("fetching tag")
+			refspec = config.RefSpec(fmt.Sprintf("+refs/tags/%s:refs/tags/%s", trgtRef, trgtRef))
+			err := r.remote.Fetch(&git.FetchOptions{
+				Depth: depth,
+				RefSpecs: []config.RefSpec{
+					refspec,
+				},
+				Force: true,
+			})
+			if err != nil && err != git.NoErrAlreadyUpToDate {
+				return nil, err
+			}
+		}
+		ref, err = r.storer.Reference(plumbing.ReferenceName(refspec.Src()))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var commit *object.Commit
-	commit, err = object.GetCommit(r.storer, trgt.Hash())
+	return r.files(ref.Hash(), root, filters...)
+}
+
+func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) ([]File, error) {
+	var h plumbing.Hash
+
+	if !r.shallow {
+		err := r.remote.Fetch(&git.FetchOptions{
+			RefSpecs: []config.RefSpec{
+				config.RefSpec("+HEAD:HEAD"),
+			},
+			Tags:  git.NoTags,
+			Force: true,
+		})
+		if err != nil && err != git.NoErrAlreadyUpToDate {
+			return nil, err
+		}
+		iter, err := r.storer.IterEncodedObjects(plumbing.CommitObject)
+		if err != nil {
+			return nil, err
+		}
+		err = iter.ForEach(func(eo plumbing.EncodedObject) error {
+			if strings.HasPrefix(eo.Hash().String(), cmmt) {
+				h = eo.Hash()
+			}
+			return nil
+		})
+	} else {
+		// get all remote refs
+		refs, err := r.remote.List(&git.ListOptions{
+			Auth:          r.auth,
+			PeelingOption: git.AppendPeeled,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var rf *plumbing.Reference
+		for _, ref := range refs {
+			if strings.HasPrefix(ref.Hash().String(), cmmt) {
+				rf = ref
+				h = ref.Hash()
+			}
+		}
+		if rf != nil {
+			err = r.remote.Fetch(&git.FetchOptions{
+				Depth: 1,
+				RefSpecs: []config.RefSpec{
+					config.RefSpec(fmt.Sprintf("+%s:%s", rf.Name().String(), rf.Name().String())),
+				},
+				Force: true,
+			})
+			if err != nil && err != git.NoErrAlreadyUpToDate {
+				return nil, err
+			}
+		}
+	}
+
+	if h.IsZero() {
+		return nil, fmt.Errorf("commit not found: %s", cmmt)
+	}
+	return r.files(h, root, filters...)
+}
+
+func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob) ([]File, error) {
+	// get the commit
+	commit, err := object.GetCommit(r.storer, cmmt)
 	if err != nil {
-		// try get annotated tag
-		tag, err := object.GetTag(r.storer, trgt.Hash())
-		if err != nil {
-			return nil, err
-		}
-		commit, err = tag.Commit()
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	// get the tree
