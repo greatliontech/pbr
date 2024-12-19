@@ -16,9 +16,9 @@ import (
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
-	"github.com/gobwas/glob"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/greatliontech/ocifs"
-	"github.com/greatliontech/pbr/internal/module"
+	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
@@ -117,42 +117,25 @@ func (reg *Registry) Serve() error {
 	return reg.server.ListenAndServe()
 }
 
-func (reg *Registry) getModule(owner, modl string) (*module.Module, error) {
+func (reg *Registry) getModule(owner, modl string) (*registry.Module, error) {
 	key := owner + "/" + modl
 	modConf, ok := reg.modules[key]
 	if !ok {
 		return nil, fmt.Errorf("module not found for %s", key)
 	}
 	target := modConf.Remote
-	repoOpts := []repository.Option{}
+	var err error
+	var auth transport.AuthMethod
 	if reg.repoCreds != nil {
-		auth, err := reg.repoCreds.Auth(target)
+		auth, err = reg.repoCreds.Auth(target)
 		if err != nil {
 			return nil, err
 		}
-		if auth != nil {
-			repoOpts = append(repoOpts, repository.WithAuth(auth))
-		}
 	}
-	if modConf.Shallow {
-		repoOpts = append(repoOpts, repository.WithShallow())
-	}
-	repoNm, err := repoName(target)
-	if err != nil {
-		return nil, err
-	}
+	repoNm := repoName(target)
 	repoPath := filepath.Join(reg.cacheDir, repoNm)
-	repo := repository.NewRepository(target, repoPath, repoOpts...)
-	filters := []glob.Glob{}
-	for _, fltr := range modConf.Filters {
-		filter, err := glob.Compile(fltr)
-		if err != nil {
-			return nil, err
-		}
-		filters = append(filters, filter)
-	}
-	mod := module.New(owner, modl, repo, modConf.Path, filters)
-	return mod, nil
+	repo := repository.NewRepository(target, repoPath, auth, modConf.Shallow)
+	return registry.NewModule(owner, modl, repo, modConf.Path, modConf.Filters)
 }
 
 const (
@@ -186,11 +169,8 @@ func newAuthInterceptor(token string) connect.UnaryInterceptorFunc {
 	}
 }
 
-func repoName(rmt string) (string, error) {
+func repoName(rmt string) string {
 	h := fnv.New128a()
-	_, err := h.Write([]byte(rmt))
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	h.Write([]byte(rmt))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

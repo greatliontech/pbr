@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -67,15 +68,47 @@ type GithubAppAuthProvider struct {
 	PrivateKey     []byte
 
 	privateKey *rsa.PrivateKey
+	token      string
+	exp        time.Time
+	mu         sync.RWMutex
 }
 
 func (g *GithubAppAuthProvider) AuthMethod() (transport.AuthMethod, error) {
 	if g.privateKey == nil {
+		g.mu.Lock()
 		pk, err := jwt.ParseRSAPrivateKeyFromPEM(g.PrivateKey)
 		if err != nil {
+			g.mu.Unlock()
 			return nil, fmt.Errorf("failed to parse private key: %w", err)
 		}
 		g.privateKey = pk
+		g.mu.Unlock()
+	}
+	// Acquire read lock for checking token expiration
+	g.mu.RLock()
+	if time.Now().Before(g.exp) {
+		fmt.Println("Token is still valid")
+		// Token is still valid, return it
+		token := g.token
+		g.mu.RUnlock()
+		return &githttp.BasicAuth{
+			Username: "x-access-token",
+			Password: token,
+		}, nil
+	}
+	g.mu.RUnlock()
+
+	// Acquire write lock to refresh the token
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	// Double-check the expiration after acquiring write lock
+	if time.Now().Before(g.exp) {
+		// Another goroutine already refreshed the token
+		return &githttp.BasicAuth{
+			Username: "x-access-token",
+			Password: g.token,
+		}, nil
 	}
 
 	appID := strconv.FormatInt(g.AppID, 10)
@@ -85,6 +118,11 @@ func (g *GithubAppAuthProvider) AuthMethod() (transport.AuthMethod, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get installation token: %w", err)
 	}
+
+	// Update the token and expiration time
+	g.token = token
+	// Token expires in 1 hour, refresh it after 55 minutes
+	g.exp = time.Now().Add(55 * time.Minute)
 
 	return &githttp.BasicAuth{
 		Username: "x-access-token",
@@ -120,6 +158,8 @@ func getInstallationToken(appID, installationID string, privateKey *rsa.PrivateK
 
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Add("User-Agent", "greatliontech/pbr")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

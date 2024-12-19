@@ -2,7 +2,6 @@ package repository
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -36,8 +35,7 @@ type File struct {
 	Content string
 }
 
-func NewRepository(url, path string, opts ...Option) *Repository {
-	slog.Debug("new repository", "url", url, "path", path)
+func NewRepository(url, path string, auth transport.AuthMethod, shallow bool) *Repository {
 	csh := &cache.ObjectLRU{
 		MaxSize: 50 * cache.KiByte,
 	}
@@ -46,13 +44,11 @@ func NewRepository(url, path string, opts ...Option) *Repository {
 		URLs: []string{url},
 	})
 	repo := &Repository{
-		path:   path,
-		remote: rmt,
-		storer: strg,
-	}
-	// apply options
-	for _, opt := range opts {
-		opt(repo)
+		path:    path,
+		remote:  rmt,
+		storer:  strg,
+		auth:    auth,
+		shallow: shallow,
 	}
 	return repo
 }

@@ -61,7 +61,7 @@ func TestRemoteHead(t *testing.T) {
 }
 
 func TestFilesFilter(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo")
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
 
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
@@ -80,7 +80,7 @@ func TestFilesFilter(t *testing.T) {
 }
 
 func TestNotShallow(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo")
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestNotShallow(t *testing.T) {
 }
 
 func TestShallow(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, true)
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func TestShallow(t *testing.T) {
 }
 
 func TestShallowBranch(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, true)
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestShallowBranch(t *testing.T) {
 }
 
 func TestNotShallowBranch(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo")
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +144,7 @@ func TestNotShallowBranch(t *testing.T) {
 }
 
 func TestShallowHead(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, true)
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +160,7 @@ func TestShallowHead(t *testing.T) {
 }
 
 func TestShallowTag(t *testing.T) {
-	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", WithShallow())
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, true)
 	filter, err := glob.Compile("**.proto")
 	if err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-package module
+package registry
 
 import (
 	"fmt"
@@ -8,8 +8,11 @@ import (
 )
 
 func TestModule(t *testing.T) {
-	repo := repository.NewRepository("https://github.com/greatliontech/protoc-gen-rtk-query", "./repo", repository.WithShallow())
-	module := New("greatliontech", "protoc-gen-rtk-query", repo, "proto", nil)
+	repo := repository.NewRepository("https://github.com/greatliontech/protoc-gen-rtk-query", "./repo", nil, true)
+	module, err := NewModule("greatliontech", "protoc-gen-rtk-query", repo, "proto", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	files, manifest, err := module.FilesAndManifest("")
 	if err != nil {
@@ -26,8 +29,11 @@ func TestModule(t *testing.T) {
 }
 
 func TestModuleGoogleapis(t *testing.T) {
-	repo := repository.NewRepository("https://github.com/googleapis/googleapis", "./repo")
-	module := New("googleapis", "googleapis", repo, "", nil)
+	repo := repository.NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
+	module, err := NewModule("googleapis", "googleapis", repo, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	files, manifest, err := module.FilesAndManifest("")
 	if err != nil {

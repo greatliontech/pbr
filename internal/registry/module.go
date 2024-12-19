@@ -1,4 +1,4 @@
-package module
+package registry
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ type Module struct {
 	Module string
 	Repo   *repository.Repository
 
-	SHAKE256Cache map[string]string
+	shake256Cache map[string]string
 	root          string
 	filters       []glob.Glob
 }
@@ -34,25 +34,24 @@ type Manifest struct {
 	SHAKE256 string
 }
 
-func New(owner, module string, repo *repository.Repository, root string, filters []glob.Glob) *Module {
+func NewModule(owner, module string, repo *repository.Repository, root string, filterStrings []string) (*Module, error) {
+	filters, err := compileFilters(filterStrings)
+	if err != nil {
+		return nil, err
+	}
 	return &Module{
 		Owner:         owner,
 		Module:        module,
 		Repo:          repo,
 		root:          root,
 		filters:       filters,
-		SHAKE256Cache: make(map[string]string),
-	}
+		shake256Cache: make(map[string]string),
+	}, nil
 }
 
 func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
 	slog.Debug("module files and manifest", "ref", ref)
-	filters, err := m.compileFilters()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	commit, repoFiles, err := m.Repo.Files(ref, m.root, filters...)
+	commit, repoFiles, err := m.Repo.Files(ref, m.root, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -61,12 +60,7 @@ func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
 }
 
 func (m *Module) FilesAndManifestCommit(cmmt string) ([]File, *Manifest, error) {
-	filters, err := m.compileFilters()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	commit, repoFiles, err := m.Repo.FilesCommit(cmmt, m.root, filters...)
+	commit, repoFiles, err := m.Repo.FilesCommit(cmmt, m.root, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -79,7 +73,7 @@ func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.
 	var manifestContentBuilder strings.Builder
 
 	for _, file := range repoFiles {
-		shake256Hash, ok := m.SHAKE256Cache[file.SHA]
+		shake256Hash, ok := m.shake256Cache[file.SHA]
 		if !ok {
 			// calculate SHAKE256 hash
 			h := sha3.NewShake256()
@@ -90,7 +84,7 @@ func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.
 			var shake256Sum [64]byte
 			h.Read(shake256Sum[:])
 			shake256Hash = fmt.Sprintf("%x", shake256Sum)
-			m.SHAKE256Cache[file.SHA] = shake256Hash
+			m.shake256Cache[file.SHA] = shake256Hash
 		}
 
 		files = append(files, File{
@@ -124,13 +118,14 @@ func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.
 	return files, manifest, nil
 }
 
-func (m *Module) compileFilters() ([]glob.Glob, error) {
+func compileFilters(fltrs []string) ([]glob.Glob, error) {
 	filters := []glob.Glob{}
 	fiterStrings := []string{
 		"**.proto",
 		"buf.yaml",
 		"buf.lock",
 	}
+	fiterStrings = append(fiterStrings, fltrs...)
 	for _, f := range fiterStrings {
 		filter, err := glob.Compile(f)
 		if err != nil {
@@ -138,5 +133,5 @@ func (m *Module) compileFilters() ([]glob.Glob, error) {
 		}
 		filters = append(filters, filter)
 	}
-	return append(filters, m.filters...), nil
+	return filters, nil
 }

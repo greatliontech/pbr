@@ -44,10 +44,10 @@ func NewCredentialStore(creds map[string]config.GitAuth) (*CredentialStore, erro
 }
 
 func (cs *CredentialStore) Auth(remote string) (transport.AuthMethod, error) {
-	fmt.Println("creds for:", remote)
 	for k, v := range cs.creds {
 		g := *k
 		if g.Match(remote) {
+			fmt.Println("using creds for remote:", remote)
 			return v.AuthMethod()
 		}
 	}
