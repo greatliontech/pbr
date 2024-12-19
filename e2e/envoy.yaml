@@ -30,6 +30,7 @@ static_resources:
                             prefix: "/"
                           route:
                             cluster: backend_service
+                            timeout: 0s
           transport_socket:
             name: envoy.transport_sockets.tls
             typed_config:

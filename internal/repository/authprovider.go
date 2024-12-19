@@ -87,7 +87,6 @@ func (g *GithubAppAuthProvider) AuthMethod() (transport.AuthMethod, error) {
 	// Acquire read lock for checking token expiration
 	g.mu.RLock()
 	if time.Now().Before(g.exp) {
-		fmt.Println("Token is still valid")
 		// Token is still valid, return it
 		token := g.token
 		g.mu.RUnlock()
@@ -132,7 +131,7 @@ func (g *GithubAppAuthProvider) AuthMethod() (transport.AuthMethod, error) {
 
 // Generate a JWT for GitHub App authentication
 func generateJWT(appID string, privateKey *rsa.PrivateKey) (string, error) {
-	now := time.Now()
+	now := time.Now().Add(-1 * time.Minute) // protect against clock skew
 	claims := jwt.RegisteredClaims{
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(10 * time.Minute)), // JWT is valid for 10 minutes

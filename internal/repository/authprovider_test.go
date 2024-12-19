@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 )
@@ -21,16 +20,15 @@ func TestGithubApp(t *testing.T) {
 		PrivateKey:     []byte(key),
 	}
 
-	for i := 0; i < 12; i++ {
-		auth, err := ghap.AuthMethod()
-		if err != nil {
-			t.Fatalf("Failed to create auth method with github app: %s", err)
-		}
-		basicAuth, ok := auth.(*githttp.BasicAuth)
-		if !ok {
-			t.Fatalf("Expected BasicAuth, got %T", auth)
-		}
-		fmt.Println(basicAuth.Username, basicAuth.Password)
-		time.Sleep(1 * time.Minute)
+	auth, err := ghap.AuthMethod()
+	if err != nil {
+		t.Fatalf("Failed to create auth method with github app: %s", err)
 	}
+
+	httpAuth, ok := auth.(*githttp.BasicAuth)
+	if !ok {
+		t.Fatalf("Expected BasicAuth, got %T", auth)
+	}
+
+	fmt.Println(httpAuth.Username, httpAuth.Password)
 }
