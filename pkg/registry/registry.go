@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
@@ -93,10 +92,8 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	}))
 
 	reg.server = &http.Server{
-		Addr:         reg.addr,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		Handler:      mux,
+		Addr:    reg.addr,
+		Handler: mux,
 	}
 
 	if reg.cert != nil {
