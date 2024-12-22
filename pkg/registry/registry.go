@@ -14,12 +14,14 @@ import (
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
+	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect"
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/repository"
+	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 	"golang.org/x/net/http2"
@@ -48,6 +50,7 @@ type Registry struct {
 	moduleIds      map[string]*internalModule
 	commitToModule map[string]*internalModule
 	cacheDir       string
+	stor           store.Store
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -83,6 +86,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg, interceptors))
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg, interceptors))
 	mux.Handle(modulev1connect.NewModuleServiceHandler(reg, interceptors))
+	mux.Handle(ownerv1connect.NewOwnerServiceHandler(reg, interceptors))
 
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ready")

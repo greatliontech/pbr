@@ -7,18 +7,21 @@ import (
 	"strings"
 
 	"github.com/greatliontech/pbr/internal/repository"
+	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/pkg/config"
 )
 
 type Registry struct {
 	config  *config.Config
 	modules map[string]*Module
+	stor    store.Store
 }
 
-func New(conf *config.Config) (*Registry, error) {
+func New(stor store.Store, conf *config.Config) (*Registry, error) {
 	r := &Registry{
 		config:  conf,
 		modules: make(map[string]*Module),
+		stor:    stor,
 	}
 
 	credStore, err := repository.NewCredentialStore(conf.Credentials.Git)

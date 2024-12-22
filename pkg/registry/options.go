@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 
 	"github.com/greatliontech/pbr/internal/repository"
+	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 )
@@ -46,5 +47,11 @@ func WithPlugins(plugins map[string]config.Plugin) Option {
 func WithCacheDir(cacheDir string) Option {
 	return func(r *Registry) {
 		r.cacheDir = cacheDir
+	}
+}
+
+func WithStore(s store.Store) Option {
+	return func(r *Registry) {
+		r.stor = s
 	}
 }

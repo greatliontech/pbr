@@ -119,8 +119,17 @@ func (m *memStore) GetOwnerByName(ctx context.Context, name string) (*store.Owne
 	return out, nil
 }
 
+func (m *memStore) ListOwners(ctx context.Context) ([]*store.Owner, error) {
+	out := []*store.Owner{}
+	m.owners.Range(func(k string, v *store.Owner) bool {
+		out = append(out, v)
+		return true
+	})
+	return out, nil
+}
+
 func (m *memStore) CreateModule(ctx context.Context, module *store.Module) (*store.Module, error) {
-	moduleId := fakeUUID(module.OwnerID + module.Name)
+	moduleId := fakeUUID(module.OwnerID + "/" + module.Name)
 	module.ID = moduleId
 	res, ok := m.modules.LoadOrStore(moduleId, module)
 	if ok {
@@ -148,6 +157,17 @@ func (m *memStore) GetModule(ctx context.Context, id string) (*store.Module, err
 func (m *memStore) GetModuleByName(ctx context.Context, ownerID string, name string) (*store.Module, error) {
 	moduleId := fakeUUID(ownerID + name)
 	return m.GetModule(ctx, moduleId)
+}
+
+func (m *memStore) ListModules(ctx context.Context, ownerID string) ([]*store.Module, error) {
+	out := []*store.Module{}
+	m.modules.Range(func(k string, v *store.Module) bool {
+		if v.OwnerID == ownerID {
+			out = append(out, v)
+		}
+		return true
+	})
+	return out, nil
 }
 
 func (m *memStore) CreatePlugin(ctx context.Context, plugin *store.Plugin) (*store.Plugin, error) {

@@ -43,6 +43,14 @@ func (reg *Registry) Download(ctx context.Context, req *connect.Request[v1beta1.
 
 		for _, file := range files {
 			if file.Name == "buf.yaml" {
+				fmt.Println("buf.yaml found", file.Content)
+				contents.V1BufYamlFile = &v1beta1.File{
+					Path:    file.Name,
+					Content: []byte(file.Content),
+				}
+			}
+			if file.Name == "buf.lock" {
+				fmt.Println("buf.lock found", file.Content)
 				contents.V1BufLockFile = &v1beta1.File{
 					Path:    file.Name,
 					Content: []byte(file.Content),

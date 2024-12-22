@@ -4,7 +4,7 @@ loglevel: debug
 cachedir: /home/nikolas/.cache/pbr
 credentials:
   git:
-    https://github.com/greatliontech/private-test-protos:
+    https://github.com/greatliontech/private-test-*:
       githubapp:
         appid: 1072076
         installationid: 57714146
@@ -16,7 +16,8 @@ modules:
     shallow: true
   greatliontech/private-test-protos:
     remote: https://github.com/greatliontech/private-test-protos
-    shallow: true
+  greatliontech/private-test-nested-protos:
+    remote: https://github.com/greatliontech/private-test-nested-protos
   googleapis/googleapis:
     remote: https://github.com/googleapis/googleapis
 plugins:

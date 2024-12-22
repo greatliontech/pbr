@@ -13,7 +13,6 @@ type CredentialStore struct {
 }
 
 func NewCredentialStore(creds map[string]config.GitAuth) (*CredentialStore, error) {
-	fmt.Println("new cred store", creds)
 	cs := &CredentialStore{
 		creds: map[*glob.Glob]AuthProvider{},
 	}

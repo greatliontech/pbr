@@ -50,6 +50,7 @@ type OwnerStore interface {
 	DeleteOwner(ctx context.Context, id string) error
 	GetOwner(ctx context.Context, id string) (*Owner, error)
 	GetOwnerByName(ctx context.Context, name string) (*Owner, error)
+	ListOwners(ctx context.Context) ([]*Owner, error)
 }
 
 type Module struct {
@@ -57,6 +58,9 @@ type Module struct {
 	OwnerID string
 	Name    string
 	RepoURL string
+	Root    string
+	Filters []string
+	Shallow bool
 }
 
 type ModuleStore interface {
@@ -64,6 +68,7 @@ type ModuleStore interface {
 	DeleteModule(ctx context.Context, id string) error
 	GetModule(ctx context.Context, id string) (*Module, error)
 	GetModuleByName(ctx context.Context, ownerID, name string) (*Module, error)
+	ListModules(ctx context.Context, ownerID string) ([]*Module, error)
 }
 
 type Plugin struct {

@@ -68,7 +68,40 @@ func (m *Module) FilesAndManifestCommit(cmmt string) ([]File, *Manifest, error) 
 	return m.filesAndManifest(commit, repoFiles)
 }
 
+var ErrBufLockNotFound = fmt.Errorf("buf.lock not found")
+
+func (m *Module) BufLock(ref string) (*BufLock, error) {
+	slog.Debug("module buf lock", "ref", ref)
+	_, repoFiles, err := m.Repo.Files(ref, m.root, m.filters...)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range repoFiles {
+		if f.Name == "buf.lock" {
+			return BufLockFromBytes([]byte(f.Content))
+		}
+	}
+	slog.Debug("buf.lock not found", "ref", ref)
+	return nil, ErrBufLockNotFound
+}
+
+func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
+	slog.Debug("module buf lock commit", "commit", cmmt)
+	_, repoFiles, err := m.Repo.FilesCommit(cmmt, m.root, m.filters...)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range repoFiles {
+		if f.Name == "buf.lock" {
+			return BufLockFromBytes([]byte(f.Content))
+		}
+	}
+	slog.Debug("buf.lock not found", "commit", cmmt)
+	return nil, ErrBufLockNotFound
+}
+
 func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.File) ([]File, *Manifest, error) {
+	fmt.Println("filesAndManifest", m.Owner, m.Module, commit.Hash.String())
 	var files []File
 	var manifestContentBuilder strings.Builder
 
