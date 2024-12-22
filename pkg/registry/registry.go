@@ -51,6 +51,7 @@ type Registry struct {
 	commitToModule map[string]*internalModule
 	cacheDir       string
 	stor           store.Store
+	adminToken     string
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -79,7 +80,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 
 	mux := http.NewServeMux()
 
-	interceptors := connect.WithInterceptors(newAuthInterceptor("verySecure42"))
+	interceptors := connect.WithInterceptors(newAuthInterceptor(reg.adminToken))
 
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg, interceptors))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg, interceptors))

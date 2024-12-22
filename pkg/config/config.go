@@ -16,6 +16,7 @@ type Config struct {
 	Address     string
 	LogLevel    string
 	CacheDir    string
+	AdminToken  string
 }
 
 type Module struct {

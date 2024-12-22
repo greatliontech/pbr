@@ -7,11 +7,15 @@ import (
 
 func TestParseValidConfig(t *testing.T) {
 	yamlData := []byte(`
+host: "localhost"
+address: ":8080"
+loglevel: "debug"
+admintoken: testTest
 credentials:
   git:
-		https://github.com/
+    somehost/*:
       token: "tokenValue"
-      sshKey: "sshKeyValue"
+      sshkey: "sshKeyValue"
 modules:
   module1:
     remote: "remotePath"
@@ -19,8 +23,6 @@ modules:
 plugins:
   plugin1:
     image: "imageName"
-host: "localhost"
-address: ":8080"
 `)
 
 	config, err := ParseConfig(yamlData)
@@ -52,8 +54,16 @@ address: ":8080"
 		t.Errorf("Expected plugin1 image 'imageName', got '%s'", config.Plugins["plugin1"].Image)
 	}
 
-	if config.Credentials.Git["gitKey"].Token != "tokenValue" {
-		t.Errorf("Expected git gitKey token 'tokenValue', got '%s'", config.Credentials.Git["gitKey"].Token)
+	if config.Credentials.Git["somehost/*"].Token != "tokenValue" {
+		t.Errorf("Expected git gitKey token 'tokenValue', got '%s'", config.Credentials.Git["somehost/*"].Token)
+	}
+
+	if config.Credentials.Git["somehost/*"].SSHKey != "sshKeyValue" {
+		t.Errorf("Expected git gitKey sshKey 'sshKeyValue', got '%s'", config.Credentials.Git["somehost/*"].SSHKey)
+	}
+
+	if config.AdminToken != "testTest" {
+		t.Errorf("Expected admin token 'testTest', got '%s'", config.AdminToken)
 	}
 }
 

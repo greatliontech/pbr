@@ -55,3 +55,9 @@ func WithStore(s store.Store) Option {
 		r.stor = s
 	}
 }
+
+func WithAdminToken(token string) Option {
+	return func(r *Registry) {
+		r.adminToken = token
+	}
+}

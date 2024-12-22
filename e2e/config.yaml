@@ -2,6 +2,7 @@ host: pbr-example.greatlion.tech
 address: ":8080"
 loglevel: debug
 cachedir: /home/nikolas/.cache/pbr
+admintoken: verySecure42
 credentials:
   git:
     https://github.com/greatliontech/private-test-*:

@@ -78,6 +78,7 @@ func main() {
 	if c.CacheDir != "" {
 		regOpts = append(regOpts, registry.WithCacheDir(c.CacheDir))
 	}
+	regOpts = append(regOpts, registry.WithAdminToken(c.AdminToken))
 
 	s := mem.New()
 	if err := configToStore(context.Background(), c, s); err != nil {
