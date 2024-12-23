@@ -21,7 +21,6 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 		switch ref := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
 			commit := reg.commits[ref.Id]
-			fmt.Println("---------- GetGraph: commit", commit, ref.Id)
 			mod := reg.commitToModule[ref.Id]
 			key := mod.Owner + "/" + mod.Module
 			commits := map[string]*v1beta1.Commit{
@@ -39,6 +38,9 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 		}
 	}
 	fmt.Println("== GetGraph end")
+	for _, commit := range resp.Msg.Graph.Commits {
+		fmt.Println("== GetGraph: commit", commit)
+	}
 
 	return resp, nil
 }
