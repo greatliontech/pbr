@@ -47,7 +47,7 @@ func main() {
 
 	slog.SetDefault(slog.New(handler))
 
-	slog.Info("Starting PBR")
+	slog.Info("Starting PBR", "version", version)
 
 	regOpts := []registry.Option{}
 
