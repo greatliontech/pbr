@@ -22,8 +22,9 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 			commit := reg.commits[ref.Id]
 			fmt.Println("---------- GetGraph: commit", commit, ref.Id)
 			mod := reg.commitToModule[ref.Id]
+			key := mod.Owner + "/" + mod.Module
 			commits := map[string]*v1beta1.Commit{
-				ref.Id: commit,
+				key: commit,
 			}
 			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
 				Commit:   commit,
@@ -57,14 +58,15 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 	for _, dep := range bl.Deps {
 		fmt.Println("getGraph: dep", dep)
 		var depCommit *v1beta1.Commit
-		if dc, ok := commits[dep.Commit]; ok {
+		key := dep.Owner + "/" + dep.Repository
+		if dc, ok := commits[key]; ok {
 			depCommit = dc
 		} else {
 			depCommit, err = reg.getCommit(dep.Owner, dep.Repository, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
 			if err != nil {
 				return err
 			}
-			commits[dep.Commit] = depCommit
+			commits[key] = depCommit
 			graph.Commits = append(graph.Commits, &v1beta1.Graph_Commit{
 				Commit:   depCommit,
 				Registry: dep.Remote,
