@@ -52,7 +52,7 @@ spec:
                 name: {{ .Values.secret.secretRef }}
           {{- end }}
           env:
-            - name: XDG_CACHE_HOME
+            - name: CACHE_DIR
               value: /cache
           volumeMounts:
             - name: config
@@ -60,6 +60,8 @@ spec:
               readOnly: true
             - name: cache
               mountPath: /cache
+            - name: tmp
+              mountPath: /tmp
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -77,5 +79,8 @@ spec:
           configMap:
             name: pbr
         - name: cache
+          emptyDir:
+            sizeLimit: 500Mi
+        - name: tmp
           emptyDir:
             sizeLimit: 500Mi
