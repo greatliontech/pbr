@@ -17,29 +17,28 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 		Graph: &v1beta1.Graph{},
 	}
 
+	commits := map[string]*v1beta1.Commit{}
+
 	for _, ref := range req.Msg.ResourceRefs {
 		switch ref := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
 			commit := reg.commits[ref.Id]
 			mod := reg.commitToModule[ref.Id]
 			key := mod.Owner + "/" + mod.Module
-			commits := map[string]*v1beta1.Commit{
-				key: commit,
+			if _, ok := commits[key]; !ok {
+				fmt.Printf("Dep %s not in map, adding", key)
+				commits[key] = commit
+				resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
+					Commit:   commit,
+					Registry: reg.hostName,
+				})
 			}
-			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
-				Commit:   commit,
-				Registry: reg.hostName,
-			})
 			if err := reg.getGraph(mod, commit, commits, resp.Msg.Graph); err != nil {
 				return nil, err
 			}
 		case *v1beta1.ResourceRef_Name_:
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
-	}
-	fmt.Println("== GetGraph end")
-	for _, commit := range resp.Msg.Graph.Commits {
-		fmt.Println("== GetGraph: commit", commit)
 	}
 
 	return resp, nil
@@ -64,6 +63,7 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 		if dc, ok := commits[key]; ok {
 			depCommit = dc
 		} else {
+			fmt.Printf("Dep %s not in map, adding", key)
 			depCommit, err = reg.getCommit(dep.Owner, dep.Repository, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
 			if err != nil {
 				return err

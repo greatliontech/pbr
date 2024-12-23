@@ -47,7 +47,6 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("GetCommits: constructed commit", comt)
 		reg.commits[comt.Id] = comt
 		reg.commitHashes[comt.Id] = mani.Commit
 		reg.moduleIds[comt.ModuleId] = &internalModule{
