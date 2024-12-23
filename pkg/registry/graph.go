@@ -11,6 +11,7 @@ import (
 )
 
 func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) {
+	fmt.Println("== GetGraph start", req.Msg.ResourceRefs)
 	resp := &connect.Response[v1beta1.GetGraphResponse]{}
 	resp.Msg = &v1beta1.GetGraphResponse{
 		Graph: &v1beta1.Graph{},
@@ -37,6 +38,7 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
 	}
+	fmt.Println("== GetGraph end")
 
 	return resp, nil
 }
@@ -49,14 +51,12 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 	bl, err := modl.BufLockCommit(commit.Id)
 	if err != nil {
 		if err == registry.ErrBufLockNotFound {
-			fmt.Println("getGraph: no dependencies")
 			// no dependencies
 			return nil
 		}
 		return err
 	}
 	for _, dep := range bl.Deps {
-		fmt.Println("getGraph: dep", dep)
 		var depCommit *v1beta1.Commit
 		key := dep.Owner + "/" + dep.Repository
 		if dc, ok := commits[key]; ok {
