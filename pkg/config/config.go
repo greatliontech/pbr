@@ -90,6 +90,11 @@ func ParseConfig(b []byte) (*Config, error) {
 		}
 		c.Credentials.Git[k] = v
 	}
+	tkn, err := envsubst.EvalEnv(c.AdminToken)
+	if err != nil {
+		return nil, err
+	}
+	c.AdminToken = tkn
 	return c, nil
 }
 
