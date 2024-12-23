@@ -50,7 +50,6 @@ func NewModule(owner, module string, repo *repository.Repository, root string, f
 }
 
 func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
-	slog.Debug("module files and manifest", "ref", ref)
 	commit, repoFiles, err := m.Repo.Files(ref, m.root, m.filters...)
 	if err != nil {
 		return nil, nil, err
@@ -101,7 +100,6 @@ func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
 }
 
 func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.File) ([]File, *Manifest, error) {
-	fmt.Println("filesAndManifest", m.Owner, m.Module, commit.Hash.String())
 	var files []File
 	var manifestContentBuilder strings.Builder
 

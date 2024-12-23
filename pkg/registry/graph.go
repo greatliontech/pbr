@@ -23,6 +23,7 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 		switch ref := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
 			commit := reg.commits[ref.Id]
+			// if commit not cached, loop all repos and find the sha!!!
 			mod := reg.commitToModule[ref.Id]
 			key := mod.Owner + "/" + mod.Module
 			if _, ok := commits[key]; !ok {
@@ -33,9 +34,9 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 					Registry: reg.hostName,
 				})
 			}
-			if err := reg.getGraph(mod, commit, commits, resp.Msg.Graph); err != nil {
-				return nil, err
-			}
+			// if err := reg.getGraph(mod, commit, commits, resp.Msg.Graph); err != nil {
+			// 	return nil, err
+			// }
 		case *v1beta1.ResourceRef_Name_:
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
@@ -63,7 +64,7 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 		if dc, ok := commits[key]; ok {
 			depCommit = dc
 		} else {
-			fmt.Printf("Dep %s not in map, adding", key)
+			fmt.Printf("Dep in deps %s not in map, adding", key)
 			depCommit, err = reg.getCommit(dep.Owner, dep.Repository, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
 			if err != nil {
 				return err
