@@ -17,7 +17,7 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 		Graph: &v1beta1.Graph{},
 	}
 
-	commits := map[string]*v1beta1.Commit{}
+	commitMap := map[string]*v1beta1.Commit{}
 
 	for _, ref := range req.Msg.ResourceRefs {
 		switch ref := ref.ResourceRef.Value.(type) {
@@ -26,19 +26,20 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 			// if commit not cached, loop all repos and find the sha!!!
 			mod := reg.commitToModule[ref.Id]
 			key := mod.Owner + "/" + mod.Module
-			if _, ok := commits[key]; !ok {
-				fmt.Printf("Dep %s not in map, adding", key)
-				commits[key] = commit
-				resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
-					Commit:   commit,
-					Registry: reg.hostName,
-				})
-			}
-			// if err := reg.getGraph(mod, commit, commits, resp.Msg.Graph); err != nil {
-			// 	return nil, err
-			// }
+			commitMap[key] = commit
+			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
+				Commit:   commit,
+				Registry: reg.hostName,
+			})
 		case *v1beta1.ResourceRef_Name_:
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
+		}
+	}
+
+	for _, commit := range resp.Msg.Graph.Commits {
+		mod := reg.commitToModule[commit.Commit.Id]
+		if err := reg.getGraph(mod, commit.Commit, commitMap, resp.Msg.Graph); err != nil {
+			return nil, err
 		}
 	}
 

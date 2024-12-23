@@ -11,7 +11,6 @@ import (
 
 // Get Commits.
 func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta1.GetCommitsRequest]) (*connect.Response[v1beta1.GetCommitsResponse], error) {
-	fmt.Println("GetCommits")
 	resp := &connect.Response[v1beta1.GetCommitsResponse]{}
 	resp.Msg = &v1beta1.GetCommitsResponse{}
 
@@ -27,6 +26,7 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 	}
 
 	for _, m := range refs {
+		fmt.Println("GetCommits", m.Owner, m.Module)
 		mod, err := reg.getModule(m.Owner, m.Module)
 		if err != nil {
 			fmt.Println("GetCommits error", err)
