@@ -66,7 +66,7 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 			depCommit = dc
 		} else {
 			fmt.Printf("Dep in deps %s not in map, adding", key)
-			depCommit, err = reg.getCommit(dep.Owner, dep.Repository, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
+			depCommit, err = reg.getCommitObject(dep.Owner, dep.Repository, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
 			if err != nil {
 				return err
 			}

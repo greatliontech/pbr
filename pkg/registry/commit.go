@@ -7,6 +7,9 @@ import (
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Get Commits.
@@ -26,12 +29,6 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 	}
 
 	for _, m := range refs {
-		fmt.Println("GetCommits", m.Owner, m.Module)
-		mod, err := reg.getModule(m.Owner, m.Module)
-		if err != nil {
-			fmt.Println("GetCommits error", err)
-			return nil, err
-		}
 		ref := ""
 		switch chld := m.Child.(type) {
 		case *v1beta1.ResourceRef_Name_LabelName:
@@ -39,21 +36,11 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 		case *v1beta1.ResourceRef_Name_Ref:
 			ref = chld.Ref
 		}
-		_, mani, err := mod.FilesAndManifest(ref)
+
+		comt, err := reg.getCommit(ctx, m.Owner, m.Module, ref)
 		if err != nil {
 			return nil, err
 		}
-		comt, err := reg.getCommit(m.Owner, m.Module, mani.Commit[:32], mani.SHAKE256)
-		if err != nil {
-			return nil, err
-		}
-		reg.commits[comt.Id] = comt
-		reg.commitHashes[comt.Id] = mani.Commit
-		reg.moduleIds[comt.ModuleId] = &internalModule{
-			Owner:  m.Owner,
-			Module: m.Module,
-		}
-		reg.commitToModule[comt.Id] = reg.moduleIds[comt.ModuleId]
 
 		resp.Msg.Commits = append(resp.Msg.Commits, comt)
 	}
@@ -61,7 +48,42 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 	return resp, nil
 }
 
-func (r *Registry) getCommit(owner, mod, id, dgst string) (*v1beta1.Commit, error) {
+func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v1beta1.Commit, error) {
+	ctx, span := tracer.Start(ctx, "getCommit", trace.WithAttributes(
+		attribute.String("owner", owner),
+		attribute.String("module", modl),
+		attribute.String("ref", ref),
+	))
+	defer span.End()
+
+	mod, err := reg.getModule(owner, modl)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get module")
+		return nil, err
+	}
+	_, mani, err := mod.FilesAndManifest(ref)
+	if err != nil {
+		return nil, err
+	}
+	comt, err := reg.getCommitObject(owner, modl, mani.Commit[:32], mani.SHAKE256)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get commit object")
+		return nil, err
+	}
+	reg.commits[comt.Id] = comt
+	reg.commitHashes[comt.Id] = mani.Commit
+	reg.moduleIds[comt.ModuleId] = &internalModule{
+		Owner:  owner,
+		Module: modl,
+	}
+	reg.commitToModule[comt.Id] = reg.moduleIds[comt.ModuleId]
+
+	return comt, nil
+}
+
+func (r *Registry) getCommitObject(owner, mod, id, dgst string) (*v1beta1.Commit, error) {
 	fmt.Println("getCommit")
 	digest, err := hex.DecodeString(dgst)
 	if err != nil {

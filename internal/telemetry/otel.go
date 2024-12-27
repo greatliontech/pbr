@@ -18,13 +18,22 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-func Setup(ctx context.Context, version, instanceId, ns string) (shutdown func(context.Context) error, err error) {
+func Setup(ctx context.Context, opts ...Option) (shutdown func(context.Context) error, err error) {
+	options, err := defaultOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName("pbr"),
-		semconv.ServiceVersion(version),
-		semconv.ServiceInstanceID(instanceId),
-		semconv.ServiceNamespace(ns),
+		semconv.ServiceVersion(options.version),
+		semconv.ServiceInstanceID(options.instanceId),
+		semconv.ServiceNamespace(options.ns),
 	)
 
 	var shutdownFuncs []func(context.Context) error
@@ -51,7 +60,7 @@ func Setup(ctx context.Context, version, instanceId, ns string) (shutdown func(c
 	otel.SetTextMapPropagator(prop)
 
 	// Set up trace provider.
-	tracerProvider, err := newTraceProvider(res)
+	tracerProvider, err := newTraceProvider(res, options)
 	if err != nil {
 		handleErr(err)
 		return
@@ -60,16 +69,16 @@ func Setup(ctx context.Context, version, instanceId, ns string) (shutdown func(c
 	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(res)
-	if err != nil {
-		handleErr(err)
-		return
-	}
-	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	otel.SetMeterProvider(meterProvider)
+	// meterProvider, err := newMeterProvider(res, options)
+	// if err != nil {
+	// 	handleErr(err)
+	// 	return
+	// }
+	// shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+	// otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(res)
+	loggerProvider, err := newLoggerProvider(res, options)
 	if err != nil {
 		handleErr(err)
 		return
@@ -80,6 +89,26 @@ func Setup(ctx context.Context, version, instanceId, ns string) (shutdown func(c
 	return
 }
 
+func defaultOptions() (*options, error) {
+	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if err != nil {
+		return nil, err
+	}
+	metricExporter, err := stdoutmetric.New()
+	if err != nil {
+		return nil, err
+	}
+	logExporter, err := stdoutlog.New()
+	if err != nil {
+		return nil, err
+	}
+	return &options{
+		traceExporter:  traceExporter,
+		metricExporter: metricExporter,
+		logExporter:    logExporter,
+	}, nil
+}
+
 func newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
@@ -87,15 +116,9 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider(res *resource.Resource) (*trace.TracerProvider, error) {
-	traceExporter, err := stdouttrace.New(
-		stdouttrace.WithPrettyPrint())
-	if err != nil {
-		return nil, err
-	}
-
+func newTraceProvider(res *resource.Resource, opts *options) (*trace.TracerProvider, error) {
 	traceProvider := trace.NewTracerProvider(
-		trace.WithBatcher(traceExporter,
+		trace.WithBatcher(opts.traceExporter,
 			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
 		trace.WithResource(res),
@@ -103,14 +126,9 @@ func newTraceProvider(res *resource.Resource) (*trace.TracerProvider, error) {
 	return traceProvider, nil
 }
 
-func newMeterProvider(res *resource.Resource) (*metric.MeterProvider, error) {
-	metricExporter, err := stdoutmetric.New()
-	if err != nil {
-		return nil, err
-	}
-
+func newMeterProvider(res *resource.Resource, opts *options) (*metric.MeterProvider, error) {
 	meterProvider := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExporter,
+		metric.WithReader(metric.NewPeriodicReader(opts.metricExporter,
 			// Default is 1m. Set to 3s for demonstrative purposes.
 			metric.WithInterval(3*time.Second))),
 		metric.WithResource(res),
@@ -118,14 +136,9 @@ func newMeterProvider(res *resource.Resource) (*metric.MeterProvider, error) {
 	return meterProvider, nil
 }
 
-func newLoggerProvider(res *resource.Resource) (*log.LoggerProvider, error) {
-	logExporter, err := stdoutlog.New()
-	if err != nil {
-		return nil, err
-	}
-
+func newLoggerProvider(res *resource.Resource, opts *options) (*log.LoggerProvider, error) {
 	loggerProvider := log.NewLoggerProvider(
-		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+		log.WithProcessor(log.NewBatchProcessor(opts.logExporter)),
 		log.WithResource(res),
 	)
 	return loggerProvider, nil

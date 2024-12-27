@@ -26,9 +26,12 @@ import (
 	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
+
+var tracer = otel.Tracer("pbr.dev/registry")
 
 type internalModule struct {
 	Owner  string
