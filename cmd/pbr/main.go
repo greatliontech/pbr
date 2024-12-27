@@ -8,12 +8,17 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/internal/store/mem"
+	"github.com/greatliontech/pbr/internal/telemetry"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/registry"
 )
@@ -21,6 +26,10 @@ import (
 var version = "0.0.0-dev"
 
 func main() {
+	// Create a context that is canceled when SIGTERM or SIGINT is received.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
 	configFile := ""
 
 	flag.StringVar(&configFile, "config-file", "/config/config.yaml", "path to config file")
@@ -49,6 +58,13 @@ func main() {
 	slog.SetDefault(slog.New(handler))
 
 	slog.Info("Starting PBR", "version", version)
+
+	// Set up telemetry
+	telShutdown, err := setupTelemetry(ctx)
+	if err != nil {
+		slog.Error("Failed to set up telemetry", "err", err)
+		os.Exit(1)
+	}
 
 	regOpts := []registry.Option{}
 
@@ -105,8 +121,34 @@ func main() {
 
 	slog.Info("Listening on", "addr", c.Address, "host", c.Host)
 
-	if err := reg.Serve(); err != nil {
-		slog.Error("Failed to start registry", "err", err)
+	go func() {
+		if err := reg.Serve(ctx); err != nil {
+			slog.Error("Failed to start registry", "err", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Wait for a termination signal
+	<-ctx.Done()
+	slog.Info("Shutdown signal received")
+
+	shutdownPeriod := 30
+	if sdp, ok := os.LookupEnv("TERMINATION_GRACE_PERIOD"); ok {
+		sdpi, err := strconv.Atoi(sdp)
+		if err == nil {
+			shutdownPeriod = sdpi
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownPeriod)*time.Second)
+	defer cancel()
+
+	if err := reg.Shutdown(ctx); err != nil {
+		slog.Error("Failed to shutdown registry", "err", err)
+	}
+
+	if err := telShutdown(ctx); err != nil {
+		slog.Error("Failed to shutdown telemetry", "err", err)
 	}
 }
 
@@ -142,4 +184,10 @@ func configToStore(ctx context.Context, conf *config.Config, s store.Store) erro
 		fmt.Println(m)
 	}
 	return nil
+}
+
+func setupTelemetry(ctx context.Context) (func(context.Context) error, error) {
+	instanceId := os.Getenv("SEVICE_INSTANCE_ID")
+	ns := os.Getenv("SERVICE_NAMESPACE")
+	return telemetry.Setup(ctx, version, instanceId, ns)
 }

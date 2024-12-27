@@ -19,6 +19,7 @@ type Module struct {
 	shake256Cache map[string]string
 	root          string
 	filters       []glob.Glob
+	reg           *Registry
 }
 
 type File struct {

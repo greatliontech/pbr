@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect"
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/ocifs"
@@ -107,7 +109,15 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 
 	mux := http.NewServeMux()
 
-	interceptors := connect.WithInterceptors(newAuthInterceptor(reg.tokens))
+	otelInt, err := otelconnect.NewInterceptor()
+	if err != nil {
+		return nil, err
+	}
+
+	interceptors := connect.WithInterceptors(
+		newAuthInterceptor(reg.tokens),
+		otelInt,
+	)
 
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg, interceptors))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg, interceptors))
@@ -135,7 +145,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	return reg, nil
 }
 
-func (reg *Registry) Serve() error {
+func (reg *Registry) Serve(ctx context.Context) error {
 	if reg.cert != nil {
 		reg.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*reg.cert}}
 		if err := http2.ConfigureServer(reg.server, nil); err != nil {
@@ -146,7 +156,14 @@ func (reg *Registry) Serve() error {
 	h2s := &http2.Server{}
 	handler := h2c.NewHandler(reg.server.Handler, h2s)
 	reg.server.Handler = handler
+	reg.server.BaseContext = func(listener net.Listener) context.Context {
+		return ctx
+	}
 	return reg.server.ListenAndServe()
+}
+
+func (reg *Registry) Shutdown(ctx context.Context) error {
+	return reg.server.Shutdown(ctx)
 }
 
 func (reg *Registry) getModule(owner, modl string) (*registry.Module, error) {

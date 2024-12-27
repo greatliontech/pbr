@@ -72,10 +72,11 @@ type ModuleStore interface {
 }
 
 type Plugin struct {
-	ID       string
-	OwnerID  string
-	Name     string
-	ImageURL string
+	ID         string
+	OwnerID    string
+	Name       string
+	ImageURL   string
+	DefaultTag string
 }
 
 type PluginStore interface {

@@ -1,6 +1,8 @@
 config:
   address: ":8080"
 
+terminationGracePeriodSeconds: 30
+
 secret:
   enable: false
   secretRef: pbr

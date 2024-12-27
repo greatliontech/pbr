@@ -18,12 +18,13 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-func Setup(ctx context.Context, version, instanceId string) (shutdown func(context.Context) error, err error) {
+func Setup(ctx context.Context, version, instanceId, ns string) (shutdown func(context.Context) error, err error) {
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceNameKey.String("pbr"),
-		semconv.ServiceVersionKey.String(version),
-		semconv.ServiceInstanceIDKey.String(instanceId),
+		semconv.ServiceName("pbr"),
+		semconv.ServiceVersion(version),
+		semconv.ServiceInstanceID(instanceId),
+		semconv.ServiceNamespace(ns),
 	)
 
 	var shutdownFuncs []func(context.Context) error
