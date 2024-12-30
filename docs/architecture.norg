@@ -1,0 +1,27 @@
+* architechture
+
+** store
+   - Users
+   - Tokens
+   - Owners
+   - Modules
+   - Plugins
+
+** registry
+   - GetModule(id, name, owner, owner_id)
+   - GetModuleByCommitID
+   - GetRepository(repo_url)
+
+** repository
+   - (x) Files(ref)
+   - (x) FlesCommitID()
+   - ( ) GetCommit(ref)
+   - ( ) GetCommitByID(short_sha)
+
+** module
+   - FilesAndManifest(ref)
+   - FilesAndManifestCommitID()
+   - BufLock()
+   - BufLockCommit()
+   - Manifest(ref)
+   - ManifestCommitID(short_sha)

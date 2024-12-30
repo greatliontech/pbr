@@ -13,20 +13,24 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/gobwas/glob"
+	"github.com/greatliontech/pbr/internal/store/mem"
 )
 
 type Repository struct {
 	path        string
-	auth        transport.AuthMethod
+	auth        AuthProvider
 	lastFetch   map[string]time.Time
 	fetchPeriod time.Duration
 	remote      *git.Remote
 	storer      storage.Storer
 	shallow     bool
+
+	// mem.SyncMap is a generic wrapper around sync.Map
+	commitIdCache mem.SyncMap[string, *object.Commit]
 }
 
 type File struct {
@@ -35,7 +39,7 @@ type File struct {
 	Content string
 }
 
-func NewRepository(url, path string, auth transport.AuthMethod, shallow bool) *Repository {
+func NewRepository(url, path string, auth AuthProvider, shallow bool) *Repository {
 	csh := &cache.ObjectLRU{
 		MaxSize: 50 * cache.KiByte,
 	}
@@ -65,6 +69,11 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 
 	var ref *plumbing.Reference
 
+	auth, err := r.auth.AuthMethod()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if trgtRef == "" {
 		err := r.remote.Fetch(&git.FetchOptions{
 			Depth: depth,
@@ -72,7 +81,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 				config.RefSpec("+HEAD:HEAD"),
 			},
 			Force: true,
-			Auth:  r.auth,
+			Auth:  auth,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, nil, err
@@ -89,7 +98,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 				refspec,
 			},
 			Force: true,
-			Auth:  r.auth,
+			Auth:  auth,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			// try fetch tag
@@ -101,7 +110,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 					refspec,
 				},
 				Force: true,
-				Auth:  r.auth,
+				Auth:  auth,
 			})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, nil, err
@@ -119,6 +128,11 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
 	var h plumbing.Hash
 
+	auth, err := r.auth.AuthMethod()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if !r.shallow {
 		err := r.remote.Fetch(&git.FetchOptions{
 			RefSpecs: []config.RefSpec{
@@ -126,7 +140,7 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 			},
 			Tags:  git.NoTags,
 			Force: true,
-			Auth:  r.auth,
+			Auth:  auth,
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, nil, err
@@ -144,8 +158,7 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 	} else {
 		// get all remote refs
 		refs, err := r.remote.List(&git.ListOptions{
-			Auth:          r.auth,
-			PeelingOption: git.AppendPeeled,
+			Auth: auth,
 		})
 		if err != nil {
 			return nil, nil, err
@@ -165,7 +178,7 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 					config.RefSpec(fmt.Sprintf("+%s:%s", rf.Name().String(), rf.Name().String())),
 				},
 				Force: true,
-				Auth:  r.auth,
+				Auth:  auth,
 			})
 			if err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, nil, err
@@ -177,6 +190,47 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 		return nil, nil, fmt.Errorf("commit not found: %s", cmmt)
 	}
 	return r.files(h, root, filters...)
+}
+
+func (r *Repository) CommitFromShort(cmmt string) (*object.Commit, error) {
+	// check cache
+	if cmt, ok := r.commitIdCache.Load(cmmt); ok {
+		return cmt, nil
+	}
+
+	// local objects lookup
+	cmt, err := r.localLookupShortSha(cmmt)
+	if err == nil {
+		r.commitIdCache.Store(cmmt, cmt)
+		return cmt, nil
+	}
+	if err != plumbing.ErrObjectNotFound {
+		return nil, err
+	}
+
+	// TODO: finish the code
+}
+
+func (r *Repository) localLookupShortSha(cid string) (*object.Commit, error) {
+	var h plumbing.Hash
+
+	iter, err := r.storer.IterEncodedObjects(plumbing.CommitObject)
+	if err != nil {
+		return nil, err
+	}
+
+	err = iter.ForEach(func(eo plumbing.EncodedObject) error {
+		if strings.HasPrefix(eo.Hash().String(), cid) {
+			h = eo.Hash()
+			return storer.ErrStop
+		}
+		return nil
+	})
+	if err != nil && err != storer.ErrStop {
+		return nil, err
+	}
+
+	return object.GetCommit(r.storer, h)
 }
 
 func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob) (*object.Commit, []File, error) {

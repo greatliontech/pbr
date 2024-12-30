@@ -8,22 +8,22 @@ import (
 
 func New() store.Store {
 	return &memStore{
-		users:   syncMap[string, *store.User]{},
-		token:   syncMap[string, *store.Token]{},
-		owners:  syncMap[string, *store.Owner]{},
-		modules: syncMap[string, *store.Module]{},
-		plugins: syncMap[string, *store.Plugin]{},
+		users:   SyncMap[string, *store.User]{},
+		token:   SyncMap[string, *store.Token]{},
+		owners:  SyncMap[string, *store.Owner]{},
+		modules: SyncMap[string, *store.Module]{},
+		plugins: SyncMap[string, *store.Plugin]{},
 	}
 }
 
 var _ store.Store = &memStore{}
 
 type memStore struct {
-	users   syncMap[string, *store.User]
-	token   syncMap[string, *store.Token]
-	owners  syncMap[string, *store.Owner]
-	modules syncMap[string, *store.Module]
-	plugins syncMap[string, *store.Plugin]
+	users   SyncMap[string, *store.User]
+	token   SyncMap[string, *store.Token]
+	owners  SyncMap[string, *store.Owner]
+	modules SyncMap[string, *store.Module]
+	plugins SyncMap[string, *store.Plugin]
 }
 
 func (m *memStore) CreateUser(ctx context.Context, user *store.User) (*store.User, error) {
@@ -162,7 +162,7 @@ func (m *memStore) GetModuleByName(ctx context.Context, ownerID string, name str
 func (m *memStore) ListModules(ctx context.Context, ownerID string) ([]*store.Module, error) {
 	out := []*store.Module{}
 	m.modules.Range(func(k string, v *store.Module) bool {
-		if v.OwnerID == ownerID {
+		if v.OwnerID == ownerID || ownerID == "" {
 			out = append(out, v)
 		}
 		return true

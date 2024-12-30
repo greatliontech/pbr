@@ -2,13 +2,13 @@ package mem
 
 import "sync"
 
-type syncMap[K comparable, V any] struct {
+type SyncMap[K comparable, V any] struct {
 	m sync.Map
 }
 
-func (m *syncMap[K, V]) Delete(key K) { m.m.Delete(key) }
+func (m *SyncMap[K, V]) Delete(key K) { m.m.Delete(key) }
 
-func (m *syncMap[K, V]) Load(key K) (value V, ok bool) {
+func (m *SyncMap[K, V]) Load(key K) (value V, ok bool) {
 	v, ok := m.m.Load(key)
 	if !ok {
 		return value, ok
@@ -16,7 +16,7 @@ func (m *syncMap[K, V]) Load(key K) (value V, ok bool) {
 	return v.(V), ok
 }
 
-func (m *syncMap[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
+func (m *SyncMap[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
 	v, loaded := m.m.LoadAndDelete(key)
 	if !loaded {
 		return value, loaded
@@ -24,13 +24,13 @@ func (m *syncMap[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
 	return v.(V), loaded
 }
 
-func (m *syncMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
+func (m *SyncMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	a, loaded := m.m.LoadOrStore(key, value)
 	return a.(V), loaded
 }
 
-func (m *syncMap[K, V]) Range(f func(key K, value V) bool) {
+func (m *SyncMap[K, V]) Range(f func(key K, value V) bool) {
 	m.m.Range(func(key, value any) bool { return f(key.(K), value.(V)) })
 }
 
-func (m *syncMap[K, V]) Store(key K, value V) { m.m.Store(key, value) }
+func (m *SyncMap[K, V]) Store(key K, value V) { m.m.Store(key, value) }

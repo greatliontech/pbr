@@ -8,18 +8,15 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/internal/repository"
+	"github.com/greatliontech/pbr/internal/store"
 	"golang.org/x/crypto/sha3"
 )
 
 type Module struct {
-	Owner  string
-	Module string
-	Repo   *repository.Repository
-
+	module        *store.Module
+	repo          *repository.Repository
 	shake256Cache map[string]string
-	root          string
 	filters       []glob.Glob
-	reg           *Registry
 }
 
 type File struct {
@@ -35,23 +32,23 @@ type Manifest struct {
 	SHAKE256 string
 }
 
-func NewModule(owner, module string, repo *repository.Repository, root string, filterStrings []string) (*Module, error) {
-	filters, err := compileFilters(filterStrings)
-	if err != nil {
-		return nil, err
-	}
+var filters = []glob.Glob{
+	glob.MustCompile("**.proto"),
+	glob.MustCompile("buf.yaml"),
+	glob.MustCompile("buf.lock"),
+}
+
+func NewModule(module *store.Module, repo *repository.Repository) *Module {
 	return &Module{
-		Owner:         owner,
-		Module:        module,
-		Repo:          repo,
-		root:          root,
+		module:        module,
+		repo:          repo,
 		filters:       filters,
 		shake256Cache: make(map[string]string),
-	}, nil
+	}
 }
 
 func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
-	commit, repoFiles, err := m.Repo.Files(ref, m.root, m.filters...)
+	commit, repoFiles, err := m.repo.Files(ref, m.module.Root, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -60,7 +57,7 @@ func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
 }
 
 func (m *Module) FilesAndManifestCommit(cmmt string) ([]File, *Manifest, error) {
-	commit, repoFiles, err := m.Repo.FilesCommit(cmmt, m.root, m.filters...)
+	commit, repoFiles, err := m.repo.FilesCommit(cmmt, m.module.Root, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,7 +69,7 @@ var ErrBufLockNotFound = fmt.Errorf("buf.lock not found")
 
 func (m *Module) BufLock(ref string) (*BufLock, error) {
 	slog.Debug("module buf lock", "ref", ref)
-	_, repoFiles, err := m.Repo.Files(ref, m.root, m.filters...)
+	_, repoFiles, err := m.repo.Files(ref, m.module.Root, m.filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +84,7 @@ func (m *Module) BufLock(ref string) (*BufLock, error) {
 
 func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
 	slog.Debug("module buf lock commit", "commit", cmmt)
-	_, repoFiles, err := m.Repo.FilesCommit(cmmt, m.root, m.filters...)
+	_, repoFiles, err := m.repo.FilesCommit(cmmt, m.module.Root, m.filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +95,10 @@ func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
 	}
 	slog.Debug("buf.lock not found", "commit", cmmt)
 	return nil, ErrBufLockNotFound
+}
+
+func (m *Module) HasCommitId(cid string) (bool, error) {
+	// check local commits
 }
 
 func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.File) ([]File, *Manifest, error) {
@@ -148,22 +149,4 @@ func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.
 	manifest.SHAKE256 = fmt.Sprintf("%x", shake256Sum)
 
 	return files, manifest, nil
-}
-
-func compileFilters(fltrs []string) ([]glob.Glob, error) {
-	filters := []glob.Glob{}
-	fiterStrings := []string{
-		"**.proto",
-		"buf.yaml",
-		"buf.lock",
-	}
-	fiterStrings = append(fiterStrings, fltrs...)
-	for _, f := range fiterStrings {
-		filter, err := glob.Compile(f)
-		if err != nil {
-			return nil, err
-		}
-		filters = append(filters, filter)
-	}
-	return filters, nil
 }

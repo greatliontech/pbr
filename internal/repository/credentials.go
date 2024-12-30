@@ -1,9 +1,6 @@
 package repository
 
 import (
-	"fmt"
-
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/pkg/config"
 )
@@ -42,13 +39,12 @@ func NewCredentialStore(creds map[string]config.GitAuth) (*CredentialStore, erro
 	return cs, nil
 }
 
-func (cs *CredentialStore) Auth(remote string) (transport.AuthMethod, error) {
+func (cs *CredentialStore) AuthProvider(remote string) AuthProvider {
 	for k, v := range cs.creds {
 		g := *k
 		if g.Match(remote) {
-			fmt.Println("using creds for remote:", remote)
-			return v.AuthMethod()
+			return v
 		}
 	}
-	return nil, nil
+	return nil
 }

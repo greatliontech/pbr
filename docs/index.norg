@@ -12,3 +12,21 @@
    - ( ) repo find commits
    - ( ) use store
 
+** dependency resolution
+  - GetCommits per dep:ref (commit id, SHA[:32])
+  - GetGraph list[commitIds]
+  -- resolve ref to module/repo
+
+** protoc code generation
+  protoc -I=./proto --go_out=./proto ./proto/*.proto
+  - comple:
+  -- read all proto files from src (FilesToGenerate)
+  -- find all imports outside src (ProtoFiles)
+  -- find binary named protoc-gen-(go)
+  -- marshal CodeGeneratorRequest to proto and pass to stdin
+  -- read from stdout CodeGeneratorResponse, unmarshal
+
+** module validation
+  - get files by alphabetical order -> order go-git
+  - for each file calculate shake256 hash
+  - for each file add entry to the manifest file
