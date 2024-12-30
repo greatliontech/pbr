@@ -18,7 +18,6 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/internal/registry"
@@ -176,13 +175,9 @@ func (reg *Registry) getModule(owner, modl string) (*registry.Module, error) {
 		return nil, fmt.Errorf("module not found for %s", key)
 	}
 	target := modConf.Remote
-	var err error
-	var auth transport.AuthMethod
+	var auth repository.AuthProvider
 	if reg.repoCreds != nil {
-		auth, err = reg.repoCreds.Auth(target)
-		if err != nil {
-			return nil, err
-		}
+		auth = reg.repoCreds.AuthProvider(target)
 	}
 	repoNm := repoName(target)
 	repoPath := filepath.Join(reg.cacheDir, repoNm)

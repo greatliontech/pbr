@@ -14,6 +14,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/gobwas/glob"
@@ -29,7 +30,7 @@ type Repository struct {
 	storer      storage.Storer
 	shallow     bool
 
-	// mem.SyncMap is a generic wrapper around sync.Map
+	// commitIdCache is a generic wrapper around sync.Map
 	commitIdCache mem.SyncMap[string, *object.Commit]
 }
 
@@ -39,6 +40,7 @@ type File struct {
 	Content string
 }
 
+// NewRepository initializes a new Repository instance with an in-filesystem storage.
 func NewRepository(url, path string, auth AuthProvider, shallow bool) *Repository {
 	csh := &cache.ObjectLRU{
 		MaxSize: 50 * cache.KiByte,
@@ -47,76 +49,64 @@ func NewRepository(url, path string, auth AuthProvider, shallow bool) *Repositor
 	rmt := git.NewRemote(strg, &config.RemoteConfig{
 		URLs: []string{url},
 	})
-	repo := &Repository{
+
+	return &Repository{
 		path:    path,
 		remote:  rmt,
 		storer:  strg,
 		auth:    auth,
 		shallow: shallow,
 	}
-	return repo
 }
 
+// Delete removes the repository directory from disk.
 func (r *Repository) Delete() error {
 	return os.RemoveAll(r.path)
 }
 
+// Files fetches and returns the commit and files for a given branch/tag reference.
+// If trgtRef is empty, it fetches HEAD.
 func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
 	depth := 0
 	if r.shallow {
 		depth = 1
 	}
 
-	var ref *plumbing.Reference
-
 	auth, err := r.auth.AuthMethod()
 	if err != nil {
 		return nil, nil, err
 	}
 
+	var ref *plumbing.Reference
 	if trgtRef == "" {
-		err := r.remote.Fetch(&git.FetchOptions{
-			Depth: depth,
-			RefSpecs: []config.RefSpec{
-				config.RefSpec("+HEAD:HEAD"),
-			},
-			Force: true,
-			Auth:  auth,
-		})
-		if err != nil && err != git.NoErrAlreadyUpToDate {
+		// Fetch HEAD
+		if err := r.fetchRef("+HEAD:HEAD", depth, auth); err != nil {
 			return nil, nil, err
 		}
+
 		ref, err = r.storer.Reference(plumbing.NewBranchReferenceName("HEAD"))
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
-		refspec := config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", trgtRef, trgtRef))
-		err := r.remote.Fetch(&git.FetchOptions{
-			Depth: depth,
-			RefSpecs: []config.RefSpec{
-				refspec,
-			},
-			Force: true,
-			Auth:  auth,
-		})
+		// Fetch the branch reference first
+		refSpec := config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", trgtRef, trgtRef))
+		err := r.fetchRef(refSpec.String(), depth, auth)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
-			// try fetch tag
-			fmt.Println("fetching tag")
-			refspec = config.RefSpec(fmt.Sprintf("+refs/tags/%s:refs/tags/%s", trgtRef, trgtRef))
-			err := r.remote.Fetch(&git.FetchOptions{
-				Depth: depth,
-				RefSpecs: []config.RefSpec{
-					refspec,
-				},
-				Force: true,
-				Auth:  auth,
-			})
-			if err != nil && err != git.NoErrAlreadyUpToDate {
-				return nil, nil, err
+			// If branch fetch fails, try fetching the tag
+			fmt.Println("fetching tag:", trgtRef)
+			refSpec = config.RefSpec(fmt.Sprintf("+refs/tags/%s:refs/tags/%s", trgtRef, trgtRef))
+			if tagErr := r.fetchRef(refSpec.String(), depth, auth); tagErr != nil && tagErr != git.NoErrAlreadyUpToDate {
+				return nil, nil, tagErr
 			}
 		}
-		ref, err = r.storer.Reference(plumbing.ReferenceName(refspec.Src()))
+
+		// Attempt to lookup reference by branch name first
+		ref, err = r.storer.Reference(plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", trgtRef)))
+		if err == plumbing.ErrReferenceNotFound {
+			// If branch not found, try as a tag
+			ref, err = r.storer.Reference(plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", trgtRef)))
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -125,100 +115,140 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 	return r.files(ref.Hash(), root, filters...)
 }
 
+// FilesCommit fetches and returns the commit and files for a given commit hash.
+// If repository is shallow, it tries to find a matching remote ref and fetches only depth=1.
 func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
-	var h plumbing.Hash
-
 	auth, err := r.auth.AuthMethod()
 	if err != nil {
 		return nil, nil, err
 	}
 
+	var h plumbing.Hash
 	if !r.shallow {
-		err := r.remote.Fetch(&git.FetchOptions{
-			RefSpecs: []config.RefSpec{
-				config.RefSpec("+HEAD:HEAD"),
-			},
-			Tags:  git.NoTags,
-			Force: true,
-			Auth:  auth,
-		})
+		// Fetch all commits for HEAD (no tags)
+		err := r.fetchRef("+HEAD:HEAD", 0, auth)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, nil, err
 		}
-		iter, err := r.storer.IterEncodedObjects(plumbing.CommitObject)
-		if err != nil {
+
+		// Look for local commit that matches the short hash
+		h, err = r.findLocalCommitHash(cmmt)
+		if err != nil && err != plumbing.ErrObjectNotFound {
 			return nil, nil, err
 		}
-		err = iter.ForEach(func(eo plumbing.EncodedObject) error {
-			if strings.HasPrefix(eo.Hash().String(), cmmt) {
-				h = eo.Hash()
-			}
-			return nil
-		})
 	} else {
-		// get all remote refs
-		refs, err := r.remote.List(&git.ListOptions{
-			Auth: auth,
-		})
-		if err != nil {
-			return nil, nil, err
+		// Shallow: we must list remote refs, find a matching ref, and fetch it
+		refs, listErr := r.remote.List(&git.ListOptions{Auth: auth})
+		if listErr != nil {
+			return nil, nil, listErr
 		}
 
-		var rf *plumbing.Reference
+		var matchedRef *plumbing.Reference
 		for _, ref := range refs {
 			if strings.HasPrefix(ref.Hash().String(), cmmt) {
-				rf = ref
+				matchedRef = ref
 				h = ref.Hash()
+				break
 			}
 		}
-		if rf != nil {
-			err = r.remote.Fetch(&git.FetchOptions{
-				Depth: 1,
-				RefSpecs: []config.RefSpec{
-					config.RefSpec(fmt.Sprintf("+%s:%s", rf.Name().String(), rf.Name().String())),
-				},
-				Force: true,
-				Auth:  auth,
-			})
-			if err != nil && err != git.NoErrAlreadyUpToDate {
+		if matchedRef != nil {
+			// Fetch only that ref at depth=1
+			refSpec := config.RefSpec(fmt.Sprintf("+%s:%s", matchedRef.Name().String(), matchedRef.Name().String()))
+			if err := r.fetchRef(refSpec.String(), 1, auth); err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, nil, err
 			}
 		}
 	}
 
+	// If not found yet, try once more in local objects after fetching
 	if h.IsZero() {
-		return nil, nil, fmt.Errorf("commit not found: %s", cmmt)
+		// Attempt local lookup again
+		foundHash, err := r.findLocalCommitHash(cmmt)
+		if err != nil {
+			return nil, nil, fmt.Errorf("commit not found: %s", cmmt)
+		}
+		h = foundHash
 	}
+
 	return r.files(h, root, filters...)
 }
 
+// CommitFromShort returns a full commit object from a short commit hash.
 func (r *Repository) CommitFromShort(cmmt string) (*object.Commit, error) {
-	// check cache
+	// Check the cache
 	if cmt, ok := r.commitIdCache.Load(cmmt); ok {
 		return cmt, nil
 	}
 
-	// local objects lookup
-	cmt, err := r.localLookupShortSha(cmmt)
+	// Local lookup
+	localCommit, err := r.localLookupShortSha(cmmt)
 	if err == nil {
-		r.commitIdCache.Store(cmmt, cmt)
-		return cmt, nil
+		r.commitIdCache.Store(cmmt, localCommit)
+		return localCommit, nil
 	}
 	if err != plumbing.ErrObjectNotFound {
+		// If it's a different error, return it
 		return nil, err
 	}
 
-	// TODO: finish the code
+	// Not found locally => attempt to fetch, if shallow or not
+	auth, authErr := r.auth.AuthMethod()
+	if authErr != nil {
+		return nil, authErr
+	}
+
+	if r.shallow {
+		// For shallow clone, try to find a matching remote reference
+		refs, listErr := r.remote.List(&git.ListOptions{Auth: auth})
+		if listErr != nil {
+			return nil, listErr
+		}
+		for _, ref := range refs {
+			if strings.HasPrefix(ref.Hash().String(), cmmt) {
+				refSpec := config.RefSpec(fmt.Sprintf("+%s:%s", ref.Name().String(), ref.Name().String()))
+				fetchErr := r.fetchRef(refSpec.String(), 1, auth)
+				if fetchErr != nil && fetchErr != git.NoErrAlreadyUpToDate {
+					return nil, fetchErr
+				}
+				// After fetching, try local lookup again
+				localCommit, err = r.localLookupShortSha(cmmt)
+				if err == nil {
+					r.commitIdCache.Store(cmmt, localCommit)
+					return localCommit, nil
+				}
+				if err != plumbing.ErrObjectNotFound {
+					return nil, err
+				}
+			}
+		}
+	} else {
+		// Non-shallow: fetch HEAD forcibly
+		if err := r.fetchRef("+HEAD:HEAD", 0, auth); err != nil && err != git.NoErrAlreadyUpToDate {
+			return nil, err
+		}
+		// After fetching, try local lookup again
+		localCommit, err = r.localLookupShortSha(cmmt)
+		if err == nil {
+			r.commitIdCache.Store(cmmt, localCommit)
+			return localCommit, nil
+		}
+		if err != plumbing.ErrObjectNotFound {
+			return nil, err
+		}
+	}
+
+	return nil, fmt.Errorf("commit not found after fetch: %s", cmmt)
 }
 
+// localLookupShortSha searches for a commit in the local object database by short hash.
 func (r *Repository) localLookupShortSha(cid string) (*object.Commit, error) {
-	var h plumbing.Hash
-
 	iter, err := r.storer.IterEncodedObjects(plumbing.CommitObject)
 	if err != nil {
 		return nil, err
 	}
+	defer iter.Close()
 
+	var h plumbing.Hash
 	err = iter.ForEach(func(eo plumbing.EncodedObject) error {
 		if strings.HasPrefix(eo.Hash().String(), cid) {
 			h = eo.Hash()
@@ -229,71 +259,109 @@ func (r *Repository) localLookupShortSha(cid string) (*object.Commit, error) {
 	if err != nil && err != storer.ErrStop {
 		return nil, err
 	}
+	if h.IsZero() {
+		return nil, plumbing.ErrObjectNotFound
+	}
 
 	return object.GetCommit(r.storer, h)
 }
 
+// files retrieves the commit, reads the tree (optionally chrooted by root path),
+// and filters files by the provided globs.
 func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
-	// get the commit
 	commit, err := object.GetCommit(r.storer, cmmt)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// get the tree
 	tree, err := commit.Tree()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// chroot if requested
+	// If a root path is specified, descend into that directory
 	if root != "" {
-		root, err := tree.FindEntry(root)
+		rootEntry, err := tree.FindEntry(root)
 		if err != nil {
 			return nil, nil, err
 		}
-		if root.Mode != filemode.Dir {
+		if rootEntry.Mode != filemode.Dir {
 			return nil, nil, fmt.Errorf("root path is not a directory")
 		}
-		tree, err = object.GetTree(r.storer, root.Hash)
+		tree, err = object.GetTree(r.storer, rootEntry.Hash)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	files := make([]File, 0)
-
+	var files []File
 	err = tree.Files().ForEach(func(f *object.File) error {
-		// filter file
-		matched := true
+		// Skip if file doesn’t match any of the globs
 		if len(filters) > 0 {
-			matched = false
-			for _, filter := range filters {
-				if filter.Match(f.Name) {
-					matched = true
+			match := false
+			for _, flt := range filters {
+				if flt.Match(f.Name) {
+					match = true
 					break
 				}
 			}
-		}
-		if !matched {
-			return nil
+			if !match {
+				return nil
+			}
 		}
 
-		// get file contents
 		content, err := f.Contents()
 		if err != nil {
 			return err
 		}
-		sha := f.Hash.String()
 
 		files = append(files, File{
 			Name:    f.Name,
-			SHA:     sha,
+			SHA:     f.Hash.String(),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
 
+	return commit, files, nil
+}
+
+// fetchRef is a small helper to DRY up repeated fetch logic.
+func (r *Repository) fetchRef(refSpec string, depth int, auth transport.AuthMethod) error {
+	return r.remote.Fetch(&git.FetchOptions{
+		Depth:    depth,
+		RefSpecs: []config.RefSpec{config.RefSpec(refSpec)},
+		Force:    true,
+		Auth:     auth,
+	})
+}
+
+// findLocalCommitHash iterates through local commits to find one that starts with
+// the provided short commit string. Returns ErrObjectNotFound if none matches.
+func (r *Repository) findLocalCommitHash(shortHash string) (plumbing.Hash, error) {
+	iter, err := r.storer.IterEncodedObjects(plumbing.CommitObject)
+	if err != nil {
+		return plumbing.ZeroHash, err
+	}
+	defer iter.Close()
+
+	var h plumbing.Hash
+	err = iter.ForEach(func(eo plumbing.EncodedObject) error {
+		if strings.HasPrefix(eo.Hash().String(), shortHash) {
+			h = eo.Hash()
+			return storer.ErrStop
+		}
 		return nil
 	})
 
-	return commit, files, nil
+	if err != nil && err != storer.ErrStop {
+		return plumbing.ZeroHash, err
+	}
+	if h.IsZero() {
+		return plumbing.ZeroHash, plumbing.ErrObjectNotFound
+	}
+	return h, nil
 }
