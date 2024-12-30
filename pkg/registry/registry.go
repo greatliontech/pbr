@@ -30,7 +30,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
-var tracer = otel.Tracer("pbr.dev/registry")
+var tracer = otel.Tracer("pbr.dev/pkg/registry")
 
 type internalModule struct {
 	Owner  string
@@ -60,6 +60,7 @@ type Registry struct {
 	addr           string
 	hostName       string
 	regCreds       map[string]authn.AuthConfig
+	reg            *registry.Registry
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -108,6 +109,8 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		reg.users["admin"] = reg.adminToken
 		reg.tokens[reg.adminToken] = "admin"
 	}
+
+	reg.reg = registry.New(reg.stor, reg.repoCreds, reg.cacheDir)
 
 	mux := http.NewServeMux()
 

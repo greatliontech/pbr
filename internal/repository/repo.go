@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -20,6 +21,8 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/internal/store/mem"
 )
+
+var ErrCommitNotFound = errors.New("commit not found")
 
 type Repository struct {
 	path        string
@@ -72,7 +75,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 		depth = 1
 	}
 
-	auth, err := r.auth.AuthMethod()
+	auth, err := r.getAuth()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -118,7 +121,7 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 // FilesCommit fetches and returns the commit and files for a given commit hash.
 // If repository is shallow, it tries to find a matching remote ref and fetches only depth=1.
 func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
-	auth, err := r.auth.AuthMethod()
+	auth, err := r.getAuth()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -192,7 +195,7 @@ func (r *Repository) CommitFromShort(cmmt string) (*object.Commit, error) {
 	}
 
 	// Not found locally => attempt to fetch, if shallow or not
-	auth, authErr := r.auth.AuthMethod()
+	auth, authErr := r.getAuth()
 	if authErr != nil {
 		return nil, authErr
 	}
@@ -237,7 +240,7 @@ func (r *Repository) CommitFromShort(cmmt string) (*object.Commit, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("commit not found after fetch: %s", cmmt)
+	return nil, ErrCommitNotFound
 }
 
 // localLookupShortSha searches for a commit in the local object database by short hash.
@@ -364,4 +367,11 @@ func (r *Repository) findLocalCommitHash(shortHash string) (plumbing.Hash, error
 		return plumbing.ZeroHash, plumbing.ErrObjectNotFound
 	}
 	return h, nil
+}
+
+func (r *Repository) getAuth() (transport.AuthMethod, error) {
+	if r.auth == nil {
+		return nil, nil
+	}
+	return r.auth.AuthMethod()
 }

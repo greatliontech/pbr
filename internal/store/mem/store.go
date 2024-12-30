@@ -4,7 +4,12 @@ import (
 	"context"
 
 	"github.com/greatliontech/pbr/internal/store"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer = otel.Tracer("pbr.dev/internal/store/mem")
 
 func New() store.Store {
 	return &memStore{
@@ -105,6 +110,11 @@ func (m *memStore) GetOwner(ctx context.Context, id string) (*store.Owner, error
 }
 
 func (m *memStore) GetOwnerByName(ctx context.Context, name string) (*store.Owner, error) {
+	ctx, span := tracer.Start(ctx, "GetOwnerByName", trace.WithAttributes(
+		attribute.String("name", name),
+	))
+	defer span.End()
+
 	var out *store.Owner
 	m.owners.Range(func(k string, v *store.Owner) bool {
 		if v.Name == name {
@@ -155,6 +165,12 @@ func (m *memStore) GetModule(ctx context.Context, id string) (*store.Module, err
 }
 
 func (m *memStore) GetModuleByName(ctx context.Context, ownerID string, name string) (*store.Module, error) {
+	ctx, span := tracer.Start(ctx, "GetModuleByName", trace.WithAttributes(
+		attribute.String("ownerID", ownerID),
+		attribute.String("name", name),
+	))
+	defer span.End()
+
 	moduleId := fakeUUID(ownerID + name)
 	return m.GetModule(ctx, moduleId)
 }

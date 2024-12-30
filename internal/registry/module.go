@@ -9,6 +9,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/store"
+	"github.com/greatliontech/pbr/internal/store/mem"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -17,6 +18,8 @@ type Module struct {
 	repo          *repository.Repository
 	shake256Cache map[string]string
 	filters       []glob.Glob
+
+	commitsCache mem.SyncMap[string, *Commit]
 }
 
 type File struct {
@@ -32,6 +35,13 @@ type Manifest struct {
 	SHAKE256 string
 }
 
+type Commit struct {
+	ModuleId string
+	OwnerId  string
+	CommitId string
+	Disgest  string
+}
+
 var filters = []glob.Glob{
 	glob.MustCompile("**.proto"),
 	glob.MustCompile("buf.yaml"),
@@ -45,6 +55,28 @@ func NewModule(module *store.Module, repo *repository.Repository) *Module {
 		filters:       filters,
 		shake256Cache: make(map[string]string),
 	}
+}
+
+func (m *Module) Commit(ref string) (*Commit, error) {
+	if ref == "" {
+		ref = "HEAD"
+	}
+	// find commit from cache first
+	if c, ok := m.commitsCache.Load(ref); ok {
+		return c, nil
+	}
+	_, mani, err := m.FilesAndManifest(ref)
+	if err != nil {
+		return nil, err
+	}
+	c := &Commit{
+		ModuleId: m.module.ID,
+		OwnerId:  m.module.OwnerID,
+		CommitId: mani.Commit[:32],
+		Disgest:  mani.SHAKE256,
+	}
+	m.commitsCache.Store(ref, c)
+	return c, nil
 }
 
 func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
@@ -97,9 +129,15 @@ func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
 	return nil, ErrBufLockNotFound
 }
 
-func (m *Module) HasCommitId(cid string) (bool, error) {
-	// TODO: implement
-	return false, fmt.Errorf("not implemented")
+func (m *Module) HasCommitId(cid string) (bool, string, error) {
+	c, err := m.repo.CommitFromShort(cid)
+	if err == nil {
+		return true, c.Hash.String(), nil
+	}
+	if err == repository.ErrCommitNotFound {
+		return false, "", nil
+	}
+	return false, "", err
 }
 
 func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.File) ([]File, *Manifest, error) {

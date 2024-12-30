@@ -1,0 +1,10 @@
+* GetCommits
+
+  input: \[\]{owner, name, ref}
+
+  output: \[\]{ownerId, modId, commitId, commitDigest}
+
+  commitDigest: f(commit, files)
+
+
+

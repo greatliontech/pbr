@@ -174,3 +174,21 @@ func TestShallowTag(t *testing.T) {
 		break
 	}
 }
+
+func TestCommitForShortSha(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
+	cmt, err := repo.CommitFromShort("09a5a3f")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(cmt.Hash)
+}
+
+func TestCommitForShortShaShallow(t *testing.T) {
+	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, true)
+	cmt, err := repo.CommitFromShort("2715659")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(cmt.Hash)
+}

@@ -11,7 +11,6 @@ import (
 )
 
 func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) {
-	fmt.Println("== GetGraph start", req.Msg.ResourceRefs)
 	resp := &connect.Response[v1beta1.GetGraphResponse]{}
 	resp.Msg = &v1beta1.GetGraphResponse{
 		Graph: &v1beta1.Graph{},
@@ -66,7 +65,9 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 			depCommit = dc
 		} else {
 			fmt.Printf("Dep in deps %s not in map, adding", key)
-			depCommit, err = reg.getCommitObject(dep.Owner, dep.Repository, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
+			ownerId := fakeUUID(dep.Owner)
+			modId := fakeUUID(ownerId + "/" + dep.Repository)
+			depCommit, err = getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
 			if err != nil {
 				return err
 			}

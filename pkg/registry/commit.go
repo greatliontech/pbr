@@ -62,35 +62,30 @@ func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v
 		span.SetStatus(codes.Error, "failed to get module")
 		return nil, err
 	}
-	_, mani, err := mod.FilesAndManifest(ref)
-	if err != nil {
-		return nil, err
-	}
-	comt, err := reg.getCommitObject(owner, modl, mani.Commit[:32], mani.SHAKE256)
+
+	c, err := mod.Commit(ref)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to get commit object")
+		span.SetStatus(codes.Error, "failed to get internal commit object")
 		return nil, err
 	}
-	reg.commits[comt.Id] = comt
-	reg.commitHashes[comt.Id] = mani.Commit
-	reg.moduleIds[comt.ModuleId] = &internalModule{
-		Owner:  owner,
-		Module: modl,
+
+	comt, err := getCommitObject(c.OwnerId, c.ModuleId, c.CommitId, c.Disgest)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to construct commit object")
+		return nil, err
 	}
-	reg.commitToModule[comt.Id] = reg.moduleIds[comt.ModuleId]
 
 	return comt, nil
 }
 
-func (r *Registry) getCommitObject(owner, mod, id, dgst string) (*v1beta1.Commit, error) {
+func getCommitObject(ownerId, modId, id, dgst string) (*v1beta1.Commit, error) {
 	fmt.Println("getCommit")
 	digest, err := hex.DecodeString(dgst)
 	if err != nil {
 		return nil, err
 	}
-	ownerId := fakeUUID(owner)
-	modId := fakeUUID(ownerId + "/" + mod)
 	return &v1beta1.Commit{
 		Id:       id,
 		OwnerId:  ownerId,
