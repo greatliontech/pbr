@@ -51,21 +51,20 @@ func (r *Registry) Module(ctx context.Context, org, name string) (*Module, error
 	return mod, nil
 }
 
-func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Module, error) {
-	// check the cache first
-	if mod, ok := r.commitIdModule.Load(commitId); ok {
-		return mod, nil
-	}
-
-	// get all modules
-	mods, err := r.stor.ListModules(ctx, "")
-	if err != nil {
-		return nil, err
-	}
-	for _, modDef := range mods {
-	}
-}
-
+//	func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Module, error) {
+//		// check the cache first
+//		if mod, ok := r.commitIdModule.Load(commitId); ok {
+//			return mod, nil
+//		}
+//
+//		// get all modules
+//		mods, err := r.stor.ListModules(ctx, "")
+//		if err != nil {
+//			return nil, err
+//		}
+//		for _, modDef := range mods {
+//		}
+//	}
 func (r *Registry) getRepository(mod *store.Module) *repository.Repository {
 	creds := r.creds.AuthProvider(mod.RepoURL)
 	repoId := repositoryId(mod.RepoURL)

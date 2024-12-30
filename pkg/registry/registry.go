@@ -182,7 +182,15 @@ func (reg *Registry) getModule(owner, modl string) (*registry.Module, error) {
 	repoNm := repoName(target)
 	repoPath := filepath.Join(reg.cacheDir, repoNm)
 	repo := repository.NewRepository(target, repoPath, auth, modConf.Shallow)
-	return registry.NewModule(owner, modl, repo, modConf.Path, modConf.Filters)
+	mod := &store.Module{
+		OwnerID: fakeUUID(owner),
+		Name:    modl,
+		RepoURL: modConf.Remote,
+		Root:    modConf.Path,
+		Shallow: modConf.Shallow,
+	}
+	mod.ID = fakeUUID(mod.OwnerID + "/" + mod.Name)
+	return registry.NewModule(mod, repo), nil
 }
 
 const (

@@ -98,7 +98,8 @@ func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
 }
 
 func (m *Module) HasCommitId(cid string) (bool, error) {
-	// check local commits
+	// TODO: implement
+	return false, fmt.Errorf("not implemented")
 }
 
 func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.File) ([]File, *Manifest, error) {
