@@ -8,6 +8,8 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/registry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) {
@@ -17,14 +19,25 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 	}
 
 	commitMap := map[string]*v1beta1.Commit{}
+	modules := []*registry.Module{}
 
 	for _, ref := range req.Msg.ResourceRefs {
 		switch ref := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
-			commit := reg.commits[ref.Id]
-			// if commit not cached, loop all repos and find the sha!!!
-			mod := reg.commitToModule[ref.Id]
-			key := mod.Owner + "/" + mod.Module
+			mod, err := reg.reg.ModuleByCommitID(ctx, ref.Id)
+			if err != nil {
+				return nil, err
+			}
+			modules = append(modules, mod)
+			cmt, err := mod.CommitById(ref.Id)
+			if err != nil {
+				return nil, err
+			}
+			commit, err := getCommitObject(cmt.OwnerId, cmt.ModuleId, cmt.CommitId, cmt.Disgest)
+			if err != nil {
+				return nil, err
+			}
+			key := mod.Name + "/" + mod.Owner
 			commitMap[key] = commit
 			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
 				Commit:   commit,
@@ -35,9 +48,8 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 		}
 	}
 
-	for _, commit := range resp.Msg.Graph.Commits {
-		mod := reg.commitToModule[commit.Commit.Id]
-		if err := reg.getGraph(mod, commit.Commit, commitMap, resp.Msg.Graph); err != nil {
+	for i, mod := range modules {
+		if err := reg.getGraph(ctx, mod, resp.Msg.Graph.Commits[i].Commit, commitMap, resp.Msg.Graph); err != nil {
 			return nil, err
 		}
 	}
@@ -45,12 +57,15 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 	return resp, nil
 }
 
-func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error {
-	modl, err := reg.getModule(mod.Owner, mod.Module)
-	if err != nil {
-		return err
-	}
-	bl, err := modl.BufLockCommit(commit.Id)
+func (reg *Registry) getGraph(ctx context.Context, mod *registry.Module, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error {
+	ctx, span := tracer.Start(ctx, "getGraph", trace.WithAttributes(
+		attribute.String("owner", mod.Owner),
+		attribute.String("module", mod.Name),
+		attribute.String("commit", commit.Id),
+	))
+	defer span.End()
+
+	bl, err := mod.BufLockCommitId(ctx, commit.Id)
 	if err != nil {
 		if err == registry.ErrBufLockNotFound {
 			// no dependencies
@@ -64,7 +79,6 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 		if dc, ok := commits[key]; ok {
 			depCommit = dc
 		} else {
-			fmt.Printf("Dep in deps %s not in map, adding", key)
 			ownerId := fakeUUID(dep.Owner)
 			modId := fakeUUID(ownerId + "/" + dep.Repository)
 			depCommit, err = getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
@@ -87,10 +101,12 @@ func (reg *Registry) getGraph(mod *internalModule, commit *v1beta1.Commit, commi
 				Registry: dep.Remote,
 			},
 		})
-		reg.commitToModule[depCommit.Id] = &internalModule{Module: dep.Repository, Owner: dep.Owner}
-		reg.commits[depCommit.Id] = depCommit
 		if dep.Remote == reg.hostName {
-			err := reg.getGraph(&internalModule{Module: dep.Repository, Owner: dep.Owner}, depCommit, commits, graph)
+			mod, err := reg.reg.Module(ctx, dep.Owner, dep.Repository)
+			if err != nil {
+				return err
+			}
+			err = reg.getGraph(ctx, mod, depCommit, commits, graph)
 			if err != nil {
 				return err
 			}

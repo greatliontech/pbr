@@ -9,7 +9,7 @@ import (
 
 func TestModule(t *testing.T) {
 	repo := repository.NewRepository("https://github.com/greatliontech/protoc-gen-rtk-query", "./repo", nil, true)
-	module, err := NewModule("greatliontech", "protoc-gen-rtk-query", repo, "proto", nil)
+	module, err := newModule("greatliontech", "protoc-gen-rtk-query", repo, "proto", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestModule(t *testing.T) {
 
 func TestModuleGoogleapis(t *testing.T) {
 	repo := repository.NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
-	module, err := NewModule("googleapis", "googleapis", repo, "", nil)
+	module, err := newModule("googleapis", "googleapis", repo, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -56,6 +56,7 @@ type OwnerStore interface {
 type Module struct {
 	ID      string
 	OwnerID string
+	Owner   string
 	Name    string
 	RepoURL string
 	Root    string

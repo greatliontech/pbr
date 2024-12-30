@@ -173,6 +173,7 @@ func configToStore(ctx context.Context, conf *config.Config, s store.Store) erro
 		}
 		m, err := s.CreateModule(ctx, &store.Module{
 			OwnerID: o.ID,
+			Owner:   owner,
 			Name:    module,
 			RepoURL: v.Remote,
 			Root:    v.Path,

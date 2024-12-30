@@ -8,7 +8,6 @@ import (
 	"hash/fnv"
 	"net"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
@@ -110,7 +109,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		reg.tokens[reg.adminToken] = "admin"
 	}
 
-	reg.reg = registry.New(reg.stor, reg.repoCreds, reg.cacheDir)
+	reg.reg = registry.New(reg.stor, reg.repoCreds, reg.hostName, reg.cacheDir)
 
 	mux := http.NewServeMux()
 
@@ -169,31 +168,6 @@ func (reg *Registry) Serve(ctx context.Context) error {
 
 func (reg *Registry) Shutdown(ctx context.Context) error {
 	return reg.server.Shutdown(ctx)
-}
-
-func (reg *Registry) getModule(owner, modl string) (*registry.Module, error) {
-	key := owner + "/" + modl
-	modConf, ok := reg.modules[key]
-	if !ok {
-		return nil, fmt.Errorf("module not found for %s", key)
-	}
-	target := modConf.Remote
-	var auth repository.AuthProvider
-	if reg.repoCreds != nil {
-		auth = reg.repoCreds.AuthProvider(target)
-	}
-	repoNm := repoName(target)
-	repoPath := filepath.Join(reg.cacheDir, repoNm)
-	repo := repository.NewRepository(target, repoPath, auth, modConf.Shallow)
-	mod := &store.Module{
-		OwnerID: fakeUUID(owner),
-		Name:    modl,
-		RepoURL: modConf.Remote,
-		Root:    modConf.Path,
-		Shallow: modConf.Shallow,
-	}
-	mod.ID = fakeUUID(mod.OwnerID + "/" + mod.Name)
-	return registry.NewModule(mod, repo), nil
 }
 
 const (

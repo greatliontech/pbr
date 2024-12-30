@@ -1,8 +1,8 @@
 package registry
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -10,16 +10,21 @@ import (
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/internal/store/mem"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/sha3"
 )
 
 type Module struct {
-	module        *store.Module
+	*store.Module
 	repo          *repository.Repository
 	shake256Cache map[string]string
 	filters       []glob.Glob
 
-	commitsCache mem.SyncMap[string, *Commit]
+	commitsByRefCache mem.SyncMap[string, *Commit]
+	commitsByCidCache mem.SyncMap[string, *Commit]
+
+	reg *Registry
 }
 
 type File struct {
@@ -48,12 +53,13 @@ var filters = []glob.Glob{
 	glob.MustCompile("buf.lock"),
 }
 
-func NewModule(module *store.Module, repo *repository.Repository) *Module {
+func newModule(reg *Registry, module *store.Module, repo *repository.Repository) *Module {
 	return &Module{
-		module:        module,
+		Module:        module,
 		repo:          repo,
 		filters:       filters,
 		shake256Cache: make(map[string]string),
+		reg:           reg,
 	}
 }
 
@@ -62,7 +68,7 @@ func (m *Module) Commit(ref string) (*Commit, error) {
 		ref = "HEAD"
 	}
 	// find commit from cache first
-	if c, ok := m.commitsCache.Load(ref); ok {
+	if c, ok := m.commitsByRefCache.Load(ref); ok {
 		return c, nil
 	}
 	_, mani, err := m.FilesAndManifest(ref)
@@ -70,17 +76,38 @@ func (m *Module) Commit(ref string) (*Commit, error) {
 		return nil, err
 	}
 	c := &Commit{
-		ModuleId: m.module.ID,
-		OwnerId:  m.module.OwnerID,
+		ModuleId: m.ID,
+		OwnerId:  m.OwnerID,
 		CommitId: mani.Commit[:32],
 		Disgest:  mani.SHAKE256,
 	}
-	m.commitsCache.Store(ref, c)
+	m.commitsByRefCache.Store(ref, c)
+	m.commitsByCidCache.Store(c.CommitId, c)
+	return c, nil
+}
+
+func (m *Module) CommitById(cid string) (*Commit, error) {
+	// find commit from cache first
+	if c, ok := m.commitsByCidCache.Load(cid); ok {
+		return c, nil
+	}
+	_, mani, err := m.FilesAndManifestCommit(cid)
+	if err != nil {
+		return nil, err
+	}
+	c := &Commit{
+		ModuleId: m.ID,
+		OwnerId:  m.OwnerID,
+		CommitId: mani.Commit[:32],
+		Disgest:  mani.SHAKE256,
+	}
+	m.commitsByRefCache.Store(mani.Commit, c)
+	m.commitsByCidCache.Store(c.CommitId, c)
 	return c, nil
 }
 
 func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
-	commit, repoFiles, err := m.repo.Files(ref, m.module.Root, m.filters...)
+	commit, repoFiles, err := m.repo.Files(ref, m.Root, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,7 +116,7 @@ func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
 }
 
 func (m *Module) FilesAndManifestCommit(cmmt string) ([]File, *Manifest, error) {
-	commit, repoFiles, err := m.repo.FilesCommit(cmmt, m.module.Root, m.filters...)
+	commit, repoFiles, err := m.repo.FilesCommit(cmmt, m.Root, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,33 +126,48 @@ func (m *Module) FilesAndManifestCommit(cmmt string) ([]File, *Manifest, error) 
 
 var ErrBufLockNotFound = fmt.Errorf("buf.lock not found")
 
-func (m *Module) BufLock(ref string) (*BufLock, error) {
-	slog.Debug("module buf lock", "ref", ref)
-	_, repoFiles, err := m.repo.Files(ref, m.module.Root, m.filters...)
+func (m *Module) BufLock(ctx context.Context, ref string) (*BufLock, error) {
+	ctx, span := tracer.Start(ctx, "BufLock", trace.WithAttributes(
+		attribute.String("ref", ref),
+	))
+	defer span.End()
+
+	cmt, repoFiles, err := m.repo.Files(ref, m.Root, m.filters...)
 	if err != nil {
 		return nil, err
 	}
-	for _, f := range repoFiles {
-		if f.Name == "buf.lock" {
-			return BufLockFromBytes([]byte(f.Content))
-		}
-	}
-	slog.Debug("buf.lock not found", "ref", ref)
-	return nil, ErrBufLockNotFound
+	return m.bufLock(ctx, cmt.Hash.String()[:32], repoFiles)
 }
 
-func (m *Module) BufLockCommit(cmmt string) (*BufLock, error) {
-	slog.Debug("module buf lock commit", "commit", cmmt)
-	_, repoFiles, err := m.repo.FilesCommit(cmmt, m.module.Root, m.filters...)
+func (m *Module) BufLockCommitId(ctx context.Context, cmmt string) (*BufLock, error) {
+	ctx, span := tracer.Start(ctx, "BufLockCommitId", trace.WithAttributes(
+		attribute.String("commitId", cmmt),
+	))
+	defer span.End()
+
+	_, repoFiles, err := m.repo.FilesCommit(cmmt, m.Root, m.filters...)
 	if err != nil {
 		return nil, err
 	}
+	return m.bufLock(ctx, cmmt, repoFiles)
+}
+
+func (m *Module) bufLock(ctx context.Context, commitId string, repoFiles []repository.File) (*BufLock, error) {
 	for _, f := range repoFiles {
 		if f.Name == "buf.lock" {
-			return BufLockFromBytes([]byte(f.Content))
+			bl, err := BufLockFromBytes([]byte(f.Content))
+			if err != nil {
+				return nil, err
+			}
+			for _, d := range bl.Deps {
+				if d.Remote == m.reg.hostName {
+					if err := m.reg.addToCache(ctx, commitId, m.Owner, d.Repository); err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 	}
-	slog.Debug("buf.lock not found", "commit", cmmt)
 	return nil, ErrBufLockNotFound
 }
 

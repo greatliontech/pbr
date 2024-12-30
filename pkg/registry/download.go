@@ -27,7 +27,7 @@ func (reg *Registry) Download(ctx context.Context, req *connect.Request[v1beta1.
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
 
-		modl, err := reg.getModule(mod.Owner, mod.Module)
+		modl, err := reg.reg.Module(ctx, mod.Owner, mod.Module)
 		if err != nil {
 			return nil, err
 		}

@@ -56,7 +56,7 @@ func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v
 	))
 	defer span.End()
 
-	mod, err := reg.getModule(owner, modl)
+	mod, err := reg.reg.Module(ctx, owner, modl)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to get module")
