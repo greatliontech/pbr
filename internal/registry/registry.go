@@ -8,6 +8,7 @@ import (
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/internal/store/mem"
+	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -16,9 +17,7 @@ import (
 var tracer = otel.Tracer("pbr.dev/internal/registry")
 
 type Registry struct {
-	stor           store.Store
 	creds          *repository.CredentialStore
-	owners         mem.SyncMap[string, string]
 	modules        mem.SyncMap[string, *Module]
 	repos          mem.SyncMap[string, *repository.Repository]
 	repoCachePath  string
@@ -26,9 +25,8 @@ type Registry struct {
 	hostName       string
 }
 
-func New(stor store.Store, creds *repository.CredentialStore, remote, repoCachePath string) *Registry {
+func New(mods map[string]*config.Module, creds *repository.CredentialStore, remote, repoCachePath string) *Registry {
 	r := &Registry{
-		stor:          stor,
 		creds:         creds,
 		hostName:      remote,
 		repoCachePath: repoCachePath,
