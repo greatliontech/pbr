@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	"crypto/subtle"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -36,22 +35,24 @@ type internalModule struct {
 
 type Registry struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
-	ofs            *ocifs.OCIFS
-	modules        map[string]config.Module
-	plugins        map[string]*codegen.Plugin
+	stor           store.Store
+	moduleIds      map[string]*internalModule
+	commitHashes   map[string]string
 	repos          map[string]*repository.Repository
 	server         *http.Server
 	cert           *tls.Certificate
 	repoCreds      *repository.CredentialStore
-	hostName       string
-	addr           string
+	tokens         map[string]string
+	users          map[string]string
 	commits        map[string]*v1beta1.Commit
-	commitHashes   map[string]string
-	moduleIds      map[string]*internalModule
+	plugins        map[string]*codegen.Plugin
+	modules        map[string]config.Module
 	commitToModule map[string]*internalModule
+	ofs            *ocifs.OCIFS
 	cacheDir       string
-	stor           store.Store
 	adminToken     string
+	addr           string
+	hostName       string
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -64,6 +65,8 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		moduleIds:      map[string]*internalModule{},
 		commitToModule: map[string]*internalModule{},
 		modules:        map[string]config.Module{},
+		users:          map[string]string{},
+		tokens:         map[string]string{},
 	}
 
 	// init ocifs
@@ -78,9 +81,14 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		o(reg)
 	}
 
+	if reg.adminToken != "" {
+		reg.users["admin"] = reg.adminToken
+		reg.tokens[reg.adminToken] = "admin"
+	}
+
 	mux := http.NewServeMux()
 
-	interceptors := connect.WithInterceptors(newAuthInterceptor(reg.adminToken))
+	interceptors := connect.WithInterceptors(newAuthInterceptor(reg.tokens))
 
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg, interceptors))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg, interceptors))
@@ -148,7 +156,7 @@ const (
 	authenticationTokenPrefix = "Bearer "
 )
 
-func newAuthInterceptor(token string) connect.UnaryInterceptorFunc {
+func newAuthInterceptor(tokens map[string]string) connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			hdr := req.Header().Get(authenticationHeader)
@@ -165,9 +173,12 @@ func newAuthInterceptor(token string) connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token missing"))
 			}
 
-			if subtle.ConstantTimeCompare([]byte(tokenString), []byte(token)) != 1 {
+			user, ok := tokens[tokenString]
+			if !ok {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))
 			}
+
+			ctx = context.WithValue(ctx, "user", user)
 
 			return next(ctx, req)
 		}

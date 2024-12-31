@@ -61,3 +61,12 @@ func WithAdminToken(token string) Option {
 		r.adminToken = token
 	}
 }
+
+func WithUsers(users map[string]string) Option {
+	return func(r *Registry) {
+		r.users = users
+		for k, v := range users {
+			r.tokens[v] = k
+		}
+	}
+}

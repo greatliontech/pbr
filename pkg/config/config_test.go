@@ -11,6 +11,8 @@ host: "localhost"
 address: ":8080"
 loglevel: "debug"
 admintoken: testTest
+users:
+  testUser: testPassword
 credentials:
   git:
     somehost/*:
@@ -65,14 +67,22 @@ plugins:
 	if config.AdminToken != "testTest" {
 		t.Errorf("Expected admin token 'testTest', got '%s'", config.AdminToken)
 	}
+
+	if config.Users["testUser"] != "testPassword" {
+		t.Errorf("Expected user 'testUser' password 'testPassword', got '%s'", config.Users["testUser"])
+	}
 }
 
 func TestEnvVarSubstitution(t *testing.T) {
 	// Set an environment variable for testing
 	os.Setenv("TEST_TOKEN", "exampleToken")
 	defer os.Unsetenv("TEST_TOKEN")
+	os.Setenv("TEST_USER_PASSWORD", "examplePassword")
+	defer os.Unsetenv("TEST_USER_PASSWORD")
 
 	yamlData := []byte(`
+users:
+  testUser: "${TEST_USER_PASSWORD}"
 credentials:
   git:
     gitKey:
@@ -86,6 +96,10 @@ credentials:
 
 	if config.Credentials.Git["gitKey"].Token != "exampleToken" {
 		t.Errorf("Expected token 'exampleToken', got '%s'", config.Credentials.Git["gitKey"].Token)
+	}
+
+	if config.Users["testUser"] != "examplePassword" {
+		t.Errorf("Expected user 'testUser' password 'examplePassword', got '%s'", config.Users["testUser"])
 	}
 }
 

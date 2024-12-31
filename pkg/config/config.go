@@ -11,6 +11,7 @@ type Config struct {
 	Credentials Credentials
 	Modules     map[string]Module
 	Plugins     map[string]Plugin
+	Users       map[string]string
 	TLS         *TLS
 	Host        string
 	Address     string
@@ -95,6 +96,13 @@ func ParseConfig(b []byte) (*Config, error) {
 		return nil, err
 	}
 	c.AdminToken = tkn
+	for k, v := range c.Users {
+		v, err := envsubst.EvalEnv(v)
+		if err != nil {
+			return nil, err
+		}
+		c.Users[k] = v
+	}
 	return c, nil
 }
 

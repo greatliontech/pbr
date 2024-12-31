@@ -3,6 +3,8 @@ address: ":8080"
 loglevel: debug
 cachedir: /home/nikolas/.cache/pbr
 admintoken: verySecure42
+users:
+  testUser: testToken
 credentials:
   git:
     https://github.com/greatliontech/private-test-*:

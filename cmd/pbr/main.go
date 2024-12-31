@@ -86,6 +86,7 @@ func main() {
 		os.Exit(1)
 	}
 	regOpts = append(regOpts, registry.WithStore(s))
+	regOpts = append(regOpts, registry.WithUsers(c.Users))
 
 	reg, err := registry.New(c.Host, regOpts...)
 	if err != nil {
