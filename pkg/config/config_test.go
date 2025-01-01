@@ -25,6 +25,7 @@ modules:
 plugins:
   plugin1:
     image: "imageName"
+    default: v1.2.3
 `)
 
 	config, err := ParseConfig(yamlData)
@@ -56,6 +57,10 @@ plugins:
 		t.Errorf("Expected plugin1 image 'imageName', got '%s'", config.Plugins["plugin1"].Image)
 	}
 
+	if config.Plugins["plugin1"].Default != "v1.2.3" {
+		t.Errorf("Expected plugin1 default 'v1.2.3', got '%s'", config.Plugins["plugin1"].Default)
+	}
+
 	if config.Credentials.Git["somehost/*"].Token != "tokenValue" {
 		t.Errorf("Expected git gitKey token 'tokenValue', got '%s'", config.Credentials.Git["somehost/*"].Token)
 	}
@@ -79,6 +84,8 @@ func TestEnvVarSubstitution(t *testing.T) {
 	defer os.Unsetenv("TEST_TOKEN")
 	os.Setenv("TEST_USER_PASSWORD", "examplePassword")
 	defer os.Unsetenv("TEST_USER_PASSWORD")
+	os.Setenv("PBR_PASSWORD", "pbrPassword")
+	defer os.Unsetenv("PBR_PASSWORD")
 
 	yamlData := []byte(`
 users:
@@ -87,6 +94,10 @@ credentials:
   git:
     gitKey:
       token: "${TEST_TOKEN}"
+  containerregistry:
+    cr.platform:
+      username: pbr
+      password: "${PBR_PASSWORD}"
 `)
 
 	config, err := ParseConfig(yamlData)
@@ -100,6 +111,14 @@ credentials:
 
 	if config.Users["testUser"] != "examplePassword" {
 		t.Errorf("Expected user 'testUser' password 'examplePassword', got '%s'", config.Users["testUser"])
+	}
+
+	if config.Credentials.ContainerRegistry["cr.platform"].Username != "pbr" {
+		t.Errorf("Expected container registry username 'pbr', got '%s'", config.Credentials.ContainerRegistry["cr.platform"].Username)
+	}
+
+	if config.Credentials.ContainerRegistry["cr.platform"].Password != "pbrPassword" {
+		t.Errorf("Expected container registry password 'pbrPassword', got '%s'", config.Credentials.ContainerRegistry["cr.platform"].Password)
 	}
 }
 

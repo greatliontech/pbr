@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package com.example;
 
-import "com/example/private/test.proto";
+//import "com/example/private/test.proto";
 import "rtkquery/rtkquery.proto";
 
 option go_package = "com/example/test";
@@ -15,7 +15,7 @@ service HelloService {
 
 message HelloRequest {
   string name = 1;
-  com.example.private.PrivateEnum enm = 2;
+  //  com.example.private.PrivateEnum enm = 2;
 }
 
 message HelloResponse {

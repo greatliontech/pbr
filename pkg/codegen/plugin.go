@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"os"
 	"syscall"
 
@@ -14,14 +15,16 @@ import (
 )
 
 type Plugin struct {
-	ofs   *ocifs.OCIFS
-	image string
+	ofs    *ocifs.OCIFS
+	image  string
+	defVer string
 }
 
-func NewPlugin(ofs *ocifs.OCIFS, image string) *Plugin {
+func NewPlugin(ofs *ocifs.OCIFS, image, defaultVersion string) *Plugin {
 	return &Plugin{
-		ofs:   ofs,
-		image: image,
+		ofs:    ofs,
+		image:  image,
+		defVer: defaultVersion,
 	}
 }
 
@@ -31,9 +34,14 @@ func (p *Plugin) Image() string {
 
 func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse, error) {
 	img := p.Image()
+	if ver == "" && p.defVer != "" {
+		ver = p.defVer
+	}
 	if ver != "" {
 		img = fmt.Sprintf("%s:%s", img, ver)
 	}
+
+	fmt.Println("ofs nil", p.ofs == nil)
 
 	// mount the image
 	im, err := p.ofs.Mount(img)
@@ -98,7 +106,8 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 		},
 	}
 
-	cont, err := container.New("/tmp/contstate", "test", cfg)
+	contId := randStringBytes(16)
+	cont, err := container.New("/tmp/contstate", contId, cfg)
 	if err != nil {
 		slog.Error("failed to create container", "msg", err)
 		return nil, err
@@ -193,4 +202,14 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 	}
 
 	return out, nil
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func randStringBytes(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }

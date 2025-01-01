@@ -3,9 +3,9 @@ package registry
 import (
 	"crypto/tls"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/store"
-	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 )
 
@@ -37,10 +37,7 @@ func WithModules(mods map[string]config.Module) Option {
 
 func WithPlugins(plugins map[string]config.Plugin) Option {
 	return func(r *Registry) {
-		r.plugins = make(map[string]*codegen.Plugin)
-		for k, v := range plugins {
-			r.plugins[k] = codegen.NewPlugin(r.ofs, v.Image)
-		}
+		r.pluginsConf = plugins
 	}
 }
 
@@ -68,5 +65,11 @@ func WithUsers(users map[string]string) Option {
 		for k, v := range users {
 			r.tokens[v] = k
 		}
+	}
+}
+
+func WithRegistryCreds(creds map[string]authn.AuthConfig) Option {
+	return func(r *Registry) {
+		r.regCreds = creds
 	}
 }

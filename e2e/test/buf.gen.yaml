@@ -5,8 +5,10 @@ plugins:
   #   opt:
   #     - add_pb_suffix
   #     - with_metadata
-  - remote: pbr-example.greatlion.tech/greatliontech/rtk-query:v0.4.7
-    out: app/src/gen
-    opt:
-      - add_pb_suffix
-      - with_metadata
+  # - remote: pbr-example.greatlion.tech/greatliontech/rtk-query:v0.4.7
+  #   out: app/src/gen
+  #   opt:
+  #     - add_pb_suffix
+  #     - with_metadata
+  - remote: pbr-example.greatlion.tech/protocolbuffers/go
+    out: go

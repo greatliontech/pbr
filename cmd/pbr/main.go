@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/store"
 	"github.com/greatliontech/pbr/internal/store/mem"
@@ -87,6 +88,14 @@ func main() {
 	}
 	regOpts = append(regOpts, registry.WithStore(s))
 	regOpts = append(regOpts, registry.WithUsers(c.Users))
+
+	if c.Credentials.ContainerRegistry != nil {
+		regCreds := map[string]authn.AuthConfig{}
+		for k, v := range c.Credentials.ContainerRegistry {
+			regCreds[k] = authn.AuthConfig(v)
+		}
+		regOpts = append(regOpts, registry.WithRegistryCreds(regCreds))
+	}
 
 	reg, err := registry.New(c.Host, regOpts...)
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/repository"
@@ -45,6 +46,7 @@ type Registry struct {
 	tokens         map[string]string
 	users          map[string]string
 	commits        map[string]*v1beta1.Commit
+	pluginsConf    map[string]config.Plugin
 	plugins        map[string]*codegen.Plugin
 	modules        map[string]config.Module
 	commitToModule map[string]*internalModule
@@ -53,6 +55,7 @@ type Registry struct {
 	adminToken     string
 	addr           string
 	hostName       string
+	regCreds       map[string]authn.AuthConfig
 }
 
 func New(hostName string, opts ...Option) (*Registry, error) {
@@ -67,18 +70,34 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 		modules:        map[string]config.Module{},
 		users:          map[string]string{},
 		tokens:         map[string]string{},
+		regCreds:       map[string]authn.AuthConfig{},
+		pluginsConf:    map[string]config.Plugin{},
+		plugins:        map[string]*codegen.Plugin{},
+	}
+
+	// apply options
+	for _, o := range opts {
+		o(reg)
+	}
+
+	// ocifs options
+	ofsOpts := []ocifs.Option{}
+	if len(reg.regCreds) > 0 {
+		for k, v := range reg.regCreds {
+			ofsOpts = append(ofsOpts, ocifs.WithAuthSource(k, v))
+			fmt.Printf("auth source: %s\n", k)
+		}
 	}
 
 	// init ocifs
-	ofs, err := ocifs.New()
+	ofs, err := ocifs.New(ofsOpts...)
 	if err != nil {
 		return nil, err
 	}
 	reg.ofs = ofs
 
-	// apply options
-	for _, o := range opts {
-		o(reg)
+	for k, v := range reg.pluginsConf {
+		reg.plugins[k] = codegen.NewPlugin(ofs, v.Image, v.Default)
 	}
 
 	if reg.adminToken != "" {

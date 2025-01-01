@@ -33,11 +33,8 @@ type TLS struct {
 }
 
 type Plugin struct {
-	Image    string
-	Registry string
-	// Format is a go template string that will be used to format the target image.
-	// If empty, the result will be <registry>/{{.Owner}}/{{.Repository}}.
-	Format string
+	Image   string
+	Default string
 }
 
 type BasicGitAuth struct {
@@ -58,9 +55,19 @@ type GitAuth struct {
 	GithubApp *GithubAppGitAuth
 }
 
+type ContainerRegistryAuth struct {
+	Username      string
+	Password      string
+	Auth          string
+	IdentityToken string
+	RegistryToken string
+}
+
 type Credentials struct {
-	Git               map[string]GitAuth
-	ContainerRegistry map[string]string
+	// Key is glob
+	Git map[string]GitAuth
+	// Key is prefix
+	ContainerRegistry map[string]ContainerRegistryAuth
 }
 
 func ParseConfig(b []byte) (*Config, error) {
@@ -102,6 +109,25 @@ func ParseConfig(b []byte) (*Config, error) {
 			return nil, err
 		}
 		c.Users[k] = v
+	}
+	for k, v := range c.Credentials.ContainerRegistry {
+		v.Password, err = envsubst.EvalEnv(v.Password)
+		if err != nil {
+			return nil, err
+		}
+		v.Auth, err = envsubst.EvalEnv(v.Auth)
+		if err != nil {
+			return nil, err
+		}
+		v.IdentityToken, err = envsubst.EvalEnv(v.IdentityToken)
+		if err != nil {
+			return nil, err
+		}
+		v.RegistryToken, err = envsubst.EvalEnv(v.RegistryToken)
+		if err != nil {
+			return nil, err
+		}
+		c.Credentials.ContainerRegistry[k] = v
 	}
 	return c, nil
 }

@@ -12,6 +12,10 @@ credentials:
         appid: 1072076
         installationid: 57714146
         privatekey: ${PBR_TEST_GH_KEY}
+  containerregistry:
+    cr.platform.cy:
+      username: pbr
+      password: ${HARBOR_PBR_TOKEN}
 modules:
   greatliontech/protoc-gen-rtk-query:
     remote: https://github.com/greatliontech/protoc-gen-rtk-query
@@ -26,3 +30,6 @@ modules:
 plugins:
   greatliontech/rtk-query:
     image: ghcr.io/greatliontech/protoc-gen-rtk-query
+  protocolbuffers/go:
+    image: cr.platform.cy/pbr-plugins/protocolbuffers/go
+    default: v1.36.0
