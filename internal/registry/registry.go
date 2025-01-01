@@ -4,32 +4,40 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"strings"
 
 	"github.com/greatliontech/pbr/internal/repository"
-	"github.com/greatliontech/pbr/internal/store"
-	"github.com/greatliontech/pbr/internal/store/mem"
+	"github.com/greatliontech/pbr/internal/util"
 	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("pbr.dev/internal/registry")
 
+var ErrModuleNotFound = fmt.Errorf("module not found")
+
 type Registry struct {
 	creds          *repository.CredentialStore
-	modules        mem.SyncMap[string, *Module]
-	repos          mem.SyncMap[string, *repository.Repository]
+	modules        map[string]*Module
 	repoCachePath  string
-	commitIdModule mem.SyncMap[string, *Module]
+	commitIdModule util.SyncMap[string, *Module]
 	hostName       string
 }
 
-func New(mods map[string]*config.Module, creds *repository.CredentialStore, remote, repoCachePath string) *Registry {
+func New(mods map[string]config.Module, creds *repository.CredentialStore, remote, repoCachePath string) *Registry {
 	r := &Registry{
 		creds:         creds,
 		hostName:      remote,
 		repoCachePath: repoCachePath,
+	}
+	for k, mod := range mods {
+		owner := strings.Split(k, "/")[0]
+		name := strings.Split(k, "/")[1]
+		m := newModule(r, owner, name, mod, r.getRepository(mod))
+		r.modules[k] = m
 	}
 	return r
 }
@@ -41,30 +49,13 @@ func (r *Registry) Module(ctx context.Context, org, name string) (*Module, error
 	))
 	defer span.End()
 
-	ownerId, ok := r.owners.Load(org)
+	mod, ok := r.modules[org+"/"+name]
 	if !ok {
-		owner, err := r.stor.GetOwnerByName(ctx, org)
-		if err != nil {
-			return nil, err
-		}
-		r.owners.Store(org, owner.ID)
-		ownerId = owner.ID
-	}
-
-	mod, ok := r.modules.Load(ownerId + "/" + name)
-	if !ok {
-		modDef, err := r.stor.GetModuleByName(ctx, ownerId, name)
-		if err != nil {
-			return nil, err
-		}
-		mod = newModule(r, modDef, r.getRepository(modDef))
-		r.modules.Store(ownerId+"/"+name, mod)
+		return nil, fmt.Errorf("module %s/%s not found", org, name)
 	}
 
 	return mod, nil
 }
-
-var ErrModuleNotFound = fmt.Errorf("module not found")
 
 func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Module, error) {
 	ctx, span := tracer.Start(ctx, "ModuleByCommitID", trace.WithAttributes(
@@ -78,12 +69,7 @@ func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Modu
 	}
 
 	// get all modules
-	mods, err := r.stor.ListModules(ctx, "")
-	if err != nil {
-		return nil, err
-	}
-	for _, modDef := range mods {
-		mod := newModule(r, modDef, r.getRepository(modDef))
+	for _, mod := range r.modules {
 		ok, _, err := mod.HasCommitId(commitId)
 		if err != nil {
 			return nil, err
@@ -96,18 +82,14 @@ func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Modu
 	return nil, ErrModuleNotFound
 }
 
-func (r *Registry) getRepository(mod *store.Module) *repository.Repository {
+func (r *Registry) getRepository(mod config.Module) *repository.Repository {
 	var creds repository.AuthProvider
 	if r.creds != nil {
-		creds = r.creds.AuthProvider(mod.RepoURL)
+		creds = r.creds.AuthProvider(mod.Remote)
 	}
-	repoId := repositoryId(mod.RepoURL)
-	if repo, ok := r.repos.Load(repoId); ok {
-		return repo
-	}
+	repoId := repositoryId(mod.Remote)
 	repoPath := r.repoCachePath + "/" + repoId
-	repo := repository.NewRepository(mod.RepoURL, repoPath, creds, mod.Shallow)
-	r.repos.Store(repoId, repo)
+	repo := repository.NewRepository(mod.Remote, repoPath, creds, mod.Shallow)
 	return repo
 }
 
@@ -123,23 +105,11 @@ func (r *Registry) addToCache(ctx context.Context, commitId, org, name string) e
 		return nil
 	}
 
-	ownerId, ok := r.owners.Load(org)
+	mod, ok := r.modules[org+"/"+name]
 	if !ok {
-		owner, err := r.stor.GetOwnerByName(ctx, org)
-		if err != nil {
-			return err
-		}
-		r.owners.Store(org, owner.ID)
-		ownerId = owner.ID
-	}
-	mod, ok := r.modules.Load(ownerId + "/" + name)
-	if !ok {
-		modDef, err := r.stor.GetModuleByName(ctx, ownerId, name)
-		if err != nil {
-			return err
-		}
-		mod = newModule(r, modDef, r.getRepository(modDef))
-		r.modules.Store(ownerId+"/"+name, mod)
+		span.RecordError(ErrModuleNotFound)
+		span.SetStatus(codes.Error, "module not found")
+		return ErrModuleNotFound
 	}
 	r.commitIdModule.Store(commitId, mod)
 	return nil

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -14,14 +15,13 @@ import (
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect"
-	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/repository"
-	"github.com/greatliontech/pbr/internal/store"
+	"github.com/greatliontech/pbr/internal/util"
 	"github.com/greatliontech/pbr/pkg/codegen"
 	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel"
@@ -31,57 +31,68 @@ import (
 
 var tracer = otel.Tracer("pbr.dev/pkg/registry")
 
-type internalModule struct {
-	Owner  string
-	Module string
-	Repo   string
-}
-
 type Registry struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
-	stor           store.Store
-	moduleIds      map[string]*internalModule
-	commitHashes   map[string]string
-	repos          map[string]*repository.Repository
-	server         *http.Server
-	cert           *tls.Certificate
-	repoCreds      *repository.CredentialStore
-	tokens         map[string]string
-	users          map[string]string
-	commits        map[string]*v1beta1.Commit
-	pluginsConf    map[string]config.Plugin
-	plugins        map[string]*codegen.Plugin
-	modules        map[string]config.Module
-	commitToModule map[string]*internalModule
-	ofs            *ocifs.OCIFS
-	cacheDir       string
-	adminToken     string
-	addr           string
-	hostName       string
-	regCreds       map[string]authn.AuthConfig
-	reg            *registry.Registry
+	conf         *config.Config
+	commitHashes map[string]string
+	repos        map[string]*repository.Repository
+	server       *http.Server
+	cert         *tls.Certificate
+	repoCreds    *repository.CredentialStore
+	tokens       map[string]string
+	users        map[string]string
+	plugins      map[string]*codegen.Plugin
+	ofs          *ocifs.OCIFS
+	regCreds     map[string]authn.AuthConfig
+	reg          *registry.Registry
+	ownerIds     map[string]string
+	moduleIds    map[string]string
 }
 
-func New(hostName string, opts ...Option) (*Registry, error) {
+func New(c *config.Config) (*Registry, error) {
 	reg := &Registry{
-		addr:           ":443",
-		hostName:       hostName,
-		repos:          map[string]*repository.Repository{},
-		commits:        map[string]*v1beta1.Commit{},
-		commitHashes:   map[string]string{},
-		moduleIds:      map[string]*internalModule{},
-		commitToModule: map[string]*internalModule{},
-		modules:        map[string]config.Module{},
-		users:          map[string]string{},
-		tokens:         map[string]string{},
-		regCreds:       map[string]authn.AuthConfig{},
-		pluginsConf:    map[string]config.Plugin{},
-		plugins:        map[string]*codegen.Plugin{},
+		conf:     c,
+		repos:    map[string]*repository.Repository{},
+		tokens:   map[string]string{},
+		users:    map[string]string{},
+		regCreds: map[string]authn.AuthConfig{},
+		plugins:  map[string]*codegen.Plugin{},
 	}
 
-	// apply options
-	for _, o := range opts {
-		o(reg)
+	for k := range c.Modules {
+		ownerName := strings.Split(k, "/")[0]
+		modName := strings.Split(k, "/")[1]
+		ownerId := util.OwnerID(ownerName)
+		reg.ownerIds[ownerName] = ownerId
+		modId := util.ModuleID(ownerId, modName)
+		reg.moduleIds[modId] = ownerId + "/" + modName
+	}
+
+	if reg.conf.Address == "" {
+		reg.conf.Address = ":443"
+	}
+
+	if c.Credentials.Git != nil {
+		credStore, err := repository.NewCredentialStore(c.Credentials.Git)
+		if err != nil {
+			slog.Error("Failed to create git credential store", "err", err)
+			return nil, err
+		}
+		reg.repoCreds = credStore
+	}
+
+	if c.Credentials.ContainerRegistry != nil {
+		regCreds := map[string]authn.AuthConfig{}
+		for k, v := range c.Credentials.ContainerRegistry {
+			regCreds[k] = authn.AuthConfig(v)
+		}
+		reg.regCreds = regCreds
+	}
+
+	if c.Users != nil {
+		for k, v := range c.Users {
+			reg.users[k] = v
+		}
 	}
 
 	// ocifs options
@@ -100,16 +111,16 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	}
 	reg.ofs = ofs
 
-	for k, v := range reg.pluginsConf {
+	for k, v := range reg.conf.Plugins {
 		reg.plugins[k] = codegen.NewPlugin(ofs, v.Image, v.Default)
 	}
 
-	if reg.adminToken != "" {
-		reg.users["admin"] = reg.adminToken
-		reg.tokens[reg.adminToken] = "admin"
+	if reg.conf.AdminToken != "" {
+		reg.users["admin"] = reg.conf.AdminToken
+		reg.tokens[reg.conf.AdminToken] = "admin"
 	}
 
-	reg.reg = registry.New(reg.stor, reg.repoCreds, reg.hostName, reg.cacheDir)
+	reg.reg = registry.New(reg.conf.Modules, reg.repoCreds, reg.conf.Host, reg.conf.CacheDir)
 
 	mux := http.NewServeMux()
 
@@ -138,7 +149,7 @@ func New(hostName string, opts ...Option) (*Registry, error) {
 	}))
 
 	reg.server = &http.Server{
-		Addr:    reg.addr,
+		Addr:    reg.conf.Address,
 		Handler: mux,
 	}
 

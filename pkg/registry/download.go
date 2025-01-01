@@ -14,25 +14,26 @@ func (reg *Registry) Download(ctx context.Context, req *connect.Request[v1beta1.
 	}
 
 	for _, ref := range req.Msg.Values {
-		refStr := ""
-		var mod *internalModule
-		var commit *v1beta1.Commit
+		var commitId string
 
 		switch ref := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
-			refStr = reg.commitHashes[ref.Id]
-			mod = reg.commitToModule[ref.Id]
-			commit = reg.commits[ref.Id]
+			commitId = ref.Id
 		case *v1beta1.ResourceRef_Name_:
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
 
-		modl, err := reg.reg.Module(ctx, mod.Owner, mod.Module)
+		modl, err := reg.reg.ModuleByCommitID(ctx, commitId)
 		if err != nil {
 			return nil, err
 		}
 
-		files, _, err := modl.FilesAndManifestCommit(refStr)
+		files, cmmt, err := modl.FilesAndCommitByCommitId(commitId)
+		if err != nil {
+			return nil, err
+		}
+
+		commit, err := getCommitObject(cmmt.OwnerId, cmmt.ModuleId, cmmt.CommitId, cmmt.Digest)
 		if err != nil {
 			return nil, err
 		}

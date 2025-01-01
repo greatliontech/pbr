@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
@@ -70,7 +69,7 @@ func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v
 		return nil, err
 	}
 
-	comt, err := getCommitObject(c.OwnerId, c.ModuleId, c.CommitId, c.Disgest)
+	comt, err := getCommitObject(c.OwnerId, c.ModuleId, c.CommitId, c.Digest)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to construct commit object")
@@ -78,23 +77,6 @@ func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v
 	}
 
 	return comt, nil
-}
-
-func getCommitObject(ownerId, modId, id, dgst string) (*v1beta1.Commit, error) {
-	fmt.Println("getCommit")
-	digest, err := hex.DecodeString(dgst)
-	if err != nil {
-		return nil, err
-	}
-	return &v1beta1.Commit{
-		Id:       id,
-		OwnerId:  ownerId,
-		ModuleId: modId,
-		Digest: &v1beta1.Digest{
-			Type:  v1beta1.DigestType_DIGEST_TYPE_B4,
-			Value: digest,
-		},
-	}, nil
 }
 
 // List Commits for a given Module, Label, or Commit.

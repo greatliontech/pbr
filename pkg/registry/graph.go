@@ -8,6 +8,7 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/registry"
+	"github.com/greatliontech/pbr/internal/util"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -33,7 +34,7 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 			if err != nil {
 				return nil, err
 			}
-			commit, err := getCommitObject(cmt.OwnerId, cmt.ModuleId, cmt.CommitId, cmt.Disgest)
+			commit, err := getCommitObject(cmt.OwnerId, cmt.ModuleId, cmt.CommitId, cmt.Digest)
 			if err != nil {
 				return nil, err
 			}
@@ -41,7 +42,7 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 			commitMap[key] = commit
 			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
 				Commit:   commit,
-				Registry: reg.hostName,
+				Registry: reg.conf.Host,
 			})
 		case *v1beta1.ResourceRef_Name_:
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
@@ -79,8 +80,8 @@ func (reg *Registry) getGraph(ctx context.Context, mod *registry.Module, commit 
 		if dc, ok := commits[key]; ok {
 			depCommit = dc
 		} else {
-			ownerId := fakeUUID(dep.Owner)
-			modId := fakeUUID(ownerId + "/" + dep.Repository)
+			ownerId := util.OwnerID(dep.Owner)
+			modId := util.ModuleID(ownerId, dep.Repository)
 			depCommit, err = getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
 			if err != nil {
 				return err
@@ -94,14 +95,14 @@ func (reg *Registry) getGraph(ctx context.Context, mod *registry.Module, commit 
 		graph.Edges = append(graph.Edges, &v1beta1.Graph_Edge{
 			FromNode: &v1beta1.Graph_Node{
 				CommitId: commit.Id,
-				Registry: reg.hostName,
+				Registry: reg.conf.Host,
 			},
 			ToNode: &v1beta1.Graph_Node{
 				CommitId: depCommit.Id,
 				Registry: dep.Remote,
 			},
 		})
-		if dep.Remote == reg.hostName {
+		if dep.Remote == reg.conf.Host {
 			mod, err := reg.reg.Module(ctx, dep.Owner, dep.Repository)
 			if err != nil {
 				return err

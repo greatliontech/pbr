@@ -2,22 +2,14 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"flag"
-	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/greatliontech/pbr/internal/repository"
-	"github.com/greatliontech/pbr/internal/store"
-	"github.com/greatliontech/pbr/internal/store/mem"
 	"github.com/greatliontech/pbr/internal/telemetry"
 	"github.com/greatliontech/pbr/pkg/config"
 	"github.com/greatliontech/pbr/pkg/registry"
@@ -67,54 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	regOpts := []registry.Option{}
-
-	if c.Address != "" {
-		regOpts = append(regOpts, registry.WithAddress(c.Address))
-	}
-	if c.Modules != nil {
-		regOpts = append(regOpts, registry.WithModules(c.Modules))
-	}
-	if c.Plugins != nil {
-		regOpts = append(regOpts, registry.WithPlugins(c.Plugins))
-	}
-	if c.Credentials.Git != nil {
-		credStore, err := repository.NewCredentialStore(c.Credentials.Git)
-		if err != nil {
-			slog.Error("Failed to create git credential store", "err", err)
-			os.Exit(1)
-		}
-		regOpts = append(regOpts, registry.WithRepoCredStore(credStore))
-	}
-	if c.TLS != nil {
-		cert, err := tls.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		regOpts = append(regOpts, registry.WithTLSCert(&cert))
-	}
-	if c.CacheDir != "" {
-		regOpts = append(regOpts, registry.WithCacheDir(c.CacheDir))
-	}
-	regOpts = append(regOpts, registry.WithAdminToken(c.AdminToken))
-
-	s := mem.New()
-	if err := configToStore(context.Background(), c, s); err != nil {
-		slog.Error("Failed to convert config to store", "err", err)
-		os.Exit(1)
-	}
-	regOpts = append(regOpts, registry.WithStore(s))
-	regOpts = append(regOpts, registry.WithUsers(c.Users))
-
-	if c.Credentials.ContainerRegistry != nil {
-		regCreds := map[string]authn.AuthConfig{}
-		for k, v := range c.Credentials.ContainerRegistry {
-			regCreds[k] = authn.AuthConfig(v)
-		}
-		regOpts = append(regOpts, registry.WithRegistryCreds(regCreds))
-	}
-
-	reg, err := registry.New(c.Host, regOpts...)
+	reg, err := registry.New(c)
 	if err != nil {
 		slog.Error("Failed to create registry", "err", err)
 		os.Exit(1)
@@ -151,41 +96,6 @@ func main() {
 	if err := telShutdown(ctx); err != nil {
 		slog.Error("Failed to shutdown telemetry", "err", err)
 	}
-}
-
-func configToStore(ctx context.Context, conf *config.Config, s store.Store) error {
-	for k, v := range conf.Modules {
-		data := strings.Split(k, "/")
-		if len(data) != 2 {
-			return fmt.Errorf("invalid module key: %s", k)
-		}
-		owner := data[0]
-		module := data[1]
-		o, err := s.GetOwnerByName(ctx, owner)
-		if err != nil {
-			if err == store.ErrNotFound {
-				if o, err = s.CreateOwner(ctx, &store.Owner{Name: owner}); err != nil {
-					return fmt.Errorf("failed to create owner %s: %w", owner, err)
-				}
-			} else {
-				return fmt.Errorf("failed to get owner %s: %w", owner, err)
-			}
-		}
-		m, err := s.CreateModule(ctx, &store.Module{
-			OwnerID: o.ID,
-			Owner:   owner,
-			Name:    module,
-			RepoURL: v.Remote,
-			Root:    v.Path,
-			Filters: v.Filters,
-			Shallow: v.Shallow,
-		})
-		if err != nil && err != store.ErrAlreadyExists {
-			return fmt.Errorf("failed to create module %s: %w", k, err)
-		}
-		fmt.Println(m)
-	}
-	return nil
 }
 
 func setupTelemetry(ctx context.Context) (func(context.Context) error, error) {

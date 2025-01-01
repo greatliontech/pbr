@@ -1,22 +1,25 @@
 package registry
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+
+	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 )
 
-func fakeUUID(input string) string {
-	// Hash the input string using SHA-256
-	hash := sha256.Sum256([]byte(input))
-
-	// Convert the hash to a hexadecimal string
-	hexString := hex.EncodeToString(hash[:])
-
-	// Take the first 32 characters to resemble a UUID without dashes
-	// Adjust as needed to ensure the hash length matches your UUID requirements
-	if len(hexString) > 32 {
-		hexString = hexString[:32]
+func getCommitObject(ownerId, modId, id, dgst string) (*v1beta1.Commit, error) {
+	fmt.Println("getCommit")
+	digest, err := hex.DecodeString(dgst)
+	if err != nil {
+		return nil, err
 	}
-
-	return hexString
+	return &v1beta1.Commit{
+		Id:       id,
+		OwnerId:  ownerId,
+		ModuleId: modId,
+		Digest: &v1beta1.Digest{
+			Type:  v1beta1.DigestType_DIGEST_TYPE_B4,
+			Value: digest,
+		},
+	}, nil
 }

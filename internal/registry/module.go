@@ -3,26 +3,29 @@ package registry
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/internal/repository"
-	"github.com/greatliontech/pbr/internal/store"
-	"github.com/greatliontech/pbr/internal/store/mem"
+	"github.com/greatliontech/pbr/internal/util"
+	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/sha3"
 )
 
 type Module struct {
-	*store.Module
+	config.Module
+	Owner         string
+	OwnerID       string
+	Name          string
+	ID            string
 	repo          *repository.Repository
 	shake256Cache map[string]string
 	filters       []glob.Glob
 
-	commitsByRefCache mem.SyncMap[string, *Commit]
-	commitsByCidCache mem.SyncMap[string, *Commit]
+	commitsByRefCache util.SyncMap[string, *Commit]
+	commitsByCidCache util.SyncMap[string, *Commit]
 
 	reg *Registry
 }
@@ -34,17 +37,11 @@ type File struct {
 	SHAKE256 string
 }
 
-type Manifest struct {
-	Commit   string
-	Content  string
-	SHAKE256 string
-}
-
 type Commit struct {
 	ModuleId string
 	OwnerId  string
 	CommitId string
-	Disgest  string
+	Digest   string
 }
 
 var filters = []glob.Glob{
@@ -53,8 +50,14 @@ var filters = []glob.Glob{
 	glob.MustCompile("buf.lock"),
 }
 
-func newModule(reg *Registry, module *store.Module, repo *repository.Repository) *Module {
+func newModule(reg *Registry, owner, name string, module config.Module, repo *repository.Repository) *Module {
+	ownerId := util.OwnerID(owner)
+	modId := util.ModuleID(ownerId, name)
 	return &Module{
+		ID:            modId,
+		OwnerID:       ownerId,
+		Owner:         owner,
+		Name:          name,
 		Module:        module,
 		repo:          repo,
 		filters:       filters,
@@ -71,15 +74,9 @@ func (m *Module) Commit(ref string) (*Commit, error) {
 	if c, ok := m.commitsByRefCache.Load(ref); ok {
 		return c, nil
 	}
-	_, mani, err := m.FilesAndManifest(ref)
+	_, c, err := m.FilesAndCommit(ref)
 	if err != nil {
 		return nil, err
-	}
-	c := &Commit{
-		ModuleId: m.ID,
-		OwnerId:  m.OwnerID,
-		CommitId: mani.Commit[:32],
-		Disgest:  mani.SHAKE256,
 	}
 	m.commitsByRefCache.Store(ref, c)
 	m.commitsByCidCache.Store(c.CommitId, c)
@@ -91,37 +88,30 @@ func (m *Module) CommitById(cid string) (*Commit, error) {
 	if c, ok := m.commitsByCidCache.Load(cid); ok {
 		return c, nil
 	}
-	_, mani, err := m.FilesAndManifestCommit(cid)
+	_, c, err := m.FilesAndCommitByCommitId(cid)
 	if err != nil {
 		return nil, err
 	}
-	c := &Commit{
-		ModuleId: m.ID,
-		OwnerId:  m.OwnerID,
-		CommitId: mani.Commit[:32],
-		Disgest:  mani.SHAKE256,
-	}
-	m.commitsByRefCache.Store(mani.Commit, c)
 	m.commitsByCidCache.Store(c.CommitId, c)
 	return c, nil
 }
 
-func (m *Module) FilesAndManifest(ref string) ([]File, *Manifest, error) {
-	commit, repoFiles, err := m.repo.Files(ref, m.Root, m.filters...)
+func (m *Module) FilesAndCommit(ref string) ([]File, *Commit, error) {
+	commit, repoFiles, err := m.repo.Files(ref, m.Path, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return m.filesAndManifest(commit, repoFiles)
+	return m.filesAndCommit(commit, repoFiles)
 }
 
-func (m *Module) FilesAndManifestCommit(cmmt string) ([]File, *Manifest, error) {
-	commit, repoFiles, err := m.repo.FilesCommit(cmmt, m.Root, m.filters...)
+func (m *Module) FilesAndCommitByCommitId(cmmt string) ([]File, *Commit, error) {
+	commit, repoFiles, err := m.repo.FilesCommit(cmmt, m.Path, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return m.filesAndManifest(commit, repoFiles)
+	return m.filesAndCommit(commit, repoFiles)
 }
 
 var ErrBufLockNotFound = fmt.Errorf("buf.lock not found")
@@ -132,7 +122,7 @@ func (m *Module) BufLock(ctx context.Context, ref string) (*BufLock, error) {
 	))
 	defer span.End()
 
-	cmt, repoFiles, err := m.repo.Files(ref, m.Root, m.filters...)
+	cmt, repoFiles, err := m.repo.Files(ref, m.Path, m.filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +135,7 @@ func (m *Module) BufLockCommitId(ctx context.Context, cmmt string) (*BufLock, er
 	))
 	defer span.End()
 
-	_, repoFiles, err := m.repo.FilesCommit(cmmt, m.Root, m.filters...)
+	_, repoFiles, err := m.repo.FilesCommit(cmmt, m.Path, m.filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +151,7 @@ func (m *Module) bufLock(ctx context.Context, commitId string, repoFiles []repos
 			}
 			for _, d := range bl.Deps {
 				if d.Remote == m.reg.hostName {
-					if err := m.reg.addToCache(ctx, commitId, m.Owner, d.Repository); err != nil {
+					if err := m.reg.addToCache(ctx, commitId, d.Owner, d.Repository); err != nil {
 						return nil, err
 					}
 				}
@@ -182,9 +172,9 @@ func (m *Module) HasCommitId(cid string) (bool, string, error) {
 	return false, "", err
 }
 
-func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.File) ([]File, *Manifest, error) {
+func (m *Module) filesAndCommit(commit *object.Commit, repoFiles []repository.File) ([]File, *Commit, error) {
 	var files []File
-	var manifestContentBuilder strings.Builder
+	mani := &Manifest{}
 
 	for _, file := range repoFiles {
 		shake256Hash, ok := m.shake256Cache[file.SHA]
@@ -208,26 +198,17 @@ func (m *Module) filesAndManifest(commit *object.Commit, repoFiles []repository.
 			SHAKE256: shake256Hash,
 		})
 
-		// add file info to the manifest content
-		manifestContentBuilder.WriteString(fmt.Sprintf("shake256:%s  %s\n", files[len(files)-1].SHAKE256, file.Name))
+		mani.AddEntry(shake256Hash, file.Name)
 	}
 
-	// generate manifest
-	manifestContent := manifestContentBuilder.String()
-	manifest := &Manifest{
-		Commit:  commit.Hash.String(),
-		Content: manifestContent,
+	_, maniDigest := mani.Content()
+
+	cmmt := &Commit{
+		ModuleId: m.ID,
+		OwnerId:  m.OwnerID,
+		CommitId: commit.Hash.String()[:32],
+		Digest:   maniDigest,
 	}
 
-	// calculate SHAKE256 hash for the manifest content
-	h := sha3.NewShake256()
-	_, err := h.Write([]byte(manifestContent))
-	if err != nil {
-		return nil, nil, err
-	}
-	var shake256Sum [64]byte
-	h.Read(shake256Sum[:])
-	manifest.SHAKE256 = fmt.Sprintf("%x", shake256Sum)
-
-	return files, manifest, nil
+	return files, cmmt, nil
 }

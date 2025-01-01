@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-billy/v5/osfs"
@@ -19,7 +20,7 @@ import (
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/gobwas/glob"
-	"github.com/greatliontech/pbr/internal/store/mem"
+	"github.com/greatliontech/pbr/internal/util"
 )
 
 var ErrCommitNotFound = errors.New("commit not found")
@@ -34,7 +35,9 @@ type Repository struct {
 	shallow     bool
 
 	// commitIdCache is a generic wrapper around sync.Map
-	commitIdCache mem.SyncMap[string, *object.Commit]
+	commitIdCache util.SyncMap[string, *object.Commit]
+
+	mu sync.RWMutex
 }
 
 type File struct {
@@ -54,11 +57,12 @@ func NewRepository(url, path string, auth AuthProvider, shallow bool) *Repositor
 	})
 
 	return &Repository{
-		path:    path,
-		remote:  rmt,
-		storer:  strg,
-		auth:    auth,
-		shallow: shallow,
+		path:        path,
+		remote:      rmt,
+		storer:      strg,
+		auth:        auth,
+		shallow:     shallow,
+		fetchPeriod: 1 * time.Minute,
 	}
 }
 
@@ -79,6 +83,9 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 	if err != nil {
 		return nil, nil, err
 	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	var ref *plumbing.Reference
 	if trgtRef == "" {
@@ -125,6 +132,9 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 	if err != nil {
 		return nil, nil, err
 	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	var h plumbing.Hash
 	if !r.shallow {
@@ -182,6 +192,10 @@ func (r *Repository) CommitFromShort(cmmt string) (*object.Commit, error) {
 	if cmt, ok := r.commitIdCache.Load(cmmt); ok {
 		return cmt, nil
 	}
+
+	// Lock for reading
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	// Local lookup
 	localCommit, err := r.localLookupShortSha(cmmt)
@@ -334,12 +348,22 @@ func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob
 
 // fetchRef is a small helper to DRY up repeated fetch logic.
 func (r *Repository) fetchRef(refSpec string, depth int, auth transport.AuthMethod) error {
-	return r.remote.Fetch(&git.FetchOptions{
+	lf, ok := r.lastFetch[refSpec]
+	if ok && time.Since(lf) < r.fetchPeriod {
+		return git.NoErrAlreadyUpToDate
+	}
+	r.mu.RUnlock()
+	r.mu.Lock()
+	err := r.remote.Fetch(&git.FetchOptions{
 		Depth:    depth,
 		RefSpecs: []config.RefSpec{config.RefSpec(refSpec)},
 		Force:    true,
 		Auth:     auth,
 	})
+	r.lastFetch[refSpec] = time.Now()
+	r.mu.Unlock()
+	r.mu.RLock()
+	return err
 }
 
 // findLocalCommitHash iterates through local commits to find one that starts with

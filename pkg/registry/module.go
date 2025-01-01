@@ -3,10 +3,10 @@ package registry
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	v1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1"
 	"connectrpc.com/connect"
-	"github.com/greatliontech/pbr/internal/store"
 )
 
 // Get Modules by id or name.
@@ -17,18 +17,19 @@ func (reg *Registry) GetModules(ctx context.Context, req *connect.Request[v1.Get
 	for _, ref := range req.Msg.ModuleRefs {
 		switch ref := ref.Value.(type) {
 		case *v1.ModuleRef_Id:
-			mod, err := reg.stor.GetModule(ctx, ref.Id)
-			if err != nil {
-				if err == store.ErrNotFound {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("Module not found: %s", ref.Id))
-				}
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("GetModule: %w", err))
+			mod, ok := reg.moduleIds[ref.Id]
+			if !ok {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("Module not found: %s", ref.Id))
 			}
-			fmt.Println("======GetModules", mod)
+			ownerId := strings.Split(mod, "/")[0]
+			modName := strings.Split(mod, "/")[1]
+			if !ok {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("Owner not found: %s", ownerId))
+			}
 			resp.Msg.Modules = append(resp.Msg.Modules, &v1.Module{
 				Id:      ref.Id,
-				Name:    mod.Name,
-				OwnerId: mod.OwnerID,
+				Name:    modName,
+				OwnerId: ownerId,
 			})
 		case *v1.ModuleRef_Name_:
 			fmt.Println("GetModules error", "ModuleRef_Name_ not supported", ref)
