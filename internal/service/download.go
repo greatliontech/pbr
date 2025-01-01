@@ -1,4 +1,4 @@
-package registry
+package service
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"connectrpc.com/connect"
 )
 
-func (reg *Registry) Download(ctx context.Context, req *connect.Request[v1beta1.DownloadRequest]) (*connect.Response[v1beta1.DownloadResponse], error) {
+func (svc *Service) Download(ctx context.Context, req *connect.Request[v1beta1.DownloadRequest]) (*connect.Response[v1beta1.DownloadResponse], error) {
 	resp := &connect.Response[v1beta1.DownloadResponse]{
 		Msg: &v1beta1.DownloadResponse{},
 	}
@@ -23,7 +23,7 @@ func (reg *Registry) Download(ctx context.Context, req *connect.Request[v1beta1.
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
 
-		modl, err := reg.reg.ModuleByCommitID(ctx, commitId)
+		modl, err := svc.reg.ModuleByCommitID(ctx, commitId)
 		if err != nil {
 			return nil, err
 		}

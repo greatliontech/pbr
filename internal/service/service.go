@@ -1,4 +1,4 @@
-package registry
+package service
 
 import (
 	"context"
@@ -19,11 +19,11 @@ import (
 	"connectrpc.com/otelconnect"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/greatliontech/ocifs"
+	"github.com/greatliontech/pbr/internal/codegen"
+	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/util"
-	"github.com/greatliontech/pbr/pkg/codegen"
-	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -31,28 +31,25 @@ import (
 
 var tracer = otel.Tracer("pbr.dev/pkg/registry")
 
-type Registry struct {
+type Service struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
-	conf         *config.Config
-	commitHashes map[string]string
-	repos        map[string]*repository.Repository
-	server       *http.Server
-	cert         *tls.Certificate
-	repoCreds    *repository.CredentialStore
-	tokens       map[string]string
-	users        map[string]string
-	plugins      map[string]*codegen.Plugin
-	ofs          *ocifs.OCIFS
-	regCreds     map[string]authn.AuthConfig
-	reg          *registry.Registry
-	ownerIds     map[string]string
-	moduleIds    map[string]string
+	conf      *config.Config
+	server    *http.Server
+	cert      *tls.Certificate
+	repoCreds *repository.CredentialStore
+	tokens    map[string]string
+	users     map[string]string
+	plugins   map[string]*codegen.Plugin
+	ofs       *ocifs.OCIFS
+	regCreds  map[string]authn.AuthConfig
+	reg       *registry.Registry
+	ownerIds  map[string]string
+	moduleIds map[string]string
 }
 
-func New(c *config.Config) (*Registry, error) {
-	reg := &Registry{
+func New(c *config.Config) (*Service, error) {
+	reg := &Service{
 		conf:     c,
-		repos:    map[string]*repository.Repository{},
 		tokens:   map[string]string{},
 		users:    map[string]string{},
 		regCreds: map[string]authn.AuthConfig{},
@@ -160,7 +157,7 @@ func New(c *config.Config) (*Registry, error) {
 	return reg, nil
 }
 
-func (reg *Registry) Serve(ctx context.Context) error {
+func (reg *Service) Serve(ctx context.Context) error {
 	if reg.cert != nil {
 		reg.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*reg.cert}}
 		if err := http2.ConfigureServer(reg.server, nil); err != nil {
@@ -177,7 +174,7 @@ func (reg *Registry) Serve(ctx context.Context) error {
 	return reg.server.ListenAndServe()
 }
 
-func (reg *Registry) Shutdown(ctx context.Context) error {
+func (reg *Service) Shutdown(ctx context.Context) error {
 	return reg.server.Shutdown(ctx)
 }
 

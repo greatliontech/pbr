@@ -1,4 +1,4 @@
-package registry
+package service
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 // Get Commits.
-func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta1.GetCommitsRequest]) (*connect.Response[v1beta1.GetCommitsResponse], error) {
+func (svc *Service) GetCommits(ctx context.Context, req *connect.Request[v1beta1.GetCommitsRequest]) (*connect.Response[v1beta1.GetCommitsResponse], error) {
 	resp := &connect.Response[v1beta1.GetCommitsResponse]{}
 	resp.Msg = &v1beta1.GetCommitsResponse{}
 
@@ -36,7 +36,7 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 			ref = chld.Ref
 		}
 
-		comt, err := reg.getCommit(ctx, m.Owner, m.Module, ref)
+		comt, err := svc.getCommit(ctx, m.Owner, m.Module, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +47,7 @@ func (reg *Registry) GetCommits(ctx context.Context, req *connect.Request[v1beta
 	return resp, nil
 }
 
-func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v1beta1.Commit, error) {
+func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1beta1.Commit, error) {
 	ctx, span := tracer.Start(ctx, "getCommit", trace.WithAttributes(
 		attribute.String("owner", owner),
 		attribute.String("module", modl),
@@ -55,7 +55,7 @@ func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v
 	))
 	defer span.End()
 
-	mod, err := reg.reg.Module(ctx, owner, modl)
+	mod, err := svc.reg.Module(ctx, owner, modl)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to get module")
@@ -80,7 +80,7 @@ func (reg *Registry) getCommit(ctx context.Context, owner, modl, ref string) (*v
 }
 
 // List Commits for a given Module, Label, or Commit.
-func (reg *Registry) ListCommits(ctx context.Context, req *connect.Request[v1beta1.ListCommitsRequest]) (*connect.Response[v1beta1.ListCommitsResponse], error) {
+func (svc *Service) ListCommits(ctx context.Context, req *connect.Request[v1beta1.ListCommitsRequest]) (*connect.Response[v1beta1.ListCommitsResponse], error) {
 	fmt.Println("ListCommits")
 	return nil, nil
 }

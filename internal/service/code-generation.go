@@ -1,4 +1,4 @@
-package registry
+package service
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	imagev1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/image/v1"
 	registryv1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/registry/v1alpha1"
 	"connectrpc.com/connect"
-	"github.com/greatliontech/pbr/pkg/codegen"
+	"github.com/greatliontech/pbr/internal/codegen"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-func (reg *Registry) GenerateCode(ctx context.Context, req *connect.Request[registryv1alpha1.GenerateCodeRequest]) (*connect.Response[registryv1alpha1.GenerateCodeResponse], error) {
+func (svc *Service) GenerateCode(ctx context.Context, req *connect.Request[registryv1alpha1.GenerateCodeRequest]) (*connect.Response[registryv1alpha1.GenerateCodeResponse], error) {
 	genReq := &pluginpb.CodeGeneratorRequest{}
 
 	for _, f := range req.Msg.Image.File {
@@ -39,7 +39,7 @@ func (reg *Registry) GenerateCode(ctx context.Context, req *connect.Request[regi
 		genReq.Parameter = &opts
 
 		// prepare plugin
-		plugin, err := reg.getPlugin(request.PluginReference)
+		plugin, err := svc.getPlugin(request.PluginReference)
 		if err != nil {
 			return nil, err
 		}
@@ -62,9 +62,9 @@ func (reg *Registry) GenerateCode(ctx context.Context, req *connect.Request[regi
 	return resp, nil
 }
 
-func (reg *Registry) getPlugin(ref *registryv1alpha1.CuratedPluginReference) (*codegen.Plugin, error) {
+func (svc *Service) getPlugin(ref *registryv1alpha1.CuratedPluginReference) (*codegen.Plugin, error) {
 	name := ref.Owner + "/" + ref.Name
-	plug, ok := reg.plugins[name]
+	plug, ok := svc.plugins[name]
 	if !ok {
 		return nil, fmt.Errorf("plugin config not found: %s", name)
 	}

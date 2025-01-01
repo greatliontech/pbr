@@ -6,9 +6,9 @@ import (
 	"hash/fnv"
 	"strings"
 
+	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/util"
-	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"

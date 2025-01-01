@@ -2,7 +2,7 @@ package repository
 
 import (
 	"github.com/gobwas/glob"
-	"github.com/greatliontech/pbr/pkg/config"
+	"github.com/greatliontech/pbr/internal/config"
 )
 
 type CredentialStore struct {

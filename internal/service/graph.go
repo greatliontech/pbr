@@ -1,4 +1,4 @@
-package registry
+package service
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) {
+func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) {
 	resp := &connect.Response[v1beta1.GetGraphResponse]{}
 	resp.Msg = &v1beta1.GetGraphResponse{
 		Graph: &v1beta1.Graph{},
@@ -58,7 +58,7 @@ func (reg *Registry) GetGraph(ctx context.Context, req *connect.Request[v1beta1.
 	return resp, nil
 }
 
-func (reg *Registry) getGraph(ctx context.Context, mod *registry.Module, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error {
+func (reg *Service) getGraph(ctx context.Context, mod *registry.Module, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error {
 	ctx, span := tracer.Start(ctx, "getGraph", trace.WithAttributes(
 		attribute.String("owner", mod.Owner),
 		attribute.String("module", mod.Name),

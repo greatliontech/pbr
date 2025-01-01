@@ -41,8 +41,6 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 		img = fmt.Sprintf("%s:%s", img, ver)
 	}
 
-	fmt.Println("ofs nil", p.ofs == nil)
-
 	// mount the image
 	im, err := p.ofs.Mount(img)
 	if err != nil {
@@ -71,9 +69,11 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 	}
 	defer os.RemoveAll(trgtroot)
 
+	contId := randStringBytes(16)
+
 	cfg := container.Config{
 		Root:     trgtroot,
-		Hostname: "test",
+		Hostname: contId,
 		Namespaces: container.Namespaces{
 			NewIPC:  true,
 			NewMnt:  true,
@@ -106,7 +106,6 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 		},
 	}
 
-	contId := randStringBytes(16)
 	cont, err := container.New("/tmp/contstate", contId, cfg)
 	if err != nil {
 		slog.Error("failed to create container", "msg", err)

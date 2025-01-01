@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/greatliontech/pbr/internal/config"
+	"github.com/greatliontech/pbr/internal/service"
 	"github.com/greatliontech/pbr/internal/telemetry"
-	"github.com/greatliontech/pbr/pkg/config"
-	"github.com/greatliontech/pbr/pkg/registry"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 )
 
@@ -59,7 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	reg, err := registry.New(c)
+	svc, err := service.New(c)
 	if err != nil {
 		slog.Error("Failed to create registry", "err", err)
 		os.Exit(1)
@@ -68,7 +68,7 @@ func main() {
 	slog.Info("Listening on", "addr", c.Address, "host", c.Host)
 
 	go func() {
-		if err := reg.Serve(ctx); err != nil {
+		if err := svc.Serve(ctx); err != nil {
 			slog.Error("Failed to start registry", "err", err)
 			os.Exit(1)
 		}
@@ -89,7 +89,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownPeriod)*time.Second)
 	defer cancel()
 
-	if err := reg.Shutdown(ctx); err != nil {
+	if err := svc.Shutdown(ctx); err != nil {
 		slog.Error("Failed to shutdown registry", "err", err)
 	}
 

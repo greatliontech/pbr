@@ -1,4 +1,4 @@
-package registry
+package service
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 // Get Users or Organizations by id or name.
-func (reg *Registry) GetOwners(ctx context.Context, req *connect.Request[v1.GetOwnersRequest]) (*connect.Response[v1.GetOwnersResponse], error) {
+func (reg *Service) GetOwners(ctx context.Context, req *connect.Request[v1.GetOwnersRequest]) (*connect.Response[v1.GetOwnersResponse], error) {
 	resp := connect.NewResponse(&v1.GetOwnersResponse{})
 	var ownerName string
 	var ownerId string

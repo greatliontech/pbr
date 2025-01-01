@@ -6,9 +6,9 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/gobwas/glob"
+	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/repository"
 	"github.com/greatliontech/pbr/internal/util"
-	"github.com/greatliontech/pbr/pkg/config"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/sha3"
