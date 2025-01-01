@@ -32,6 +32,7 @@ func New(mods map[string]config.Module, creds *repository.CredentialStore, remot
 		creds:         creds,
 		hostName:      remote,
 		repoCachePath: repoCachePath,
+		modules:       map[string]*Module{},
 	}
 	for k, mod := range mods {
 		owner := strings.Split(k, "/")[0]

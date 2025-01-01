@@ -48,25 +48,27 @@ type Service struct {
 }
 
 func New(c *config.Config) (*Service, error) {
-	reg := &Service{
-		conf:     c,
-		tokens:   map[string]string{},
-		users:    map[string]string{},
-		regCreds: map[string]authn.AuthConfig{},
-		plugins:  map[string]*codegen.Plugin{},
+	svc := &Service{
+		conf:      c,
+		tokens:    map[string]string{},
+		users:     map[string]string{},
+		regCreds:  map[string]authn.AuthConfig{},
+		plugins:   map[string]*codegen.Plugin{},
+		ownerIds:  map[string]string{},
+		moduleIds: map[string]string{},
 	}
 
 	for k := range c.Modules {
 		ownerName := strings.Split(k, "/")[0]
 		modName := strings.Split(k, "/")[1]
 		ownerId := util.OwnerID(ownerName)
-		reg.ownerIds[ownerName] = ownerId
+		svc.ownerIds[ownerName] = ownerId
 		modId := util.ModuleID(ownerId, modName)
-		reg.moduleIds[modId] = ownerId + "/" + modName
+		svc.moduleIds[modId] = ownerId + "/" + modName
 	}
 
-	if reg.conf.Address == "" {
-		reg.conf.Address = ":443"
+	if svc.conf.Address == "" {
+		svc.conf.Address = ":443"
 	}
 
 	if c.Credentials.Git != nil {
@@ -75,7 +77,7 @@ func New(c *config.Config) (*Service, error) {
 			slog.Error("Failed to create git credential store", "err", err)
 			return nil, err
 		}
-		reg.repoCreds = credStore
+		svc.repoCreds = credStore
 	}
 
 	if c.Credentials.ContainerRegistry != nil {
@@ -83,19 +85,19 @@ func New(c *config.Config) (*Service, error) {
 		for k, v := range c.Credentials.ContainerRegistry {
 			regCreds[k] = authn.AuthConfig(v)
 		}
-		reg.regCreds = regCreds
+		svc.regCreds = regCreds
 	}
 
 	if c.Users != nil {
 		for k, v := range c.Users {
-			reg.users[k] = v
+			svc.users[k] = v
 		}
 	}
 
 	// ocifs options
 	ofsOpts := []ocifs.Option{}
-	if len(reg.regCreds) > 0 {
-		for k, v := range reg.regCreds {
+	if len(svc.regCreds) > 0 {
+		for k, v := range svc.regCreds {
 			ofsOpts = append(ofsOpts, ocifs.WithAuthSource(k, v))
 			fmt.Printf("auth source: %s\n", k)
 		}
@@ -106,18 +108,22 @@ func New(c *config.Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	reg.ofs = ofs
+	svc.ofs = ofs
 
-	for k, v := range reg.conf.Plugins {
-		reg.plugins[k] = codegen.NewPlugin(ofs, v.Image, v.Default)
+	for k, v := range svc.conf.Plugins {
+		svc.plugins[k] = codegen.NewPlugin(ofs, v.Image, v.Default)
 	}
 
-	if reg.conf.AdminToken != "" {
-		reg.users["admin"] = reg.conf.AdminToken
-		reg.tokens[reg.conf.AdminToken] = "admin"
+	if svc.conf.AdminToken != "" {
+		svc.users["admin"] = svc.conf.AdminToken
+		svc.tokens[svc.conf.AdminToken] = "admin"
 	}
 
-	reg.reg = registry.New(reg.conf.Modules, reg.repoCreds, reg.conf.Host, reg.conf.CacheDir)
+	for k, v := range svc.users {
+		svc.tokens[v] = k
+	}
+
+	svc.reg = registry.New(svc.conf.Modules, svc.repoCreds, svc.conf.Host, svc.conf.CacheDir)
 
 	mux := http.NewServeMux()
 
@@ -127,16 +133,16 @@ func New(c *config.Config) (*Service, error) {
 	}
 
 	interceptors := connect.WithInterceptors(
-		newAuthInterceptor(reg.tokens),
+		newAuthInterceptor(svc.tokens),
 		otelInt,
 	)
 
-	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(reg, interceptors))
-	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(reg, interceptors))
-	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(reg, interceptors))
-	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(reg, interceptors))
-	mux.Handle(modulev1connect.NewModuleServiceHandler(reg, interceptors))
-	mux.Handle(ownerv1connect.NewOwnerServiceHandler(reg, interceptors))
+	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(svc, interceptors))
+	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(svc, interceptors))
+	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(svc, interceptors))
+	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(svc, interceptors))
+	mux.Handle(modulev1connect.NewModuleServiceHandler(svc, interceptors))
+	mux.Handle(ownerv1connect.NewOwnerServiceHandler(svc, interceptors))
 
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ready")
@@ -145,37 +151,37 @@ func New(c *config.Config) (*Service, error) {
 		fmt.Fprint(w, "live")
 	}))
 
-	reg.server = &http.Server{
-		Addr:    reg.conf.Address,
+	svc.server = &http.Server{
+		Addr:    svc.conf.Address,
 		Handler: mux,
 	}
 
-	if reg.cert != nil {
-		reg.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*reg.cert}}
+	if svc.cert != nil {
+		svc.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*svc.cert}}
 	}
 
-	return reg, nil
+	return svc, nil
 }
 
-func (reg *Service) Serve(ctx context.Context) error {
-	if reg.cert != nil {
-		reg.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*reg.cert}}
-		if err := http2.ConfigureServer(reg.server, nil); err != nil {
+func (svc *Service) Serve(ctx context.Context) error {
+	if svc.cert != nil {
+		svc.server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{*svc.cert}}
+		if err := http2.ConfigureServer(svc.server, nil); err != nil {
 			return err
 		}
-		return reg.server.ListenAndServeTLS("", "")
+		return svc.server.ListenAndServeTLS("", "")
 	}
 	h2s := &http2.Server{}
-	handler := h2c.NewHandler(reg.server.Handler, h2s)
-	reg.server.Handler = handler
-	reg.server.BaseContext = func(listener net.Listener) context.Context {
+	handler := h2c.NewHandler(svc.server.Handler, h2s)
+	svc.server.Handler = handler
+	svc.server.BaseContext = func(listener net.Listener) context.Context {
 		return ctx
 	}
-	return reg.server.ListenAndServe()
+	return svc.server.ListenAndServe()
 }
 
-func (reg *Service) Shutdown(ctx context.Context) error {
-	return reg.server.Shutdown(ctx)
+func (svc *Service) Shutdown(ctx context.Context) error {
+	return svc.server.Shutdown(ctx)
 }
 
 const (

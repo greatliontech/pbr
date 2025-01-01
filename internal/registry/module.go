@@ -79,6 +79,10 @@ func (m *Module) Commit(ctx context.Context, ref string) (*Commit, error) {
 	if c, ok := m.commitsByRefCache.Load(ref); ok {
 		return c, nil
 	}
+
+	if ref == "HEAD" {
+		ref = ""
+	}
 	_, c, err := m.FilesAndCommit(ctx, ref)
 	if err != nil {
 		return nil, err

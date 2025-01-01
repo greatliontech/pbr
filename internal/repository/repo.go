@@ -24,6 +24,7 @@ import (
 	"github.com/greatliontech/pbr/internal/util"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,14 +37,13 @@ type Repository struct {
 	auth        AuthProvider
 	lastFetch   map[string]time.Time
 	fetchPeriod time.Duration
+	mu          sync.Mutex
 	remote      *git.Remote
 	storer      storage.Storer
 	shallow     bool
 
 	// commitIdCache is a generic wrapper around sync.Map
 	commitIdCache util.SyncMap[string, *object.Commit]
-
-	mu sync.RWMutex
 }
 
 type File struct {
@@ -69,6 +69,7 @@ func NewRepository(url, path string, auth AuthProvider, shallow bool) *Repositor
 		auth:        auth,
 		shallow:     shallow,
 		fetchPeriod: 1 * time.Minute,
+		lastFetch:   map[string]time.Time{},
 	}
 }
 
@@ -96,29 +97,30 @@ func (r *Repository) Files(ctx context.Context, trgtRef, root string, filters ..
 		return nil, nil, err
 	}
 
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	var ref *plumbing.Reference
 	if trgtRef == "" {
 		// Fetch HEAD
-		if err := r.fetchRef("+HEAD:HEAD", depth, auth); err != nil {
+		if err := r.fetchRef(ctx, "+HEAD:HEAD", depth, auth); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to fetch HEAD")
 			return nil, nil, err
 		}
 
 		ref, err = r.storer.Reference(plumbing.NewBranchReferenceName("HEAD"))
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to get HEAD reference")
 			return nil, nil, err
 		}
 	} else {
 		// Fetch the branch reference first
 		refSpec := config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", trgtRef, trgtRef))
-		err := r.fetchRef(refSpec.String(), depth, auth)
+		err := r.fetchRef(ctx, refSpec.String(), depth, auth)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			// If branch fetch fails, try fetching the tag
 			fmt.Println("fetching tag:", trgtRef)
 			refSpec = config.RefSpec(fmt.Sprintf("+refs/tags/%s:refs/tags/%s", trgtRef, trgtRef))
-			if tagErr := r.fetchRef(refSpec.String(), depth, auth); tagErr != nil && tagErr != git.NoErrAlreadyUpToDate {
+			if tagErr := r.fetchRef(ctx, refSpec.String(), depth, auth); tagErr != nil && tagErr != git.NoErrAlreadyUpToDate {
 				return nil, nil, tagErr
 			}
 		}
@@ -151,13 +153,10 @@ func (r *Repository) FilesCommit(ctx context.Context, cmmt, root string, filters
 		return nil, nil, err
 	}
 
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	var h plumbing.Hash
 	if !r.shallow {
 		// Fetch all commits for HEAD (no tags)
-		err := r.fetchRef("+HEAD:HEAD", 0, auth)
+		err := r.fetchRef(ctx, "+HEAD:HEAD", 0, auth)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, nil, err
 		}
@@ -185,7 +184,7 @@ func (r *Repository) FilesCommit(ctx context.Context, cmmt, root string, filters
 		if matchedRef != nil {
 			// Fetch only that ref at depth=1
 			refSpec := config.RefSpec(fmt.Sprintf("+%s:%s", matchedRef.Name().String(), matchedRef.Name().String()))
-			if err := r.fetchRef(refSpec.String(), 1, auth); err != nil && err != git.NoErrAlreadyUpToDate {
+			if err := r.fetchRef(ctx, refSpec.String(), 1, auth); err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, nil, err
 			}
 		}
@@ -216,10 +215,6 @@ func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.
 		return cmt, nil
 	}
 
-	// Lock for reading
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	// Local lookup
 	localCommit, err := r.localLookupShortSha(cmmt)
 	if err == nil {
@@ -246,7 +241,7 @@ func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.
 		for _, ref := range refs {
 			if strings.HasPrefix(ref.Hash().String(), cmmt) {
 				refSpec := config.RefSpec(fmt.Sprintf("+%s:%s", ref.Name().String(), ref.Name().String()))
-				fetchErr := r.fetchRef(refSpec.String(), 1, auth)
+				fetchErr := r.fetchRef(ctx, refSpec.String(), 1, auth)
 				if fetchErr != nil && fetchErr != git.NoErrAlreadyUpToDate {
 					return nil, fetchErr
 				}
@@ -263,7 +258,7 @@ func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.
 		}
 	} else {
 		// Non-shallow: fetch HEAD forcibly
-		if err := r.fetchRef("+HEAD:HEAD", 0, auth); err != nil && err != git.NoErrAlreadyUpToDate {
+		if err := r.fetchRef(ctx, "+HEAD:HEAD", 0, auth); err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, err
 		}
 		// After fetching, try local lookup again
@@ -370,13 +365,20 @@ func (r *Repository) files(cmmt plumbing.Hash, root string, filters ...glob.Glob
 }
 
 // fetchRef is a small helper to DRY up repeated fetch logic.
-func (r *Repository) fetchRef(refSpec string, depth int, auth transport.AuthMethod) error {
+func (r *Repository) fetchRef(ctx context.Context, refSpec string, depth int, auth transport.AuthMethod) error {
+	ctx, span := tracer.Start(ctx, "Repository.fetchRef", trace.WithAttributes(
+		attribute.String("refSpec", refSpec),
+		attribute.Int("depth", depth),
+	))
+	defer span.End()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	lf, ok := r.lastFetch[refSpec]
 	if ok && time.Since(lf) < r.fetchPeriod {
-		return git.NoErrAlreadyUpToDate
+		span.AddEvent("skipping fetch, within period")
+		return nil
 	}
-	r.mu.RUnlock()
-	r.mu.Lock()
+	span.AddEvent("fetching")
 	err := r.remote.Fetch(&git.FetchOptions{
 		Depth:    depth,
 		RefSpecs: []config.RefSpec{config.RefSpec(refSpec)},
@@ -384,9 +386,10 @@ func (r *Repository) fetchRef(refSpec string, depth int, auth transport.AuthMeth
 		Auth:     auth,
 	})
 	r.lastFetch[refSpec] = time.Now()
-	r.mu.Unlock()
-	r.mu.RLock()
-	return err
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return err
+	}
+	return nil
 }
 
 // findLocalCommitHash iterates through local commits to find one that starts with

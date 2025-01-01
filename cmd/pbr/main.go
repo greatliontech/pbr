@@ -13,6 +13,7 @@ import (
 	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/service"
 	"github.com/greatliontech/pbr/internal/telemetry"
+	slogotel "github.com/remychantenay/slog-otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 )
 
@@ -48,7 +49,9 @@ func main() {
 		Level: logLevel,
 	})
 
-	slog.SetDefault(slog.New(handler))
+	slog.SetDefault(slog.New(slogotel.OtelHandler{
+		Next: handler,
+	}))
 
 	slog.Info("Starting PBR", "version", version)
 
