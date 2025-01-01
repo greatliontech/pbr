@@ -28,7 +28,7 @@ func (svc *Service) Download(ctx context.Context, req *connect.Request[v1beta1.D
 			return nil, err
 		}
 
-		files, cmmt, err := modl.FilesAndCommitByCommitId(commitId)
+		files, cmmt, err := modl.FilesAndCommitByCommitId(ctx, commitId)
 		if err != nil {
 			return nil, err
 		}

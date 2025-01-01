@@ -11,7 +11,6 @@ import (
 
 // Get Modules by id or name.
 func (reg *Service) GetModules(ctx context.Context, req *connect.Request[v1.GetModulesRequest]) (*connect.Response[v1.GetModulesResponse], error) {
-	fmt.Println("GetModules")
 	resp := connect.NewResponse(&v1.GetModulesResponse{})
 
 	for _, ref := range req.Msg.ModuleRefs {

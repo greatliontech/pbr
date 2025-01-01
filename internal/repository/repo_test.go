@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -68,7 +69,8 @@ func TestFilesFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, files, err := repo.Files("a3211f3", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.Files(ctx, "a3211f3", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +87,8 @@ func TestNotShallow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := repo.FilesCommit("a3211f3", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.FilesCommit(ctx, "a3211f3", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +104,8 @@ func TestShallow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := repo.FilesCommit("27156597f", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.FilesCommit(ctx, "27156597f", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +121,8 @@ func TestShallowBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := repo.Files("master", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.Files(ctx, "master", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +138,8 @@ func TestNotShallowBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := repo.Files("master", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.Files(ctx, "master", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +155,8 @@ func TestShallowHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := repo.Files("", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.Files(ctx, "", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +172,8 @@ func TestShallowTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := repo.Files("common-protos-1_3_1", "", filter)
+	ctx := context.Background()
+	_, files, err := repo.Files(ctx, "common-protos-1_3_1", "", filter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +185,8 @@ func TestShallowTag(t *testing.T) {
 
 func TestCommitForShortSha(t *testing.T) {
 	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, false)
-	cmt, err := repo.CommitFromShort("09a5a3f")
+	ctx := context.Background()
+	cmt, err := repo.CommitFromShort(ctx, "09a5a3f")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +195,8 @@ func TestCommitForShortSha(t *testing.T) {
 
 func TestCommitForShortShaShallow(t *testing.T) {
 	repo := NewRepository("https://github.com/googleapis/googleapis", "./repo", nil, true)
-	cmt, err := repo.CommitFromShort("2715659")
+	ctx := context.Background()
+	cmt, err := repo.CommitFromShort(ctx, "2715659")
 	if err != nil {
 		t.Fatal(err)
 	}

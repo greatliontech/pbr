@@ -43,7 +43,7 @@ func New(mods map[string]config.Module, creds *repository.CredentialStore, remot
 }
 
 func (r *Registry) Module(ctx context.Context, org, name string) (*Module, error) {
-	ctx, span := tracer.Start(ctx, "Module", trace.WithAttributes(
+	ctx, span := tracer.Start(ctx, "Registry.Module", trace.WithAttributes(
 		attribute.String("org", org),
 		attribute.String("name", name),
 	))
@@ -58,7 +58,7 @@ func (r *Registry) Module(ctx context.Context, org, name string) (*Module, error
 }
 
 func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Module, error) {
-	ctx, span := tracer.Start(ctx, "ModuleByCommitID", trace.WithAttributes(
+	ctx, span := tracer.Start(ctx, "Registry.ModuleByCommitID", trace.WithAttributes(
 		attribute.String("commitId", commitId),
 	))
 	defer span.End()
@@ -70,7 +70,7 @@ func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Modu
 
 	// get all modules
 	for _, mod := range r.modules {
-		ok, _, err := mod.HasCommitId(commitId)
+		ok, _, err := mod.HasCommitId(ctx, commitId)
 		if err != nil {
 			return nil, err
 		}

@@ -30,7 +30,7 @@ func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 				return nil, err
 			}
 			modules = append(modules, mod)
-			cmt, err := mod.CommitById(ref.Id)
+			cmt, err := mod.CommitById(ctx, ref.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -59,7 +59,7 @@ func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 }
 
 func (reg *Service) getGraph(ctx context.Context, mod *registry.Module, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error {
-	ctx, span := tracer.Start(ctx, "getGraph", trace.WithAttributes(
+	ctx, span := tracer.Start(ctx, "service.getGraph", trace.WithAttributes(
 		attribute.String("owner", mod.Owner),
 		attribute.String("module", mod.Name),
 		attribute.String("commit", commit.Id),

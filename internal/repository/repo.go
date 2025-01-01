@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -21,7 +22,12 @@ import (
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/gobwas/glob"
 	"github.com/greatliontech/pbr/internal/util"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer = otel.Tracer("pbr.dev/internal/repository")
 
 var ErrCommitNotFound = errors.New("commit not found")
 
@@ -73,7 +79,13 @@ func (r *Repository) Delete() error {
 
 // Files fetches and returns the commit and files for a given branch/tag reference.
 // If trgtRef is empty, it fetches HEAD.
-func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
+func (r *Repository) Files(ctx context.Context, trgtRef, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
+	ctx, span := tracer.Start(ctx, "Repository.Files", trace.WithAttributes(
+		attribute.String("ref", trgtRef),
+		attribute.String("root", root),
+	))
+	defer span.End()
+
 	depth := 0
 	if r.shallow {
 		depth = 1
@@ -127,7 +139,13 @@ func (r *Repository) Files(trgtRef, root string, filters ...glob.Glob) (*object.
 
 // FilesCommit fetches and returns the commit and files for a given commit hash.
 // If repository is shallow, it tries to find a matching remote ref and fetches only depth=1.
-func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
+func (r *Repository) FilesCommit(ctx context.Context, cmmt, root string, filters ...glob.Glob) (*object.Commit, []File, error) {
+	ctx, span := tracer.Start(ctx, "Repository.FilesCommit", trace.WithAttributes(
+		attribute.String("commitId", cmmt),
+		attribute.String("root", root),
+	))
+	defer span.End()
+
 	auth, err := r.getAuth()
 	if err != nil {
 		return nil, nil, err
@@ -187,7 +205,12 @@ func (r *Repository) FilesCommit(cmmt, root string, filters ...glob.Glob) (*obje
 }
 
 // CommitFromShort returns a full commit object from a short commit hash.
-func (r *Repository) CommitFromShort(cmmt string) (*object.Commit, error) {
+func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.Commit, error) {
+	ctx, span := tracer.Start(ctx, "Repository.CommitFromShort", trace.WithAttributes(
+		attribute.String("commitId", cmmt),
+	))
+	defer span.End()
+
 	// Check the cache
 	if cmt, ok := r.commitIdCache.Load(cmmt); ok {
 		return cmt, nil

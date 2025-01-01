@@ -66,7 +66,12 @@ func newModule(reg *Registry, owner, name string, module config.Module, repo *re
 	}
 }
 
-func (m *Module) Commit(ref string) (*Commit, error) {
+func (m *Module) Commit(ctx context.Context, ref string) (*Commit, error) {
+	ctx, span := tracer.Start(ctx, "Module.Commit", trace.WithAttributes(
+		attribute.String("ref", ref),
+	))
+	defer span.End()
+
 	if ref == "" {
 		ref = "HEAD"
 	}
@@ -74,7 +79,7 @@ func (m *Module) Commit(ref string) (*Commit, error) {
 	if c, ok := m.commitsByRefCache.Load(ref); ok {
 		return c, nil
 	}
-	_, c, err := m.FilesAndCommit(ref)
+	_, c, err := m.FilesAndCommit(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -83,12 +88,17 @@ func (m *Module) Commit(ref string) (*Commit, error) {
 	return c, nil
 }
 
-func (m *Module) CommitById(cid string) (*Commit, error) {
+func (m *Module) CommitById(ctx context.Context, cid string) (*Commit, error) {
+	ctx, span := tracer.Start(ctx, "Module.CommitById", trace.WithAttributes(
+		attribute.String("commitId", cid),
+	))
+	defer span.End()
+
 	// find commit from cache first
 	if c, ok := m.commitsByCidCache.Load(cid); ok {
 		return c, nil
 	}
-	_, c, err := m.FilesAndCommitByCommitId(cid)
+	_, c, err := m.FilesAndCommitByCommitId(ctx, cid)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +106,13 @@ func (m *Module) CommitById(cid string) (*Commit, error) {
 	return c, nil
 }
 
-func (m *Module) FilesAndCommit(ref string) ([]File, *Commit, error) {
-	commit, repoFiles, err := m.repo.Files(ref, m.Path, m.filters...)
+func (m *Module) FilesAndCommit(ctx context.Context, ref string) ([]File, *Commit, error) {
+	ctx, span := tracer.Start(ctx, "Module.FilesAndCommit", trace.WithAttributes(
+		attribute.String("ref", ref),
+	))
+	defer span.End()
+
+	commit, repoFiles, err := m.repo.Files(ctx, ref, m.Path, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,8 +120,13 @@ func (m *Module) FilesAndCommit(ref string) ([]File, *Commit, error) {
 	return m.filesAndCommit(commit, repoFiles)
 }
 
-func (m *Module) FilesAndCommitByCommitId(cmmt string) ([]File, *Commit, error) {
-	commit, repoFiles, err := m.repo.FilesCommit(cmmt, m.Path, m.filters...)
+func (m *Module) FilesAndCommitByCommitId(ctx context.Context, cmmt string) ([]File, *Commit, error) {
+	ctx, span := tracer.Start(ctx, "Module.FilesAndCommitByCommitId", trace.WithAttributes(
+		attribute.String("commitId", cmmt),
+	))
+	defer span.End()
+
+	commit, repoFiles, err := m.repo.FilesCommit(ctx, cmmt, m.Path, m.filters...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -122,7 +142,7 @@ func (m *Module) BufLock(ctx context.Context, ref string) (*BufLock, error) {
 	))
 	defer span.End()
 
-	cmt, repoFiles, err := m.repo.Files(ref, m.Path, m.filters...)
+	cmt, repoFiles, err := m.repo.Files(ctx, ref, m.Path, m.filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +155,7 @@ func (m *Module) BufLockCommitId(ctx context.Context, cmmt string) (*BufLock, er
 	))
 	defer span.End()
 
-	_, repoFiles, err := m.repo.FilesCommit(cmmt, m.Path, m.filters...)
+	_, repoFiles, err := m.repo.FilesCommit(ctx, cmmt, m.Path, m.filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +181,13 @@ func (m *Module) bufLock(ctx context.Context, commitId string, repoFiles []repos
 	return nil, ErrBufLockNotFound
 }
 
-func (m *Module) HasCommitId(cid string) (bool, string, error) {
-	c, err := m.repo.CommitFromShort(cid)
+func (m *Module) HasCommitId(ctx context.Context, cid string) (bool, string, error) {
+	ctx, span := tracer.Start(ctx, "Module.HasCommitId", trace.WithAttributes(
+		attribute.String("commitId", cid),
+	))
+	defer span.End()
+
+	c, err := m.repo.CommitFromShort(ctx, cid)
 	if err == nil {
 		return true, c.Hash.String(), nil
 	}

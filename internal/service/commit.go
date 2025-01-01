@@ -48,7 +48,7 @@ func (svc *Service) GetCommits(ctx context.Context, req *connect.Request[v1beta1
 }
 
 func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1beta1.Commit, error) {
-	ctx, span := tracer.Start(ctx, "getCommit", trace.WithAttributes(
+	ctx, span := tracer.Start(ctx, "service.getCommit", trace.WithAttributes(
 		attribute.String("owner", owner),
 		attribute.String("module", modl),
 		attribute.String("ref", ref),
@@ -62,7 +62,7 @@ func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1
 		return nil, err
 	}
 
-	c, err := mod.Commit(ref)
+	c, err := mod.Commit(ctx, ref)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to get internal commit object")

@@ -29,7 +29,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
-var tracer = otel.Tracer("pbr.dev/pkg/registry")
+var tracer = otel.Tracer("pbr.dev/internal/service")
 
 type Service struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
