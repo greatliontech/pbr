@@ -58,6 +58,7 @@ func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1
 		attribute.String("ref", ref),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Service.getCommit", "owner", owner, "module", modl, "ref", ref)
 
 	mod, err := svc.reg.Module(ctx, owner, modl)
 	if err != nil {

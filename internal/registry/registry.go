@@ -50,6 +50,7 @@ func (r *Registry) Module(ctx context.Context, org, name string) (*Module, error
 		attribute.String("name", name),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Registry.Module", "org", org, "name", name)
 
 	mod, ok := r.modules[org+"/"+name]
 	if !ok {
@@ -64,6 +65,7 @@ func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Modu
 		attribute.String("commitId", commitId),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Registry.ModuleByCommitID", "commitId", commitId)
 
 	// check the cache first
 	if mod, ok := r.commitIdModule.Load(commitId); ok {

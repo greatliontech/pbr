@@ -72,6 +72,7 @@ func (m *Module) Commit(ctx context.Context, ref string) (*Commit, error) {
 		attribute.String("ref", ref),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Module.Commit", "owner", m.Owner, "module", m.Name, "ref", ref)
 
 	if ref == "" {
 		ref = "HEAD"
@@ -99,6 +100,7 @@ func (m *Module) CommitById(ctx context.Context, cid string) (*Commit, error) {
 		attribute.String("commitId", cid),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Module.CommitById", "owner", m.Owner, "module", m.Name, "commitId", cid)
 
 	// find commit from cache first
 	if c, ok := m.commitsByCidCache.Load(cid); ok {
@@ -117,6 +119,7 @@ func (m *Module) FilesAndCommit(ctx context.Context, ref string) ([]File, *Commi
 		attribute.String("ref", ref),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Module.FilesAndCommit", "owner", m.Owner, "module", m.Name, "ref", ref)
 
 	commit, repoFiles, err := m.repo.Files(ctx, ref, m.Path, m.filters...)
 	if err != nil {
@@ -131,6 +134,7 @@ func (m *Module) FilesAndCommitByCommitId(ctx context.Context, cmmt string) ([]F
 		attribute.String("commitId", cmmt),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Module.FilesAndCommitByCommitId", "owner", m.Owner, "module", m.Name, "commitId", cmmt)
 
 	commit, repoFiles, err := m.repo.FilesCommit(ctx, cmmt, m.Path, m.filters...)
 	if err != nil {
@@ -147,6 +151,7 @@ func (m *Module) BufLock(ctx context.Context, ref string) (*BufLock, error) {
 		attribute.String("ref", ref),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Module.BufLock", "owner", m.Owner, "module", m.Name, "ref", ref)
 
 	cmt, repoFiles, err := m.repo.Files(ctx, ref, m.Path, m.filters...)
 	if err != nil {
@@ -160,6 +165,7 @@ func (m *Module) BufLockCommitId(ctx context.Context, cmmt string) (*BufLock, er
 		attribute.String("commitId", cmmt),
 	))
 	defer span.End()
+	slog.DebugContext(ctx, "Module.BufLockCommitId", "owner", m.Owner, "module", m.Name, "commitId", cmmt)
 
 	_, repoFiles, err := m.repo.FilesCommit(ctx, cmmt, m.Path, m.filters...)
 	if err != nil {
