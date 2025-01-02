@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"log/slog"
 	"strings"
 
 	"github.com/greatliontech/pbr/internal/config"
@@ -73,6 +74,7 @@ func (r *Registry) ModuleByCommitID(ctx context.Context, commitId string) (*Modu
 	for _, mod := range r.modules {
 		ok, _, err := mod.HasCommitId(ctx, commitId)
 		if err != nil {
+			slog.ErrorContext(ctx, "HasCommitId", "err", err)
 			return nil, err
 		}
 		if ok {

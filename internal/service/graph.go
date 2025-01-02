@@ -31,11 +31,13 @@ func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 		case *v1beta1.ResourceRef_Id:
 			mod, err := reg.reg.ModuleByCommitID(ctx, ref.Id)
 			if err != nil {
+				slog.ErrorContext(ctx, "ModuleByCommitID", "err", err)
 				return nil, err
 			}
 			modules = append(modules, mod)
 			cmt, err := mod.CommitById(ctx, ref.Id)
 			if err != nil {
+				slog.ErrorContext(ctx, "CommitById", "err", err)
 				return nil, err
 			}
 			commit, err := getCommitObject(cmt.OwnerId, cmt.ModuleId, cmt.CommitId, cmt.Digest)
