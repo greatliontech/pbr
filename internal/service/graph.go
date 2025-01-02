@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
@@ -14,6 +15,9 @@ import (
 )
 
 func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) {
+	user := userFromContext(ctx)
+	slog.DebugContext(ctx, "GetGraph", "user", user)
+
 	resp := &connect.Response[v1beta1.GetGraphResponse]{}
 	resp.Msg = &v1beta1.GetGraphResponse{
 		Graph: &v1beta1.Graph{},
@@ -40,6 +44,7 @@ func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 			}
 			key := mod.Name + "/" + mod.Owner
 			commitMap[key] = commit
+			slog.DebugContext(ctx, "top level dep", "id", commit.Id)
 			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
 				Commit:   commit,
 				Registry: reg.conf.Host,
@@ -55,6 +60,14 @@ func (reg *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 		}
 	}
 
+	// debug print of the graph
+	for _, cmt := range commitMap {
+		slog.DebugContext(ctx, "commit", "id", cmt.Id)
+	}
+	for _, edge := range resp.Msg.Graph.Edges {
+		slog.DebugContext(ctx, "edge", "from", edge.FromNode.CommitId, "to", edge.ToNode.CommitId)
+	}
+
 	return resp, nil
 }
 
@@ -66,20 +79,26 @@ func (reg *Service) getGraph(ctx context.Context, mod *registry.Module, commit *
 	))
 	defer span.End()
 
+	slog.DebugContext(ctx, "getGraph", "owner", mod.Owner, "module", mod.Name, "commit", commit.Id)
+
 	bl, err := mod.BufLockCommitId(ctx, commit.Id)
 	if err != nil {
 		if err == registry.ErrBufLockNotFound {
+			slog.DebugContext(ctx, "no dependencies")
 			// no dependencies
 			return nil
 		}
 		return err
 	}
 	for _, dep := range bl.Deps {
+		slog.DebugContext(ctx, "dep", "owner", dep.Owner, "repo", dep.Repository, "commit", dep.Commit, "digest", dep.Digest)
 		var depCommit *v1beta1.Commit
 		key := dep.Owner + "/" + dep.Repository
 		if dc, ok := commits[key]; ok {
+			slog.DebugContext(ctx, "dep already in commits", "key", key)
 			depCommit = dc
 		} else {
+			slog.DebugContext(ctx, "dep not in commits", "key", key)
 			ownerId := util.OwnerID(dep.Owner)
 			modId := util.ModuleID(ownerId, dep.Repository)
 			depCommit, err = getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))

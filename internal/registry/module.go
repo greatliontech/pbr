@@ -154,7 +154,7 @@ func (m *Module) BufLock(ctx context.Context, ref string) (*BufLock, error) {
 }
 
 func (m *Module) BufLockCommitId(ctx context.Context, cmmt string) (*BufLock, error) {
-	ctx, span := tracer.Start(ctx, "BufLockCommitId", trace.WithAttributes(
+	ctx, span := tracer.Start(ctx, "Module.BufLockCommitId", trace.WithAttributes(
 		attribute.String("commitId", cmmt),
 	))
 	defer span.End()
@@ -180,6 +180,7 @@ func (m *Module) bufLock(ctx context.Context, commitId string, repoFiles []repos
 					}
 				}
 			}
+			return bl, nil
 		}
 	}
 	return nil, ErrBufLockNotFound

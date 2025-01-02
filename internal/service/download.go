@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
@@ -23,10 +24,14 @@ func (svc *Service) Download(ctx context.Context, req *connect.Request[v1beta1.D
 			return nil, fmt.Errorf("ResourceRef_Name_ not supported")
 		}
 
+		slog.DebugContext(ctx, "downlowd commit", "commitId", commitId)
+
 		modl, err := svc.reg.ModuleByCommitID(ctx, commitId)
 		if err != nil {
 			return nil, err
 		}
+
+		slog.DebugContext(ctx, "downlowd module", "module", modl.Name, "owner", modl.Owner)
 
 		files, cmmt, err := modl.FilesAndCommitByCommitId(ctx, commitId)
 		if err != nil {
@@ -44,14 +49,14 @@ func (svc *Service) Download(ctx context.Context, req *connect.Request[v1beta1.D
 
 		for _, file := range files {
 			if file.Name == "buf.yaml" {
-				fmt.Println("buf.yaml found", file.Content)
+				slog.DebugContext(ctx, "buf.yaml found", "content", file.Content)
 				contents.V1BufYamlFile = &v1beta1.File{
 					Path:    file.Name,
 					Content: []byte(file.Content),
 				}
 			}
 			if file.Name == "buf.lock" {
-				fmt.Println("buf.lock found", file.Content)
+				slog.DebugContext(ctx, "buf.lock found", "content", file.Content)
 				contents.V1BufLockFile = &v1beta1.File{
 					Path:    file.Name,
 					Content: []byte(file.Content),

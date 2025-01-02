@@ -2,3 +2,4 @@ version: v1
 name: pbr-example.greatlion.tech/test/test
 deps:
   - pbr-example.greatlion.tech/greatliontech/protoc-gen-rtk-query
+  - pbr-example.greatlion.tech/greatliontech/private-test-protos

@@ -31,6 +31,18 @@ import (
 
 var tracer = otel.Tracer("pbr.dev/internal/service")
 
+type contextKey string
+
+const userContextKey contextKey = "user"
+
+func contextWithUser(ctx context.Context, user string) context.Context {
+	return context.WithValue(ctx, userContextKey, user)
+}
+
+func userFromContext(ctx context.Context) string {
+	return ctx.Value(userContextKey).(string)
+}
+
 type Service struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
 	conf      *config.Config
@@ -62,9 +74,10 @@ func New(c *config.Config) (*Service, error) {
 		ownerName := strings.Split(k, "/")[0]
 		modName := strings.Split(k, "/")[1]
 		ownerId := util.OwnerID(ownerName)
-		svc.ownerIds[ownerName] = ownerId
+		svc.ownerIds[ownerId] = ownerName
 		modId := util.ModuleID(ownerId, modName)
 		svc.moduleIds[modId] = ownerId + "/" + modName
+		slog.Debug("parsing modules", "ownerId", ownerId, "owner", ownerName, "id", modId, "module", modName)
 	}
 
 	if svc.conf.Address == "" {
@@ -211,7 +224,7 @@ func newAuthInterceptor(tokens map[string]string) connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))
 			}
 
-			ctx = context.WithValue(ctx, "user", user)
+			ctx = contextWithUser(ctx, user)
 
 			return next(ctx, req)
 		}

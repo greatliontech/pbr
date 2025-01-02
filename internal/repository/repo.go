@@ -118,7 +118,6 @@ func (r *Repository) Files(ctx context.Context, trgtRef, root string, filters ..
 		err := r.fetchRef(ctx, refSpec.String(), depth, auth)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			// If branch fetch fails, try fetching the tag
-			fmt.Println("fetching tag:", trgtRef)
 			refSpec = config.RefSpec(fmt.Sprintf("+refs/tags/%s:refs/tags/%s", trgtRef, trgtRef))
 			if tagErr := r.fetchRef(ctx, refSpec.String(), depth, auth); tagErr != nil && tagErr != git.NoErrAlreadyUpToDate {
 				return nil, nil, tagErr

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	imagev1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/image/v1"
@@ -38,13 +39,15 @@ func (svc *Service) GenerateCode(ctx context.Context, req *connect.Request[regis
 		opts := strings.Join(request.GetOptions(), ",")
 		genReq.Parameter = &opts
 
+		plugRef := request.PluginReference
+
+		slog.DebugContext(ctx, "requesting plugin", "owner", plugRef.Owner, "name", plugRef.Name, "version", plugRef.Version, "revision", plugRef.Revision)
+
 		// prepare plugin
-		plugin, err := svc.getPlugin(request.PluginReference)
+		plugin, err := svc.getPlugin(plugRef)
 		if err != nil {
 			return nil, err
 		}
-
-		fmt.Println("plugin reference:", request.PluginReference)
 
 		pluginVersion := request.PluginReference.Version
 

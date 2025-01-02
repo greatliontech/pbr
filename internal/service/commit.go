@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
@@ -13,6 +14,9 @@ import (
 
 // Get Commits.
 func (svc *Service) GetCommits(ctx context.Context, req *connect.Request[v1beta1.GetCommitsRequest]) (*connect.Response[v1beta1.GetCommitsResponse], error) {
+	user := userFromContext(ctx)
+	slog.DebugContext(ctx, "GetCommits", "user", user)
+
 	resp := &connect.Response[v1beta1.GetCommitsResponse]{}
 	resp.Msg = &v1beta1.GetCommitsResponse{}
 
