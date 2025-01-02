@@ -14,7 +14,6 @@ import (
 	"github.com/greatliontech/pbr/internal/service"
 	"github.com/greatliontech/pbr/internal/telemetry"
 	slogotel "github.com/remychantenay/slog-otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 )
 
 var version = "0.0.0-dev"
@@ -105,18 +104,9 @@ func setupTelemetry(ctx context.Context) (func(context.Context) error, error) {
 	instanceId := os.Getenv("SEVICE_INSTANCE_ID")
 	ns := os.Getenv("SERVICE_NAMESPACE")
 
-	otelgrpc, error := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint("localhost:4317"),
-	)
-	if error != nil {
-		return nil, error
-	}
-
 	return telemetry.Setup(ctx,
 		telemetry.WithVersion(version),
 		telemetry.WithInstanceId(instanceId),
 		telemetry.WithNamespace(ns),
-		telemetry.WithTraceExporter(otelgrpc),
 	)
 }
