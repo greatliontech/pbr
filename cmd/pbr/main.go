@@ -12,7 +12,6 @@ import (
 
 	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/service"
-	"github.com/greatliontech/pbr/internal/telemetry"
 	slogotel "github.com/remychantenay/slog-otel"
 )
 
@@ -101,12 +100,16 @@ func main() {
 }
 
 func setupTelemetry(ctx context.Context) (func(context.Context) error, error) {
-	instanceId := os.Getenv("SEVICE_INSTANCE_ID")
-	ns := os.Getenv("SERVICE_NAMESPACE")
+	// instanceId := os.Getenv("SEVICE_INSTANCE_ID")
+	// ns := os.Getenv("SERVICE_NAMESPACE")
+	//
+	// return telemetry.Setup(ctx,
+	// 		telemetry.WithVersion(version),
+	// 		telemetry.WithInstanceId(instanceId),
+	// 		telemetry.WithNamespace(ns),
+	// 	)
 
-	return telemetry.Setup(ctx,
-		telemetry.WithVersion(version),
-		telemetry.WithInstanceId(instanceId),
-		telemetry.WithNamespace(ns),
-	)
+	return func(ctx context.Context) error {
+		return nil
+	}, nil
 }
