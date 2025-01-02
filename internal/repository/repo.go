@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -209,8 +210,11 @@ func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.
 	))
 	defer span.End()
 
+	slog.DebugContext(ctx, "CommitFromShort", "commitId", cmmt)
+
 	// Check the cache
 	if cmt, ok := r.commitIdCache.Load(cmmt); ok {
+		slog.DebugContext(ctx, "CommitFromShort", "cache", "hit", "commitId", cmt.Hash.String())
 		return cmt, nil
 	}
 
@@ -235,6 +239,7 @@ func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.
 		// For shallow clone, try to find a matching remote reference
 		refs, listErr := r.remote.List(&git.ListOptions{Auth: auth})
 		if listErr != nil {
+			slog.DebugContext(ctx, "remote.List", "err", listErr)
 			return nil, listErr
 		}
 		for _, ref := range refs {
