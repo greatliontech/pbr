@@ -92,6 +92,7 @@ func (r *Registry) getRepository(mod config.Module) *repository.Repository {
 	}
 	repoId := repositoryId(mod.Remote)
 	repoPath := r.repoCachePath + "/" + repoId
+	slog.Debug("getRepository", "remote", mod.Remote, "repoPath", repoPath, "shallow", mod.Shallow)
 	repo := repository.NewRepository(mod.Remote, repoPath, creds, mod.Shallow)
 	return repo
 }

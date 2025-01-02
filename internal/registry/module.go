@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/gobwas/glob"
@@ -87,6 +88,7 @@ func (m *Module) Commit(ctx context.Context, ref string) (*Commit, error) {
 	if err != nil {
 		return nil, err
 	}
+	slog.DebugContext(ctx, "commit", "commitId", c.CommitId, "owner", m.Owner, "module", m.Name, "ref", ref)
 	m.commitsByRefCache.Store(ref, c)
 	m.commitsByCidCache.Store(c.CommitId, c)
 	return c, nil

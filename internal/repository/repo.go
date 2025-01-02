@@ -218,6 +218,7 @@ func (r *Repository) CommitFromShort(ctx context.Context, cmmt string) (*object.
 		return cmt, nil
 	}
 
+	slog.DebugContext(ctx, "CommitFromShort", "cache", "miss", "commitId", cmmt)
 	// Local lookup
 	localCommit, err := r.localLookupShortSha(cmmt)
 	if err == nil {
