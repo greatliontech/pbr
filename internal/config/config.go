@@ -18,6 +18,7 @@ type Config struct {
 	LogLevel    string
 	CacheDir    string
 	AdminToken  string
+	NoLogin     bool
 }
 
 type Module struct {

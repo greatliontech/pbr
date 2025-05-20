@@ -140,15 +140,19 @@ func New(c *config.Config) (*Service, error) {
 
 	mux := http.NewServeMux()
 
+	intcptrs := []connect.Interceptor{}
+
 	otelInt, err := otelconnect.NewInterceptor()
 	if err != nil {
 		return nil, err
 	}
+	intcptrs = append(intcptrs, otelInt)
 
-	interceptors := connect.WithInterceptors(
-		newAuthInterceptor(svc.tokens),
-		otelInt,
-	)
+	if !c.NoLogin {
+		intcptrs = append(intcptrs, newAuthInterceptor(svc.tokens))
+	}
+
+	interceptors := connect.WithInterceptors(intcptrs...)
 
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(svc, interceptors))

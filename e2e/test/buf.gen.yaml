@@ -10,5 +10,5 @@ plugins:
   #   opt:
   #     - add_pb_suffix
   #     - with_metadata
-  - remote: pbr-example.greatlion.tech/protocolbuffers/go
+  - remote: pbr-example.greatlion.tech/candosa/strval
     out: go

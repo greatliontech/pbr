@@ -3,33 +3,11 @@ address: ":8080"
 loglevel: debug
 cachedir: /home/nikolas/.cache/pbr
 admintoken: verySecure42
-users:
-  testUser: testToken
 credentials:
-  git:
-    https://github.com/greatliontech/private-test-*:
-      githubapp:
-        appid: 1072076
-        installationid: 57714146
-        privatekey: ${PBR_TEST_GH_KEY}
   containerregistry:
-    cr.platform.cy:
-      username: pbr
-      password: ${HARBOR_PBR_TOKEN}
-modules:
-  greatliontech/protoc-gen-rtk-query:
-    remote: https://github.com/greatliontech/protoc-gen-rtk-query
-    path: proto
-    shallow: true
-  greatliontech/private-test-protos:
-    remote: https://github.com/greatliontech/private-test-protos
-  greatliontech/private-test-nested-protos:
-    remote: https://github.com/greatliontech/private-test-nested-protos
-  googleapis/googleapis:
-    remote: https://github.com/googleapis/googleapis
+    registry.gitlab.com/candosa:
+      username: nikolas.sepos
+      password: ${GITLAB_PBR_TOKEN}
 plugins:
-  greatliontech/rtk-query:
-    image: ghcr.io/greatliontech/protoc-gen-rtk-query
-  protocolbuffers/go:
-    image: cr.platform.cy/pbr-plugins/protocolbuffers/go
-    default: v1.36.0
+  candosa/strval:
+    image: registry.gitlab.com/candosa/proto-plugins/strval:v0.1.4
