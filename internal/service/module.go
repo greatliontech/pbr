@@ -7,28 +7,28 @@ import (
 	"log/slog"
 	"time"
 
-	v1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1"
+	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	ownerv1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/owner/v1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/storage"
 )
 
 // GetModules retrieves modules by id or name.
-func (svc *Service) GetModules(ctx context.Context, req *connect.Request[v1.GetModulesRequest]) (*connect.Response[v1.GetModulesResponse], error) {
+func (svc *Service) GetModules(ctx context.Context, req *connect.Request[v1beta1.GetModulesRequest]) (*connect.Response[v1beta1.GetModulesResponse], error) {
 	if svc.casReg == nil {
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
-	resp := connect.NewResponse(&v1.GetModulesResponse{})
+	resp := connect.NewResponse(&v1beta1.GetModulesResponse{})
 
 	for _, ref := range req.Msg.ModuleRefs {
-		var mod *v1.Module
+		var mod *v1beta1.Module
 		var err error
 
 		switch r := ref.Value.(type) {
-		case *v1.ModuleRef_Id:
+		case *v1beta1.ModuleRef_Id:
 			mod, err = svc.getModuleByID(ctx, r.Id)
-		case *v1.ModuleRef_Name_:
+		case *v1beta1.ModuleRef_Name_:
 			if r.Name != nil {
 				mod, err = svc.getModuleByName(ctx, r.Name.Owner, r.Name.Module)
 			} else {
@@ -48,13 +48,13 @@ func (svc *Service) GetModules(ctx context.Context, req *connect.Request[v1.GetM
 	return resp, nil
 }
 
-func (svc *Service) getModuleByID(ctx context.Context, id string) (*v1.Module, error) {
+func (svc *Service) getModuleByID(ctx context.Context, id string) (*v1beta1.Module, error) {
 	mod, err := svc.casReg.ModuleByID(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s", id))
 	}
 
-	return &v1.Module{
+	return &v1beta1.Module{
 		Id:          mod.ID(),
 		OwnerId:     mod.OwnerID(),
 		Name:        mod.Name(),
@@ -63,13 +63,13 @@ func (svc *Service) getModuleByID(ctx context.Context, id string) (*v1.Module, e
 	}, nil
 }
 
-func (svc *Service) getModuleByName(ctx context.Context, owner, name string) (*v1.Module, error) {
+func (svc *Service) getModuleByName(ctx context.Context, owner, name string) (*v1beta1.Module, error) {
 	mod, err := svc.casReg.Module(ctx, owner, name)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, name))
 	}
 
-	return &v1.Module{
+	return &v1beta1.Module{
 		Id:          mod.ID(),
 		OwnerId:     mod.OwnerID(),
 		Name:        mod.Name(),
@@ -78,14 +78,14 @@ func (svc *Service) getModuleByName(ctx context.Context, owner, name string) (*v
 }
 
 // ListModules lists modules for a specific owner.
-func (svc *Service) ListModules(ctx context.Context, req *connect.Request[v1.ListModulesRequest]) (*connect.Response[v1.ListModulesResponse], error) {
+func (svc *Service) ListModules(ctx context.Context, req *connect.Request[v1beta1.ListModulesRequest]) (*connect.Response[v1beta1.ListModulesResponse], error) {
 	if svc.casReg == nil {
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
 	slog.DebugContext(ctx, "ListModules", "ownerRefs", len(req.Msg.OwnerRefs))
 
-	resp := connect.NewResponse(&v1.ListModulesResponse{})
+	resp := connect.NewResponse(&v1beta1.ListModulesResponse{})
 
 	// If no owner refs, list all (not supported yet)
 	if len(req.Msg.OwnerRefs) == 0 {
@@ -114,7 +114,7 @@ func (svc *Service) ListModules(ctx context.Context, req *connect.Request[v1.Lis
 		}
 
 		for _, mod := range modules {
-			resp.Msg.Modules = append(resp.Msg.Modules, &v1.Module{
+			resp.Msg.Modules = append(resp.Msg.Modules, &v1beta1.Module{
 				Id:          mod.ID(),
 				OwnerId:     mod.OwnerID(),
 				Name:        mod.Name(),
@@ -127,14 +127,14 @@ func (svc *Service) ListModules(ctx context.Context, req *connect.Request[v1.Lis
 }
 
 // CreateModules creates new modules.
-func (svc *Service) CreateModules(ctx context.Context, req *connect.Request[v1.CreateModulesRequest]) (*connect.Response[v1.CreateModulesResponse], error) {
+func (svc *Service) CreateModules(ctx context.Context, req *connect.Request[v1beta1.CreateModulesRequest]) (*connect.Response[v1beta1.CreateModulesResponse], error) {
 	if svc.casReg == nil {
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
 	slog.DebugContext(ctx, "CreateModules", "values", len(req.Msg.Values))
 
-	resp := connect.NewResponse(&v1.CreateModulesResponse{})
+	resp := connect.NewResponse(&v1beta1.CreateModulesResponse{})
 
 	for _, value := range req.Msg.Values {
 		// Resolve owner
@@ -163,7 +163,7 @@ func (svc *Service) CreateModules(ctx context.Context, req *connect.Request[v1.C
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		resp.Msg.Modules = append(resp.Msg.Modules, &v1.Module{
+		resp.Msg.Modules = append(resp.Msg.Modules, &v1beta1.Module{
 			Id:          mod.ID(),
 			OwnerId:     mod.OwnerID(),
 			Name:        mod.Name(),
@@ -176,14 +176,14 @@ func (svc *Service) CreateModules(ctx context.Context, req *connect.Request[v1.C
 }
 
 // UpdateModules updates existing modules.
-func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1.UpdateModulesRequest]) (*connect.Response[v1.UpdateModulesResponse], error) {
+func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1beta1.UpdateModulesRequest]) (*connect.Response[v1beta1.UpdateModulesResponse], error) {
 	if svc.casReg == nil {
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
 	slog.DebugContext(ctx, "UpdateModules", "values", len(req.Msg.Values))
 
-	resp := connect.NewResponse(&v1.UpdateModulesResponse{})
+	resp := connect.NewResponse(&v1beta1.UpdateModulesResponse{})
 
 	for _, value := range req.Msg.Values {
 		// Get existing module
@@ -191,7 +191,7 @@ func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1.U
 		var err error
 
 		switch r := value.ModuleRef.Value.(type) {
-		case *v1.ModuleRef_Id:
+		case *v1beta1.ModuleRef_Id:
 			var m interface{ ID() string }
 			m, err = svc.casReg.ModuleByID(ctx, r.Id)
 			if err == nil {
@@ -211,7 +211,7 @@ func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1.U
 				}
 			}
 			_ = m
-		case *v1.ModuleRef_Name_:
+		case *v1beta1.ModuleRef_Name_:
 			if r.Name != nil {
 				var m interface{ ID() string }
 				m, err = svc.casReg.Module(ctx, r.Name.Owner, r.Name.Module)
@@ -248,7 +248,7 @@ func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1.U
 
 		// Note: UpdateModule not directly available on casReg, would need to add
 		// For now, return the module as-is (updates not persisted)
-		resp.Msg.Modules = append(resp.Msg.Modules, &v1.Module{
+		resp.Msg.Modules = append(resp.Msg.Modules, &v1beta1.Module{
 			Id:          mod.ID,
 			OwnerId:     mod.OwnerID,
 			Name:        mod.Name,
@@ -260,28 +260,28 @@ func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1.U
 }
 
 // DeleteModules deletes existing modules.
-func (svc *Service) DeleteModules(ctx context.Context, req *connect.Request[v1.DeleteModulesRequest]) (*connect.Response[v1.DeleteModulesResponse], error) {
+func (svc *Service) DeleteModules(ctx context.Context, req *connect.Request[v1beta1.DeleteModulesRequest]) (*connect.Response[v1beta1.DeleteModulesResponse], error) {
 	if svc.casReg == nil {
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
 	slog.DebugContext(ctx, "DeleteModules", "moduleRefs", len(req.Msg.ModuleRefs))
 
-	resp := connect.NewResponse(&v1.DeleteModulesResponse{})
+	resp := connect.NewResponse(&v1beta1.DeleteModulesResponse{})
 
 	for _, ref := range req.Msg.ModuleRefs {
 		var owner, name string
 		var err error
 
 		switch r := ref.Value.(type) {
-		case *v1.ModuleRef_Id:
+		case *v1beta1.ModuleRef_Id:
 			mod, err := svc.casReg.ModuleByID(ctx, r.Id)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			owner = mod.Owner()
 			name = mod.Name()
-		case *v1.ModuleRef_Name_:
+		case *v1beta1.ModuleRef_Name_:
 			if r.Name != nil {
 				owner = r.Name.Owner
 				name = r.Name.Module

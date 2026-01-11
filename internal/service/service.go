@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
-	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect"
 	"connectrpc.com/connect"
@@ -144,7 +143,7 @@ func New(c *config.Config) (*Service, error) {
 	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewUploadServiceHandler(svc, interceptors))
-	mux.Handle(modulev1connect.NewModuleServiceHandler(svc, interceptors))
+	mux.Handle(modulev1beta1connect.NewModuleServiceHandler(svc, interceptors))
 	mux.Handle(ownerv1connect.NewOwnerServiceHandler(svc, interceptors))
 
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
