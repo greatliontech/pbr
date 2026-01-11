@@ -1,0 +1,4210 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>pbr: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/greatliontech/pbr/cmd/pbr/main.go (0.0%)</option>
+				
+				<option value="file1">github.com/greatliontech/pbr/e2e/cert/gen.go (0.0%)</option>
+				
+				<option value="file2">github.com/greatliontech/pbr/internal/codegen/ocifsrunner.go (0.0%)</option>
+				
+				<option value="file3">github.com/greatliontech/pbr/internal/codegen/plugin.go (0.0%)</option>
+				
+				<option value="file4">github.com/greatliontech/pbr/internal/config/config.go (71.7%)</option>
+				
+				<option value="file5">github.com/greatliontech/pbr/internal/registry/cas/module.go (53.7%)</option>
+				
+				<option value="file6">github.com/greatliontech/pbr/internal/registry/cas/registry.go (64.2%)</option>
+				
+				<option value="file7">github.com/greatliontech/pbr/internal/service/code-generation.go (0.0%)</option>
+				
+				<option value="file8">github.com/greatliontech/pbr/internal/service/commit.go (85.7%)</option>
+				
+				<option value="file9">github.com/greatliontech/pbr/internal/service/download.go (94.3%)</option>
+				
+				<option value="file10">github.com/greatliontech/pbr/internal/service/graph.go (90.2%)</option>
+				
+				<option value="file11">github.com/greatliontech/pbr/internal/service/module.go (78.7%)</option>
+				
+				<option value="file12">github.com/greatliontech/pbr/internal/service/owners.go (90.9%)</option>
+				
+				<option value="file13">github.com/greatliontech/pbr/internal/service/service.go (2.3%)</option>
+				
+				<option value="file14">github.com/greatliontech/pbr/internal/service/upload.go (89.1%)</option>
+				
+				<option value="file15">github.com/greatliontech/pbr/internal/service/utils.go (75.0%)</option>
+				
+				<option value="file16">github.com/greatliontech/pbr/internal/storage/filesystem/blob.go (79.6%)</option>
+				
+				<option value="file17">github.com/greatliontech/pbr/internal/storage/filesystem/manifest.go (77.1%)</option>
+				
+				<option value="file18">github.com/greatliontech/pbr/internal/storage/filesystem/metadata.go (71.2%)</option>
+				
+				<option value="file19">github.com/greatliontech/pbr/internal/storage/storage.go (0.0%)</option>
+				
+				<option value="file20">github.com/greatliontech/pbr/internal/telemetry/options.go (0.0%)</option>
+				
+				<option value="file21">github.com/greatliontech/pbr/internal/telemetry/otel.go (0.0%)</option>
+				
+				<option value="file22">github.com/greatliontech/pbr/internal/util/id.go (100.0%)</option>
+				
+				<option value="file23">github.com/greatliontech/pbr/internal/util/map.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "flag"
+        "log/slog"
+        "os"
+        "os/signal"
+        "strconv"
+        "syscall"
+        "time"
+
+        "github.com/greatliontech/pbr/internal/config"
+        "github.com/greatliontech/pbr/internal/service"
+        slogotel "github.com/remychantenay/slog-otel"
+)
+
+var version = "0.0.0-dev"
+
+func main() <span class="cov0" title="0">{
+        // Create a context that is canceled when SIGTERM or SIGINT is received.
+        ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+        defer stop()
+
+        configFile := ""
+
+        flag.StringVar(&amp;configFile, "config-file", "/config/config.yaml", "path to config file")
+
+        flag.Parse()
+
+        c, err := config.FromFile(configFile)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("Failed to load config", "err", err)
+                os.Exit(1)
+        }</span>
+
+        <span class="cov0" title="0">logLevel := new(slog.Level)
+        *logLevel = slog.LevelError
+        if c.LogLevel != "" </span><span class="cov0" title="0">{
+                if err := logLevel.UnmarshalText([]byte(c.LogLevel)); err != nil </span><span class="cov0" title="0">{
+                        slog.Error("Failed to parse log level", "err", err)
+                        os.Exit(1)
+                }</span>
+        }
+
+        <span class="cov0" title="0">handler := slog.NewTextHandler(os.Stdout, &amp;slog.HandlerOptions{
+                Level: logLevel,
+        })
+
+        slog.SetDefault(slog.New(slogotel.OtelHandler{
+                Next: handler,
+        }))
+
+        slog.Info("Starting PBR", "version", version)
+
+        // Set up telemetry
+        telShutdown, err := setupTelemetry(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("Failed to set up telemetry", "err", err)
+                os.Exit(1)
+        }</span>
+
+        <span class="cov0" title="0">svc, err := service.New(c)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("Failed to create registry", "err", err)
+                os.Exit(1)
+        }</span>
+
+        <span class="cov0" title="0">slog.Info("Listening on", "addr", c.Address, "host", c.Host)
+
+        go func() </span><span class="cov0" title="0">{
+                if err := svc.Serve(ctx); err != nil </span><span class="cov0" title="0">{
+                        slog.Error("Failed to start registry", "err", err)
+                        os.Exit(1)
+                }</span>
+        }()
+
+        // Wait for a termination signal
+        <span class="cov0" title="0">&lt;-ctx.Done()
+        slog.Info("Shutdown signal received")
+
+        shutdownPeriod := 30
+        if sdp, ok := os.LookupEnv("TERMINATION_GRACE_PERIOD"); ok </span><span class="cov0" title="0">{
+                sdpi, err := strconv.Atoi(sdp)
+                if err == nil </span><span class="cov0" title="0">{
+                        shutdownPeriod = sdpi
+                }</span>
+        }
+
+        <span class="cov0" title="0">ctx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownPeriod)*time.Second)
+        defer cancel()
+
+        if err := svc.Shutdown(ctx); err != nil </span><span class="cov0" title="0">{
+                slog.Error("Failed to shutdown registry", "err", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := telShutdown(ctx); err != nil </span><span class="cov0" title="0">{
+                slog.Error("Failed to shutdown telemetry", "err", err)
+        }</span>
+}
+
+func setupTelemetry(ctx context.Context) (func(context.Context) error, error) <span class="cov0" title="0">{
+        // instanceId := os.Getenv("SEVICE_INSTANCE_ID")
+        // ns := os.Getenv("SERVICE_NAMESPACE")
+        //
+        // return telemetry.Setup(ctx,
+        //                 telemetry.WithVersion(version),
+        //                 telemetry.WithInstanceId(instanceId),
+        //                 telemetry.WithNamespace(ns),
+        //         )
+
+        return func(ctx context.Context) error </span><span class="cov0" title="0">{
+                return nil
+        }</span>, nil
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "crypto/rand"
+        "crypto/rsa"
+        "crypto/x509"
+        "crypto/x509/pkix"
+        "encoding/pem"
+        "math/big"
+        "os"
+        "time"
+)
+
+func main() <span class="cov0" title="0">{
+        // Generate CA private key
+        caPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Create a CA certificate template
+        <span class="cov0" title="0">caTemplate := x509.Certificate{
+                SerialNumber: big.NewInt(2024), // Change this to a unique serial number
+                Subject: pkix.Name{
+                        CommonName:   "PBR Test CA",
+                        Organization: []string{"Great Lion Technologies"},
+                },
+                NotBefore:             time.Now(),
+                NotAfter:              time.Now().AddDate(10, 0, 0), // Valid for 10 years
+                IsCA:                  true,
+                KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+                BasicConstraintsValid: true,
+        }
+
+        // Self-sign the certificate
+        caCertificateBytes, err := x509.CreateCertificate(rand.Reader, &amp;caTemplate, &amp;caTemplate, &amp;caPrivateKey.PublicKey, caPrivateKey)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Save CA private key to file (e.g., ca.key)
+        <span class="cov0" title="0">caPrivateKeyFile, err := os.Create("ca.key")
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov0" title="0">defer caPrivateKeyFile.Close()
+
+        // Write private key to file
+        caPrivateKeyPEM := &amp;pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(caPrivateKey)}
+        if err := pem.Encode(caPrivateKeyFile, caPrivateKeyPEM); err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Save CA certificate to file (e.g., ca.crt)
+        <span class="cov0" title="0">caCertFile, err := os.Create("ca.crt")
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov0" title="0">defer caCertFile.Close()
+
+        // Write certificate to file
+        caCertPEM := &amp;pem.Block{Type: "CERTIFICATE", Bytes: caCertificateBytes}
+        if err := pem.Encode(caCertFile, caCertPEM); err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Generate private key for new certificate
+        <span class="cov0" title="0">key, err := rsa.GenerateKey(rand.Reader, 2048)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Create certificate template with SANs
+        <span class="cov0" title="0">template := x509.Certificate{
+                SerialNumber: big.NewInt(2025), // Change this to a unique serial number
+                Subject: pkix.Name{
+                        Organization: []string{"Great Lion Technologies"},
+                },
+                NotBefore:   time.Now(),
+                NotAfter:    time.Now().AddDate(1, 0, 0), // Valid for 1 year
+                ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+                KeyUsage:    x509.KeyUsageDigitalSignature,
+        }
+
+        // Add SANs to the certificate template
+        template.DNSNames = []string{"pbr-example.greatlion.tech"}
+
+        // Generate certificate
+        certBytes, err := x509.CreateCertificate(rand.Reader, &amp;template, &amp;caTemplate, &amp;key.PublicKey, caPrivateKey)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Save private key to file (e.g., server.key)
+        <span class="cov0" title="0">keyOut, err := os.Create("server.key")
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov0" title="0">defer keyOut.Close()
+        keyPEM := &amp;pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}
+        if err := pem.Encode(keyOut, keyPEM); err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Save certificate to file (e.g., server.crt)
+        <span class="cov0" title="0">certOut, err := os.Create("server.crt")
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov0" title="0">defer certOut.Close()
+        certPEM := &amp;pem.Block{Type: "CERTIFICATE", Bytes: certBytes}
+        if err := pem.Encode(certOut, certPEM); err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package codegen
+
+import (
+        "context"
+        "crypto/rand"
+        "encoding/hex"
+        "errors"
+        "fmt"
+        "io"
+        "os"
+        "sync"
+        "syscall"
+        "time"
+
+        "github.com/greatliontech/container"
+        "github.com/greatliontech/ocifs"
+)
+
+type OCIFSRunner struct {
+        ofs *ocifs.OCIFS
+
+        // Default container state dir, can be overridden per Spec.StateDir.
+        DefaultStateDir string
+}
+
+func NewOCIFSRunner(ofs *ocifs.OCIFS, defaultStateDir string) *OCIFSRunner <span class="cov0" title="0">{
+        return &amp;OCIFSRunner{
+                ofs:             ofs,
+                DefaultStateDir: defaultStateDir,
+        }
+}</span>
+
+func (r *OCIFSRunner) Start(ctx context.Context, spec Spec) (Process, error) <span class="cov0" title="0">{
+        if spec.Image == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("runner: spec.Image is required")
+        }</span>
+
+        // Mount image via OCIFS
+        <span class="cov0" title="0">im, err := r.ofs.Mount(spec.Image)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("runner: mount image: %w", err)
+        }</span>
+
+        // Read OCI config to get default ENTRYPOINT/CMD, unless overridden
+        <span class="cov0" title="0">conf, err := im.ConfigFile()
+        if err != nil </span><span class="cov0" title="0">{
+                _ = im.Unmount()
+                _ = os.Remove(im.MountPoint())
+                return nil, fmt.Errorf("runner: read config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">entrypoint := conf.Config.Entrypoint
+        cmd := conf.Config.Cmd
+
+        // Resolve command line (with overrides)
+        finalCmd, finalArgs, err := resolveCommand(entrypoint, cmd, spec.Command, spec.Args)
+        if err != nil </span><span class="cov0" title="0">{
+                _ = im.Unmount()
+                _ = os.Remove(im.MountPoint())
+                return nil, err
+        }</span>
+
+        // Create a temp root target for the container's rootfs bind mount
+        <span class="cov0" title="0">trgtroot, err := os.MkdirTemp(os.TempDir(), "ocifs-trgt-")
+        if err != nil </span><span class="cov0" title="0">{
+                _ = im.Unmount()
+                _ = os.Remove(im.MountPoint())
+                return nil, fmt.Errorf("runner: mk temp root: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">contID := "codegen-" + randHex(8)
+
+        stateDir := spec.StateDir
+        if stateDir == "" </span><span class="cov0" title="0">{
+                stateDir = r.DefaultStateDir
+        }</span>
+        <span class="cov0" title="0">if stateDir == "" </span><span class="cov0" title="0">{
+                stateDir = defaultStateDir()
+        }</span>
+
+        <span class="cov0" title="0">cfg := container.Config{
+                Root:     trgtroot,
+                Hostname: contID,
+                Namespaces: container.Namespaces{
+                        NewIPC:  true,
+                        NewMnt:  true,
+                        NewNet:  true,
+                        NewPID:  true,
+                        NewUTS:  true,
+                        NewUser: true,
+                },
+                Mounts: []container.Mount{
+                        {
+                                Source: im.MountPoint(),
+                                Target: trgtroot,
+                                Type:   "auto",
+                                Flags:  syscall.MS_BIND | syscall.MS_RDONLY,
+                        },
+                },
+                UidMappings: []syscall.SysProcIDMap{
+                        {
+                                ContainerID: 0,
+                                HostID:      syscall.Getuid(),
+                                Size:        1,
+                        },
+                },
+                GidMappings: []syscall.SysProcIDMap{
+                        {
+                                ContainerID: 0,
+                                HostID:      syscall.Getgid(),
+                                Size:        1,
+                        },
+                },
+        }
+
+        // NOTE: If your container runtime supports working dir/env directly on Process,
+        // wire it here. Otherwise you'll need to wrap command in a tiny shell.
+        pr := &amp;container.Process{
+                Cmd:        finalCmd,
+                Args:       finalArgs,
+                StdinPipe:  true,
+                StdoutPipe: true,
+                StderrPipe: true,
+        }
+
+        cont, err := container.New(stateDir, contID, cfg)
+        if err != nil </span><span class="cov0" title="0">{
+                cleanupLocal(im, trgtroot)
+                return nil, fmt.Errorf("runner: create container: %w", err)
+        }</span>
+
+        // Start process inside container
+        <span class="cov0" title="0">if err := cont.Run(pr); err != nil </span><span class="cov0" title="0">{
+                cleanupLocal(im, trgtroot)
+                return nil, fmt.Errorf("runner: run: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">stdin, err := cont.StdinPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                _ = bestEffortStop(cont)
+                cleanupLocal(im, trgtroot)
+                return nil, fmt.Errorf("runner: stdin pipe: %w", err)
+        }</span>
+        <span class="cov0" title="0">stdout, err := cont.StdoutPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                _ = stdin.Close()
+                _ = bestEffortStop(cont)
+                cleanupLocal(im, trgtroot)
+                return nil, fmt.Errorf("runner: stdout pipe: %w", err)
+        }</span>
+        <span class="cov0" title="0">stderr, err := cont.StderrPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                _ = stdin.Close()
+                _ = bestEffortStop(cont)
+                cleanupLocal(im, trgtroot)
+                return nil, fmt.Errorf("runner: stderr pipe: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">p := &amp;ocifsProcess{
+                ctx:      ctx,
+                im:       im,
+                trgtroot: trgtroot,
+                cont:     cont,
+                stdin:    stdin,
+                stdout:   stdout,
+                stderr:   stderr,
+        }
+
+        // Context cancellation: best-effort stop + close stdin to unblock.
+        p.cancelOnce.Do(func() </span>{<span class="cov0" title="0">}</span>) // initialize
+        <span class="cov0" title="0">go p.watchCancel()
+
+        return p, nil</span>
+}
+
+type ocifsProcess struct {
+        ctx context.Context
+
+        im       *ocifs.ImageMount
+        trgtroot string
+        cont     any // concrete type from container.New, but we only call known methods
+
+        stdin  io.WriteCloser
+        stdout io.Reader
+        stderr io.Reader
+
+        waitOnce   sync.Once
+        waitStatus ExitStatus
+
+        closeOnce  sync.Once
+        cancelOnce sync.Once
+}
+
+func (p *ocifsProcess) Stdin() io.WriteCloser <span class="cov0" title="0">{ return p.stdin }</span>
+func (p *ocifsProcess) Stdout() io.Reader     <span class="cov0" title="0">{ return p.stdout }</span>
+func (p *ocifsProcess) Stderr() io.Reader     <span class="cov0" title="0">{ return p.stderr }</span>
+
+func (p *ocifsProcess) Wait() ExitStatus <span class="cov0" title="0">{
+        p.waitOnce.Do(func() </span><span class="cov0" title="0">{
+                // container.Wait() in your snippet returns error only (no exit code).
+                // We map nil -&gt; 0, error -&gt; 1. If you can expose exit code, plug it in here.
+                type waiter interface{ Wait() error }
+                w, ok := p.cont.(waiter)
+                if !ok </span><span class="cov0" title="0">{
+                        p.waitStatus = ExitStatus{Code: 1, Err: fmt.Errorf("runner: container does not implement Wait() error")}
+                        return
+                }</span>
+                <span class="cov0" title="0">err := w.Wait()
+                if err == nil </span><span class="cov0" title="0">{
+                        p.waitStatus = ExitStatus{Code: 0, Err: nil}
+                        return
+                }</span>
+                <span class="cov0" title="0">p.waitStatus = ExitStatus{Code: 1, Err: err}</span>
+        })
+        <span class="cov0" title="0">return p.waitStatus</span>
+}
+
+func (p *ocifsProcess) Close() error <span class="cov0" title="0">{
+        var cerr error
+        p.closeOnce.Do(func() </span><span class="cov0" title="0">{
+                // Ensure stdin is closed; ignore error
+                if p.stdin != nil </span><span class="cov0" title="0">{
+                        _ = p.stdin.Close()
+                }</span>
+                <span class="cov0" title="0">_ = bestEffortStop(p.cont)
+                cerr = cleanupLocal(p.im, p.trgtroot)</span>
+        })
+        <span class="cov0" title="0">return cerr</span>
+}
+
+func (p *ocifsProcess) watchCancel() <span class="cov0" title="0">{
+        if p.ctx == nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+        <span class="cov0" title="0">&lt;-p.ctx.Done()
+        p.cancelOnce.Do(func() </span><span class="cov0" title="0">{
+                // Give the process a tiny grace period to finish naturally
+                time.AfterFunc(150*time.Millisecond, func() </span><span class="cov0" title="0">{
+                        _ = bestEffortStop(p.cont)
+                }</span>)
+                <span class="cov0" title="0">if p.stdin != nil </span><span class="cov0" title="0">{
+                        _ = p.stdin.Close()
+                }</span>
+        })
+}
+
+// ---------- helpers ----------
+
+func resolveCommand(imageEntrypoint, imageCmd, overrideCommand, overrideArgs []string) (string, []string, error) <span class="cov0" title="0">{
+        var ep []string
+        var args []string
+
+        if len(overrideCommand) &gt; 0 </span><span class="cov0" title="0">{
+                ep = overrideCommand
+        }</span> else<span class="cov0" title="0"> {
+                ep = imageEntrypoint
+        }</span>
+
+        <span class="cov0" title="0">if len(overrideArgs) &gt; 0 </span><span class="cov0" title="0">{
+                args = overrideArgs
+        }</span> else<span class="cov0" title="0"> {
+                args = imageCmd
+        }</span>
+
+        <span class="cov0" title="0">if len(ep) == 0 </span><span class="cov0" title="0">{
+                return "", nil, fmt.Errorf("runner: no ENTRYPOINT/command available")
+        }</span>
+
+        <span class="cov0" title="0">cmd0 := ep[0]
+        finalArgs := []string{}
+        if len(ep) &gt; 1 </span><span class="cov0" title="0">{
+                finalArgs = append(finalArgs, ep[1:]...)
+        }</span>
+        <span class="cov0" title="0">if len(args) &gt; 0 </span><span class="cov0" title="0">{
+                finalArgs = append(finalArgs, args...)
+        }</span>
+        <span class="cov0" title="0">return cmd0, finalArgs, nil</span>
+}
+
+func cleanupLocal(im *ocifs.ImageMount, trgtroot string) error <span class="cov0" title="0">{
+        var errs []error
+        if im != nil </span><span class="cov0" title="0">{
+                if err := im.Unmount(); err != nil </span><span class="cov0" title="0">{
+                        errs = append(errs, err)
+                }</span>
+                // Your code removed mount point dir explicitly; keep doing it.
+                <span class="cov0" title="0">if mp := im.MountPoint(); mp != "" </span><span class="cov0" title="0">{
+                        if err := os.Remove(mp); err != nil &amp;&amp; !errors.Is(err, os.ErrNotExist) </span><span class="cov0" title="0">{
+                                errs = append(errs, err)
+                        }</span>
+                }
+        }
+        <span class="cov0" title="0">if trgtroot != "" </span><span class="cov0" title="0">{
+                if err := os.RemoveAll(trgtroot); err != nil &amp;&amp; !errors.Is(err, os.ErrNotExist) </span><span class="cov0" title="0">{
+                        errs = append(errs, err)
+                }</span>
+        }
+        <span class="cov0" title="0">return errors.Join(errs...)</span>
+}
+
+// bestEffortStop attempts to stop/kill the container if the runtime exposes something.
+// This is intentionally defensive because we don't know your container API surface.
+func bestEffortStop(cont any) error <span class="cov0" title="0">{
+        if cont == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Prefer Kill() error
+        <span class="cov0" title="0">type killer interface{ Kill() error }
+        if k, ok := cont.(killer); ok </span><span class="cov0" title="0">{
+                return k.Kill()
+        }</span>
+
+        // Or Signal(sig) error
+        <span class="cov0" title="0">type signaler interface{ Signal(os.Signal) error }
+        if s, ok := cont.(signaler); ok </span><span class="cov0" title="0">{
+                // Try SIGTERM first
+                if err := s.Signal(syscall.SIGTERM); err == nil </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                <span class="cov0" title="0">return s.Signal(syscall.SIGKILL)</span>
+        }
+
+        // Or Stop() error
+        <span class="cov0" title="0">type stopper interface{ Stop() error }
+        if st, ok := cont.(stopper); ok </span><span class="cov0" title="0">{
+                return st.Stop()
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func randHex(nBytes int) string <span class="cov0" title="0">{
+        b := make([]byte, nBytes)
+        _, _ = rand.Read(b)
+        return hex.EncodeToString(b)
+}</span>
+
+func defaultStateDir() string <span class="cov0" title="0">{
+        // keep it predictable but not necessarily /tmp/contstate
+        d := os.TempDir() + string(os.PathSeparator) + "contstate"
+        _ = os.MkdirAll(d, 0o755)
+        return d
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package codegen
+
+import (
+        "fmt"
+        "io"
+        "log/slog"
+        "math/rand"
+        "os"
+        "syscall"
+
+        "github.com/greatliontech/container"
+        "github.com/greatliontech/ocifs"
+        "google.golang.org/protobuf/proto"
+        "google.golang.org/protobuf/types/pluginpb"
+)
+
+type Plugin struct {
+        ofs    *ocifs.OCIFS
+        image  string
+        defVer string
+}
+
+func NewPlugin(ofs *ocifs.OCIFS, image, defaultVersion string) *Plugin <span class="cov0" title="0">{
+        return &amp;Plugin{
+                ofs:    ofs,
+                image:  image,
+                defVer: defaultVersion,
+        }
+}</span>
+
+func (p *Plugin) Image() string <span class="cov0" title="0">{
+        return p.image
+}</span>
+
+func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse, error) <span class="cov0" title="0">{
+        img := p.Image()
+        if ver == "" &amp;&amp; p.defVer != "" </span><span class="cov0" title="0">{
+                ver = p.defVer
+        }</span>
+        <span class="cov0" title="0">if ver != "" </span><span class="cov0" title="0">{
+                img = fmt.Sprintf("%s:%s", img, ver)
+        }</span>
+
+        // mount the image
+        <span class="cov0" title="0">im, err := p.ofs.Mount(img)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to mount image", "msg", err)
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">defer im.Unmount()
+        defer os.Remove(im.MountPoint())
+
+        // get config
+        conf, err := im.ConfigFile()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // get the entrypoint
+        <span class="cov0" title="0">entrypoint := conf.Config.Entrypoint
+        if len(entrypoint) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no entrypoint found")
+        }</span>
+
+        <span class="cov0" title="0">trgtroot, err := os.MkdirTemp(os.TempDir(), "trgt")
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to create trgt temp dir", "msg", err)
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">defer os.RemoveAll(trgtroot)
+
+        contId := randStringBytes(16)
+
+        cfg := container.Config{
+                Root:     trgtroot,
+                Hostname: contId,
+                Namespaces: container.Namespaces{
+                        NewIPC:  true,
+                        NewMnt:  true,
+                        NewNet:  true,
+                        NewPID:  true,
+                        NewUTS:  true,
+                        NewUser: true,
+                },
+                Mounts: []container.Mount{
+                        {
+                                Source: im.MountPoint(),
+                                Target: trgtroot,
+                                Type:   "auto",
+                                Flags:  syscall.MS_BIND | syscall.MS_RDONLY,
+                        },
+                },
+                UidMappings: []syscall.SysProcIDMap{
+                        {
+                                ContainerID: 0,
+                                HostID:      syscall.Getuid(),
+                                Size:        1,
+                        },
+                },
+                GidMappings: []syscall.SysProcIDMap{
+                        {
+                                ContainerID: 0,
+                                HostID:      syscall.Getgid(),
+                                Size:        1,
+                        },
+                },
+        }
+
+        cont, err := container.New("/tmp/contstate", contId, cfg)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to create container", "msg", err)
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">args := []string{}
+        if len(entrypoint) &gt; 1 </span><span class="cov0" title="0">{
+                args = entrypoint[1:]
+        }</span>
+        <span class="cov0" title="0">if len(conf.Config.Cmd) &gt; 0 </span><span class="cov0" title="0">{
+                args = append(args, conf.Config.Cmd...)
+        }</span>
+
+        <span class="cov0" title="0">pr := &amp;container.Process{
+                Cmd:        entrypoint[0],
+                Args:       args,
+                StdinPipe:  true,
+                StdoutPipe: true,
+                StderrPipe: true,
+        }
+
+        if err := cont.Run(pr); err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to run", "msg", err)
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">stdin, err := cont.StdinPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to get stdin pipe", "msg", err)
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">stdout, err := cont.StdoutPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to get stdout pipe", "msg", err)
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">stderr, err := cont.StderrPipe()
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to get stderr pipe", "msg", err)
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">slog.Info("running", "cmd", entrypoint[0])
+
+        // Marshal the input to protobuf binary format
+        inData, err := proto.Marshal(in)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to marshal input", "msg", err)
+                return nil, err
+        }</span>
+
+        // Write the marshaled data to stdin
+        <span class="cov0" title="0">if _, err := stdin.Write(inData); err != nil </span><span class="cov0" title="0">{
+                slog.Error("failed to write to stdin", "msg", err)
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">stdin.Close()
+
+        // Read the output from stdout
+        outData, err := io.ReadAll(stdout)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Also read from stderr
+        <span class="cov0" title="0">errData, err := io.ReadAll(stderr)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Print anything that was sent to stderr
+        <span class="cov0" title="0">if len(errData) &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Printf("stderr: %s\n", string(errData))
+                return nil, fmt.Errorf("stderr: %s", string(errData))
+        }</span>
+
+        // Wait for the command to finish
+        <span class="cov0" title="0">if err := cont.Wait(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if len(outData) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no output data")
+        }</span>
+
+        // Unmarshal the output into a CodeGeneratorResponse
+        <span class="cov0" title="0">out := &amp;pluginpb.CodeGeneratorResponse{}
+        if err := proto.Unmarshal(outData, out); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func randStringBytes(n int) string <span class="cov0" title="0">{
+        b := make([]byte, n)
+        for i := range b </span><span class="cov0" title="0">{
+                b[i] = letterBytes[rand.Intn(len(letterBytes))]
+        }</span>
+        <span class="cov0" title="0">return string(b)</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package config
+
+import (
+        "os"
+
+        "github.com/drone/envsubst"
+        "gopkg.in/yaml.v3"
+)
+
+type Config struct {
+        Credentials Credentials
+        Modules     map[string]Module
+        Plugins     map[string]Plugin
+        Users       map[string]string
+        TLS         *TLS
+        Host        string
+        Address     string
+        LogLevel    string
+        CacheDir    string
+        AdminToken  string
+        NoLogin     bool
+}
+
+type Module struct {
+        Remote  string
+        Path    string
+        Filters []string
+        Shallow bool
+}
+
+type TLS struct {
+        CertFile string
+        KeyFile  string
+}
+
+type Plugin struct {
+        Image   string
+        Default string
+}
+
+type BasicGitAuth struct {
+        Username string
+        Password string
+}
+
+type GithubAppGitAuth struct {
+        AppID          int64
+        InstallationID int64
+        PrivateKey     string
+}
+
+type GitAuth struct {
+        Token     string
+        SSHKey    string
+        Basic     *BasicGitAuth
+        GithubApp *GithubAppGitAuth
+}
+
+type ContainerRegistryAuth struct {
+        Username      string
+        Password      string
+        Auth          string
+        IdentityToken string
+        RegistryToken string
+}
+
+type Credentials struct {
+        // Key is glob
+        Git map[string]GitAuth
+        // Key is prefix
+        ContainerRegistry map[string]ContainerRegistryAuth
+}
+
+func ParseConfig(b []byte) (*Config, error) <span class="cov8" title="1">{
+        c := &amp;Config{}
+        if err := yaml.Unmarshal(b, c); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">for k, v := range c.Credentials.Git </span><span class="cov8" title="1">{
+                // ssh key env secret
+                sshKey, err := envsubst.EvalEnv(v.SSHKey)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">v.SSHKey = sshKey
+                // token env secret
+                token, err := envsubst.EvalEnv(v.Token)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">v.Token = token
+                // gh app env secret
+                if v.GithubApp != nil </span><span class="cov0" title="0">{
+                        key, err := envsubst.EvalEnv(v.GithubApp.PrivateKey)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return nil, err
+                        }</span>
+                        <span class="cov0" title="0">v.GithubApp.PrivateKey = key</span>
+                }
+                <span class="cov8" title="1">c.Credentials.Git[k] = v</span>
+        }
+        <span class="cov8" title="1">tkn, err := envsubst.EvalEnv(c.AdminToken)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">c.AdminToken = tkn
+        for k, v := range c.Users </span><span class="cov8" title="1">{
+                v, err := envsubst.EvalEnv(v)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">c.Users[k] = v</span>
+        }
+        <span class="cov8" title="1">for k, v := range c.Credentials.ContainerRegistry </span><span class="cov8" title="1">{
+                v.Password, err = envsubst.EvalEnv(v.Password)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">v.Auth, err = envsubst.EvalEnv(v.Auth)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">v.IdentityToken, err = envsubst.EvalEnv(v.IdentityToken)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">v.RegistryToken, err = envsubst.EvalEnv(v.RegistryToken)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">c.Credentials.ContainerRegistry[k] = v</span>
+        }
+        <span class="cov8" title="1">return c, nil</span>
+}
+
+func FromFile(f string) (*Config, error) <span class="cov8" title="1">{
+        b, err := os.ReadFile(f)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return ParseConfig(b)</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package cas
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "log/slog"
+        "strings"
+        "time"
+
+        "github.com/greatliontech/pbr/internal/storage"
+)
+
+// Module represents a module in the CAS registry.
+type Module struct {
+        record   *storage.ModuleRecord
+        registry *Registry
+}
+
+// ID returns the module's ID.
+func (m *Module) ID() string <span class="cov8" title="1">{
+        return m.record.ID
+}</span>
+
+// OwnerID returns the module's owner ID.
+func (m *Module) OwnerID() string <span class="cov0" title="0">{
+        return m.record.OwnerID
+}</span>
+
+// Owner returns the module's owner name.
+func (m *Module) Owner() string <span class="cov8" title="1">{
+        return m.record.Owner
+}</span>
+
+// Name returns the module's name.
+func (m *Module) Name() string <span class="cov8" title="1">{
+        return m.record.Name
+}</span>
+
+// Description returns the module's description.
+func (m *Module) Description() string <span class="cov0" title="0">{
+        return m.record.Description
+}</span>
+
+// DefaultLabelName returns the module's default label name.
+func (m *Module) DefaultLabelName() string <span class="cov0" title="0">{
+        return m.record.DefaultLabelName
+}</span>
+
+// Commit retrieves a commit by label/ref name.
+// If ref is empty, returns the commit for the default label.
+func (m *Module) Commit(ctx context.Context, ref string) (*Commit, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Module.Commit", "owner", m.Owner(), "module", m.Name(), "ref", ref)
+
+        if ref == "" </span><span class="cov0" title="0">{
+                ref = m.record.DefaultLabelName
+        }</span>
+
+        <span class="cov8" title="1">label, err := m.registry.metadata.GetLabel(ctx, m.record.ID, ref)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("label %q not found: %w", ref, err)
+        }</span>
+
+        <span class="cov8" title="1">return m.CommitByID(ctx, label.CommitID)</span>
+}
+
+// CommitByID retrieves a commit by its ID.
+func (m *Module) CommitByID(ctx context.Context, id string) (*Commit, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Module.CommitByID", "owner", m.Owner(), "module", m.Name(), "commitID", id)
+
+        record, err := m.registry.metadata.GetCommit(ctx, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Verify commit belongs to this module
+        <span class="cov8" title="1">if record.ModuleID != m.record.ID </span><span class="cov0" title="0">{
+                return nil, storage.ErrNotFound
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Commit{
+                ID:             record.ID,
+                ModuleID:       record.ModuleID,
+                OwnerID:        record.OwnerID,
+                ManifestDigest: record.ManifestDigest,
+                CreateTime:     record.CreateTime,
+        }, nil</span>
+}
+
+// FilesAndCommit retrieves files and commit info by label/ref.
+func (m *Module) FilesAndCommit(ctx context.Context, ref string) ([]File, *Commit, error) <span class="cov0" title="0">{
+        commit, err := m.Commit(ctx, ref)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+        <span class="cov0" title="0">files, err := m.filesForCommit(ctx, commit)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+        <span class="cov0" title="0">return files, commit, nil</span>
+}
+
+// FilesAndCommitByCommitID retrieves files and commit info by commit ID.
+func (m *Module) FilesAndCommitByCommitID(ctx context.Context, commitID string) ([]File, *Commit, error) <span class="cov8" title="1">{
+        commit, err := m.CommitByID(ctx, commitID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+        <span class="cov8" title="1">files, err := m.filesForCommit(ctx, commit)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+        <span class="cov8" title="1">return files, commit, nil</span>
+}
+
+// filesForCommit retrieves all files for a given commit.
+func (m *Module) filesForCommit(ctx context.Context, commit *Commit) ([]File, error) <span class="cov8" title="1">{
+        manifest, err := m.registry.manifests.GetManifest(ctx, commit.ManifestDigest)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get manifest: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">files := make([]File, 0, len(manifest.Entries))
+        for _, entry := range manifest.Entries </span><span class="cov8" title="1">{
+                rc, err := m.registry.blobs.Get(ctx, entry.Digest)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to get blob %s: %w", entry.Path, err)
+                }</span>
+
+                <span class="cov8" title="1">content, err := io.ReadAll(rc)
+                rc.Close()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to read blob %s: %w", entry.Path, err)
+                }</span>
+
+                <span class="cov8" title="1">files = append(files, File{
+                        Path:    entry.Path,
+                        Content: string(content),
+                        Digest:  entry.Digest,
+                })</span>
+        }
+
+        <span class="cov8" title="1">return files, nil</span>
+}
+
+// BufLock retrieves the parsed buf.lock for a given ref.
+func (m *Module) BufLock(ctx context.Context, ref string) (*BufLock, error) <span class="cov0" title="0">{
+        files, _, err := m.FilesAndCommit(ctx, ref)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return m.parseBufLock(files)</span>
+}
+
+// BufLockCommitID retrieves the parsed buf.lock for a given commit ID.
+func (m *Module) BufLockCommitID(ctx context.Context, commitID string) (*BufLock, error) <span class="cov0" title="0">{
+        files, _, err := m.FilesAndCommitByCommitID(ctx, commitID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return m.parseBufLock(files)</span>
+}
+
+func (m *Module) parseBufLock(files []File) (*BufLock, error) <span class="cov0" title="0">{
+        for _, f := range files </span><span class="cov0" title="0">{
+                if f.Path == "buf.lock" </span><span class="cov0" title="0">{
+                        return ParseBufLock(f.Content)
+                }</span>
+        }
+        <span class="cov0" title="0">return nil, fmt.Errorf("buf.lock not found")</span>
+}
+
+// CreateCommit creates a new commit with the given files.
+// Returns the created commit or an existing commit if content is identical.
+func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string, sourceControlURL string) (*Commit, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Module.CreateCommit", "owner", m.Owner(), "module", m.Name(), "files", len(files), "labels", labels)
+
+        // Store blobs and build manifest
+        manifest := &amp;storage.Manifest{}
+
+        for _, f := range files </span><span class="cov8" title="1">{
+                digest, err := m.registry.blobs.Put(ctx, strings.NewReader(f.Content))
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to store blob %s: %w", f.Path, err)
+                }</span>
+
+                <span class="cov8" title="1">manifest.Entries = append(manifest.Entries, storage.ManifestEntry{
+                        Digest: digest,
+                        Path:   f.Path,
+                })</span>
+        }
+
+        // Store manifest
+        <span class="cov8" title="1">manifestDigest, err := m.registry.manifests.PutManifest(ctx, manifest)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to store manifest: %w", err)
+        }</span>
+
+        // Check for existing commit with same digest (deduplication)
+        <span class="cov8" title="1">existingCommit, err := m.registry.metadata.GetCommitByDigest(ctx, manifestDigest)
+        if err == nil &amp;&amp; existingCommit != nil &amp;&amp; existingCommit.ModuleID == m.record.ID </span><span class="cov8" title="1">{
+                slog.DebugContext(ctx, "commit already exists", "commitID", existingCommit.ID)
+                // Update labels to point to existing commit
+                for _, labelName := range labels </span><span class="cov8" title="1">{
+                        if err := m.updateLabel(ctx, labelName, existingCommit.ID); err != nil </span><span class="cov0" title="0">{
+                                return nil, err
+                        }</span>
+                }
+                <span class="cov8" title="1">return &amp;Commit{
+                        ID:             existingCommit.ID,
+                        ModuleID:       existingCommit.ModuleID,
+                        OwnerID:        existingCommit.OwnerID,
+                        ManifestDigest: existingCommit.ManifestDigest,
+                        CreateTime:     existingCommit.CreateTime,
+                }, nil</span>
+        }
+
+        // Create new commit
+        // Commit ID is first 32 chars of manifest digest hex
+        <span class="cov8" title="1">commitID := manifestDigest.ShortHex(32)
+
+        commitRecord := &amp;storage.CommitRecord{
+                ID:               commitID,
+                ModuleID:         m.record.ID,
+                OwnerID:          m.record.OwnerID,
+                ManifestDigest:   manifestDigest,
+                CreateTime:       time.Now(),
+                SourceControlURL: sourceControlURL,
+        }
+
+        if err := m.registry.metadata.CreateCommit(ctx, commitRecord); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create commit: %w", err)
+        }</span>
+
+        // Update labels
+        <span class="cov8" title="1">for _, labelName := range labels </span><span class="cov8" title="1">{
+                if err := m.updateLabel(ctx, labelName, commitID); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return &amp;Commit{
+                ID:             commitID,
+                ModuleID:       m.record.ID,
+                OwnerID:        m.record.OwnerID,
+                ManifestDigest: manifestDigest,
+                CreateTime:     commitRecord.CreateTime,
+        }, nil</span>
+}
+
+func (m *Module) updateLabel(ctx context.Context, name, commitID string) error <span class="cov8" title="1">{
+        label := &amp;storage.LabelRecord{
+                ID:       m.record.ID + "/" + name,
+                ModuleID: m.record.ID,
+                Name:     name,
+                CommitID: commitID,
+        }
+        return m.registry.metadata.CreateOrUpdateLabel(ctx, label)
+}</span>
+
+// ListCommits lists commits for this module.
+func (m *Module) ListCommits(ctx context.Context, limit int, pageToken string) ([]*Commit, string, error) <span class="cov0" title="0">{
+        records, nextToken, err := m.registry.metadata.ListCommits(ctx, m.record.ID, limit, pageToken)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, "", err
+        }</span>
+
+        <span class="cov0" title="0">commits := make([]*Commit, len(records))
+        for i, record := range records </span><span class="cov0" title="0">{
+                commits[i] = &amp;Commit{
+                        ID:             record.ID,
+                        ModuleID:       record.ModuleID,
+                        OwnerID:        record.OwnerID,
+                        ManifestDigest: record.ManifestDigest,
+                        CreateTime:     record.CreateTime,
+                }
+        }</span>
+
+        <span class="cov0" title="0">return commits, nextToken, nil</span>
+}
+
+// ListLabels lists all labels for this module.
+func (m *Module) ListLabels(ctx context.Context) ([]*storage.LabelRecord, error) <span class="cov0" title="0">{
+        return m.registry.metadata.ListLabels(ctx, m.record.ID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package cas
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+        "time"
+
+        "github.com/greatliontech/pbr/internal/storage"
+        "github.com/greatliontech/pbr/internal/util"
+)
+
+// Registry implements a buf-compatible registry using CAS storage.
+type Registry struct {
+        blobs     storage.BlobStore
+        manifests storage.ManifestStore
+        metadata  storage.MetadataStore
+        hostName  string
+}
+
+// New creates a new CAS-backed registry.
+func New(
+        blobs storage.BlobStore,
+        manifests storage.ManifestStore,
+        metadata storage.MetadataStore,
+        hostName string,
+) *Registry <span class="cov8" title="1">{
+        return &amp;Registry{
+                blobs:     blobs,
+                manifests: manifests,
+                metadata:  metadata,
+                hostName:  hostName,
+        }
+}</span>
+
+// HostName returns the registry's hostname.
+func (r *Registry) HostName() string <span class="cov0" title="0">{
+        return r.hostName
+}</span>
+
+// Module retrieves a module by owner and name.
+func (r *Registry) Module(ctx context.Context, owner, name string) (*Module, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Registry.Module", "owner", owner, "name", name)
+
+        record, err := r.metadata.GetModuleByName(ctx, owner, name)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Module{
+                record:   record,
+                registry: r,
+        }, nil</span>
+}
+
+// ModuleByID retrieves a module by its ID.
+func (r *Registry) ModuleByID(ctx context.Context, id string) (*Module, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Registry.ModuleByID", "id", id)
+
+        record, err := r.metadata.GetModule(ctx, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Module{
+                record:   record,
+                registry: r,
+        }, nil</span>
+}
+
+// ModuleByCommitID finds the module that contains a given commit ID.
+func (r *Registry) ModuleByCommitID(ctx context.Context, commitID string) (*Module, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Registry.ModuleByCommitID", "commitID", commitID)
+
+        commit, err := r.metadata.GetCommit(ctx, commitID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return r.ModuleByID(ctx, commit.ModuleID)</span>
+}
+
+// CreateModule creates a new module.
+func (r *Registry) CreateModule(ctx context.Context, owner, name, description string) (*Module, error) <span class="cov8" title="1">{
+        slog.DebugContext(ctx, "Registry.CreateModule", "owner", owner, "name", name)
+
+        // Get or create owner
+        ownerID := util.OwnerID(owner)
+        _, err := r.metadata.GetOwner(ctx, ownerID)
+        if err == storage.ErrNotFound </span><span class="cov8" title="1">{
+                // Create owner
+                ownerRecord := &amp;storage.OwnerRecord{
+                        ID:         ownerID,
+                        Name:       owner,
+                        CreateTime: time.Now(),
+                }
+                if err := r.metadata.CreateOwner(ctx, ownerRecord); err != nil &amp;&amp; err != storage.ErrAlreadyExists </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to create owner: %w", err)
+                }</span>
+        } else<span class="cov8" title="1"> if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get owner: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">moduleID := util.ModuleID(ownerID, name)
+        now := time.Now()
+
+        record := &amp;storage.ModuleRecord{
+                ID:               moduleID,
+                OwnerID:          ownerID,
+                Owner:            owner,
+                Name:             name,
+                Description:      description,
+                DefaultLabelName: "main",
+                CreateTime:       now,
+                UpdateTime:       now,
+        }
+
+        if err := r.metadata.CreateModule(ctx, record); err != nil </span><span class="cov8" title="1">{
+                if err == storage.ErrAlreadyExists </span><span class="cov8" title="1">{
+                        // Return existing module
+                        return r.Module(ctx, owner, name)
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to create module: %w", err)</span>
+        }
+
+        <span class="cov8" title="1">return &amp;Module{
+                record:   record,
+                registry: r,
+        }, nil</span>
+}
+
+// GetOrCreateModule gets an existing module or creates it if it doesn't exist.
+func (r *Registry) GetOrCreateModule(ctx context.Context, owner, name string) (*Module, error) <span class="cov0" title="0">{
+        mod, err := r.Module(ctx, owner, name)
+        if err == nil </span><span class="cov0" title="0">{
+                return mod, nil
+        }</span>
+        <span class="cov0" title="0">if err != storage.ErrNotFound </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return r.CreateModule(ctx, owner, name, "")</span>
+}
+
+// DeleteModule deletes a module by owner and name.
+func (r *Registry) DeleteModule(ctx context.Context, owner, name string) error <span class="cov0" title="0">{
+        slog.DebugContext(ctx, "Registry.DeleteModule", "owner", owner, "name", name)
+
+        record, err := r.metadata.GetModuleByName(ctx, owner, name)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return r.metadata.DeleteModule(ctx, record.ID)</span>
+}
+
+// ListModules lists all modules for an owner.
+func (r *Registry) ListModules(ctx context.Context, owner string) ([]*Module, error) <span class="cov0" title="0">{
+        slog.DebugContext(ctx, "Registry.ListModules", "owner", owner)
+
+        ownerID := util.OwnerID(owner)
+        records, err := r.metadata.ListModules(ctx, ownerID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">modules := make([]*Module, len(records))
+        for i, record := range records </span><span class="cov0" title="0">{
+                modules[i] = &amp;Module{
+                        record:   record,
+                        registry: r,
+                }
+        }</span>
+        <span class="cov0" title="0">return modules, nil</span>
+}
+
+// Owner retrieves an owner by ID.
+func (r *Registry) Owner(ctx context.Context, id string) (*storage.OwnerRecord, error) <span class="cov0" title="0">{
+        return r.metadata.GetOwner(ctx, id)
+}</span>
+
+// OwnerByName retrieves an owner by name.
+func (r *Registry) OwnerByName(ctx context.Context, name string) (*storage.OwnerRecord, error) <span class="cov0" title="0">{
+        return r.metadata.GetOwnerByName(ctx, name)
+}</span>
+
+// File represents a file in a module.
+type File struct {
+        Path    string
+        Content string
+        Digest  storage.Digest
+}
+
+// Commit represents a commit in the registry.
+type Commit struct {
+        ID             string
+        ModuleID       string
+        OwnerID        string
+        ManifestDigest storage.Digest
+        CreateTime     time.Time
+}
+
+// BufLock represents a parsed buf.lock file.
+type BufLock struct {
+        Deps []BufLockDep
+}
+
+// BufLockDep represents a dependency in buf.lock.
+type BufLockDep struct {
+        Remote     string
+        Owner      string
+        Repository string
+        Commit     string
+        Digest     string
+}
+
+// ParseBufLock parses buf.lock content.
+func ParseBufLock(content string) (*BufLock, error) <span class="cov8" title="1">{
+        // Simple YAML-like parsing for buf.lock format
+        lock := &amp;BufLock{}
+        lines := strings.Split(content, "\n")
+        var currentDep *BufLockDep
+
+        for _, line := range lines </span><span class="cov8" title="1">{
+                line = strings.TrimSpace(line)
+                if line == "" || strings.HasPrefix(line, "#") </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if line == "deps:" </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if strings.HasPrefix(line, "- remote:") </span><span class="cov8" title="1">{
+                        if currentDep != nil </span><span class="cov8" title="1">{
+                                lock.Deps = append(lock.Deps, *currentDep)
+                        }</span>
+                        <span class="cov8" title="1">currentDep = &amp;BufLockDep{
+                                Remote: strings.TrimSpace(strings.TrimPrefix(line, "- remote:")),
+                        }</span>
+                } else<span class="cov8" title="1"> if currentDep != nil </span><span class="cov8" title="1">{
+                        if strings.HasPrefix(line, "owner:") </span><span class="cov8" title="1">{
+                                currentDep.Owner = strings.TrimSpace(strings.TrimPrefix(line, "owner:"))
+                        }</span> else<span class="cov8" title="1"> if strings.HasPrefix(line, "repository:") </span><span class="cov8" title="1">{
+                                currentDep.Repository = strings.TrimSpace(strings.TrimPrefix(line, "repository:"))
+                        }</span> else<span class="cov8" title="1"> if strings.HasPrefix(line, "commit:") </span><span class="cov8" title="1">{
+                                currentDep.Commit = strings.TrimSpace(strings.TrimPrefix(line, "commit:"))
+                        }</span> else<span class="cov8" title="1"> if strings.HasPrefix(line, "digest:") </span><span class="cov8" title="1">{
+                                currentDep.Digest = strings.TrimSpace(strings.TrimPrefix(line, "digest:"))
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">if currentDep != nil </span><span class="cov8" title="1">{
+                lock.Deps = append(lock.Deps, *currentDep)
+        }</span>
+
+        <span class="cov8" title="1">return lock, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package service
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+
+        imagev1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/image/v1"
+        registryv1alpha1 "buf.build/gen/go/bufbuild/buf/protocolbuffers/go/buf/alpha/registry/v1alpha1"
+        "connectrpc.com/connect"
+        "github.com/greatliontech/pbr/internal/codegen"
+        "google.golang.org/protobuf/types/descriptorpb"
+        "google.golang.org/protobuf/types/pluginpb"
+)
+
+func (svc *Service) GenerateCode(ctx context.Context, req *connect.Request[registryv1alpha1.GenerateCodeRequest]) (*connect.Response[registryv1alpha1.GenerateCodeResponse], error) <span class="cov0" title="0">{
+        genReq := &amp;pluginpb.CodeGeneratorRequest{}
+
+        for _, f := range req.Msg.Image.File </span><span class="cov0" title="0">{
+                // get buf extension
+                ext := f.GetBufExtension()
+
+                // add file to request
+                genReq.ProtoFile = append(genReq.ProtoFile, toFileDescriptorProto(f))
+
+                // mark file for generation
+                if ext != nil &amp;&amp; ext.IsImport != nil &amp;&amp; !ext.GetIsImport() </span><span class="cov0" title="0">{
+                        name := f.GetName()
+                        genReq.FileToGenerate = append(genReq.FileToGenerate, name)
+                }</span>
+        }
+
+        <span class="cov0" title="0">resp := &amp;connect.Response[registryv1alpha1.GenerateCodeResponse]{}
+        resp.Msg = &amp;registryv1alpha1.GenerateCodeResponse{}
+
+        for _, request := range req.Msg.Requests </span><span class="cov0" title="0">{
+                // join options
+                opts := strings.Join(request.GetOptions(), ",")
+                genReq.Parameter = &amp;opts
+
+                plugRef := request.PluginReference
+
+                slog.DebugContext(ctx, "requesting plugin", "owner", plugRef.Owner, "name", plugRef.Name, "version", plugRef.Version, "revision", plugRef.Revision)
+
+                // prepare plugin
+                plugin, err := svc.getPlugin(plugRef)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">pluginVersion := request.PluginReference.Version
+
+                // run codegen
+                out, err := plugin.CodeGen(pluginVersion, genReq)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">resp.Msg.Responses = append(resp.Msg.Responses, &amp;registryv1alpha1.PluginGenerationResponse{
+                        Response: out,
+                })</span>
+        }
+
+        <span class="cov0" title="0">return resp, nil</span>
+}
+
+func (svc *Service) getPlugin(ref *registryv1alpha1.CuratedPluginReference) (*codegen.Plugin, error) <span class="cov0" title="0">{
+        name := ref.Owner + "/" + ref.Name
+        plug, ok := svc.plugins[name]
+        if !ok </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("plugin config not found: %s", name)
+        }</span>
+        <span class="cov0" title="0">return plug, nil</span>
+}
+
+func toFileDescriptorProto(f *imagev1.ImageFile) *descriptorpb.FileDescriptorProto <span class="cov0" title="0">{
+        return &amp;descriptorpb.FileDescriptorProto{
+                Name:             f.Name,
+                Package:          f.Package,
+                Dependency:       f.Dependency,
+                PublicDependency: f.PublicDependency,
+                WeakDependency:   f.WeakDependency,
+                MessageType:      f.MessageType,
+                EnumType:         f.EnumType,
+                Service:          f.Service,
+                Extension:        f.Extension,
+                Options:          f.Options,
+                SourceCodeInfo:   f.SourceCodeInfo,
+                Syntax:           f.Syntax,
+                Edition:          f.Edition,
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+
+        v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
+        "connectrpc.com/connect"
+        "go.opentelemetry.io/otel/attribute"
+        "go.opentelemetry.io/otel/codes"
+        "go.opentelemetry.io/otel/trace"
+)
+
+// Get Commits.
+func (svc *Service) GetCommits(ctx context.Context, req *connect.Request[v1beta1.GetCommitsRequest]) (*connect.Response[v1beta1.GetCommitsResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">user := userFromContext(ctx)
+        slog.DebugContext(ctx, "GetCommits", "user", user)
+
+        resp := &amp;connect.Response[v1beta1.GetCommitsResponse]{}
+        resp.Msg = &amp;v1beta1.GetCommitsResponse{}
+
+        for _, val := range req.Msg.ResourceRefs </span><span class="cov8" title="1">{
+                var comt *v1beta1.Commit
+                var err error
+
+                switch ref := val.Value.(type) </span>{
+                case *v1beta1.ResourceRef_Id:<span class="cov8" title="1">
+                        comt, err = svc.getCommitByID(ctx, ref.Id)</span>
+                case *v1beta1.ResourceRef_Name_:<span class="cov8" title="1">
+                        labelOrRef := ""
+                        switch chld := ref.Name.Child.(type) </span>{
+                        case *v1beta1.ResourceRef_Name_LabelName:<span class="cov8" title="1">
+                                labelOrRef = chld.LabelName</span>
+                        case *v1beta1.ResourceRef_Name_Ref:<span class="cov8" title="1">
+                                labelOrRef = chld.Ref</span>
+                        }
+                        <span class="cov8" title="1">comt, err = svc.getCommit(ctx, ref.Name.Owner, ref.Name.Module, labelOrRef)</span>
+                }
+
+                <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">resp.Msg.Commits = append(resp.Msg.Commits, comt)</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+func (svc *Service) getCommitByID(ctx context.Context, commitID string) (*v1beta1.Commit, error) <span class="cov8" title="1">{
+        ctx, span := tracer.Start(ctx, "service.getCommitByID", trace.WithAttributes(
+                attribute.String("commitID", commitID),
+        ))
+        defer span.End()
+        slog.DebugContext(ctx, "Service.getCommitByID", "commitID", commitID)
+
+        mod, err := svc.casReg.ModuleByCommitID(ctx, commitID)
+        if err != nil </span><span class="cov8" title="1">{
+                span.RecordError(err)
+                span.SetStatus(codes.Error, "failed to get module by commit ID")
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("commit not found: %s", commitID))
+        }</span>
+
+        <span class="cov8" title="1">commit, err := mod.CommitByID(ctx, commitID)
+        if err != nil </span><span class="cov0" title="0">{
+                span.RecordError(err)
+                span.SetStatus(codes.Error, "failed to get commit by ID")
+                return nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">return getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())</span>
+}
+
+func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1beta1.Commit, error) <span class="cov8" title="1">{
+        ctx, span := tracer.Start(ctx, "service.getCommit", trace.WithAttributes(
+                attribute.String("owner", owner),
+                attribute.String("module", modl),
+                attribute.String("ref", ref),
+        ))
+        defer span.End()
+        slog.DebugContext(ctx, "Service.getCommit", "owner", owner, "module", modl, "ref", ref)
+
+        mod, err := svc.casReg.Module(ctx, owner, modl)
+        if err != nil </span><span class="cov8" title="1">{
+                span.RecordError(err)
+                span.SetStatus(codes.Error, "failed to get module")
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, modl))
+        }</span>
+
+        <span class="cov8" title="1">commit, err := mod.Commit(ctx, ref)
+        if err != nil </span><span class="cov0" title="0">{
+                span.RecordError(err)
+                span.SetStatus(codes.Error, "failed to get commit")
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("commit not found for ref: %s", ref))
+        }</span>
+
+        <span class="cov8" title="1">comt, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+        if err != nil </span><span class="cov0" title="0">{
+                span.RecordError(err)
+                span.SetStatus(codes.Error, "failed to construct commit object")
+                return nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">return comt, nil</span>
+}
+
+// List Commits for a given Module, Label, or Commit.
+func (svc *Service) ListCommits(ctx context.Context, req *connect.Request[v1beta1.ListCommitsRequest]) (*connect.Response[v1beta1.ListCommitsResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "ListCommits", "resourceRef", req.Msg.ResourceRef)
+
+        // Parse resource ref to get module
+        var owner, modl string
+        switch ref := req.Msg.ResourceRef.Value.(type) </span>{
+        case *v1beta1.ResourceRef_Name_:<span class="cov8" title="1">
+                owner = ref.Name.Owner
+                modl = ref.Name.Module</span>
+        default:<span class="cov8" title="1">
+                return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("only ResourceRef_Name is supported for ListCommits"))</span>
+        }
+
+        <span class="cov8" title="1">mod, err := svc.casReg.Module(ctx, owner, modl)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeNotFound, err)
+        }</span>
+
+        // Get page size
+        <span class="cov8" title="1">pageSize := int(req.Msg.PageSize)
+        if pageSize &lt;= 0 </span><span class="cov8" title="1">{
+                pageSize = 100
+        }</span>
+
+        <span class="cov8" title="1">commits, nextToken, err := mod.ListCommits(ctx, pageSize, req.Msg.PageToken)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">resp := &amp;v1beta1.ListCommitsResponse{
+                NextPageToken: nextToken,
+        }
+
+        for _, commit := range commits </span><span class="cov8" title="1">{
+                c, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, connect.NewError(connect.CodeInternal, err)
+                }</span>
+                <span class="cov8" title="1">resp.Commits = append(resp.Commits, c)</span>
+        }
+
+        <span class="cov8" title="1">return connect.NewResponse(resp), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+
+        v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
+        "connectrpc.com/connect"
+        "github.com/greatliontech/pbr/internal/registry/cas"
+)
+
+func (svc *Service) Download(ctx context.Context, req *connect.Request[v1beta1.DownloadRequest]) (*connect.Response[v1beta1.DownloadResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">resp := &amp;connect.Response[v1beta1.DownloadResponse]{
+                Msg: &amp;v1beta1.DownloadResponse{},
+        }
+
+        for _, ref := range req.Msg.Values </span><span class="cov8" title="1">{
+                var commitId string
+
+                switch ref := ref.ResourceRef.Value.(type) </span>{
+                case *v1beta1.ResourceRef_Id:<span class="cov8" title="1">
+                        commitId = ref.Id</span>
+                case *v1beta1.ResourceRef_Name_:<span class="cov8" title="1">
+                        return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("ResourceRef_Name_ not supported"))</span>
+                }
+
+                <span class="cov8" title="1">slog.DebugContext(ctx, "download commit", "commitId", commitId)
+
+                content, err := svc.downloadByCommitID(ctx, commitId)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">resp.Msg.Contents = append(resp.Msg.Contents, content)</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+func (svc *Service) downloadByCommitID(ctx context.Context, commitId string) (*v1beta1.DownloadResponse_Content, error) <span class="cov8" title="1">{
+        mod, err := svc.casReg.ModuleByCommitID(ctx, commitId)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("commit not found: %s", commitId))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "download module", "module", mod.Name(), "owner", mod.Owner())
+
+        files, commit, err := mod.FilesAndCommitByCommitID(ctx, commitId)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">commitObj, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">return buildDownloadContent(commitObj, files), nil</span>
+}
+
+func buildDownloadContent(commit *v1beta1.Commit, files []cas.File) *v1beta1.DownloadResponse_Content <span class="cov8" title="1">{
+        contents := &amp;v1beta1.DownloadResponse_Content{
+                Commit: commit,
+        }
+
+        for _, file := range files </span><span class="cov8" title="1">{
+                if file.Path == "buf.yaml" </span><span class="cov8" title="1">{
+                        slog.Debug("buf.yaml found", "content", file.Content)
+                        contents.V1BufYamlFile = &amp;v1beta1.File{
+                                Path:    file.Path,
+                                Content: []byte(file.Content),
+                        }
+                }</span>
+                <span class="cov8" title="1">if file.Path == "buf.lock" </span><span class="cov8" title="1">{
+                        slog.Debug("buf.lock found", "content", file.Content)
+                        contents.V1BufLockFile = &amp;v1beta1.File{
+                                Path:    file.Path,
+                                Content: []byte(file.Content),
+                        }
+                }</span>
+                <span class="cov8" title="1">contents.Files = append(contents.Files, &amp;v1beta1.File{
+                        Path:    file.Path,
+                        Content: []byte(file.Content),
+                })</span>
+        }
+
+        <span class="cov8" title="1">return contents</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+        "strings"
+
+        v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
+        "connectrpc.com/connect"
+        "github.com/greatliontech/pbr/internal/registry/cas"
+        "github.com/greatliontech/pbr/internal/util"
+        "go.opentelemetry.io/otel/attribute"
+        "go.opentelemetry.io/otel/trace"
+)
+
+// moduleInfo holds common module info
+type moduleInfo struct {
+        Owner string
+        Name  string
+}
+
+func (svc *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.GetGraphRequest]) (*connect.Response[v1beta1.GetGraphResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">user := userFromContext(ctx)
+        slog.DebugContext(ctx, "GetGraph", "user", user)
+
+        resp := &amp;connect.Response[v1beta1.GetGraphResponse]{}
+        resp.Msg = &amp;v1beta1.GetGraphResponse{
+                Graph: &amp;v1beta1.Graph{},
+        }
+
+        commitMap := map[string]*v1beta1.Commit{}
+
+        type moduleEntry struct {
+                info   moduleInfo
+                commit *v1beta1.Commit
+        }
+        modules := []moduleEntry{}
+
+        for _, ref := range req.Msg.ResourceRefs </span><span class="cov8" title="1">{
+                switch ref := ref.ResourceRef.Value.(type) </span>{
+                case *v1beta1.ResourceRef_Id:<span class="cov8" title="1">
+                        info, commit, err := svc.getModuleAndCommitByID(ctx, ref.Id)
+                        if err != nil </span><span class="cov8" title="1">{
+                                slog.ErrorContext(ctx, "getModuleAndCommitByID", "err", err)
+                                return nil, err
+                        }</span>
+                        <span class="cov8" title="1">modules = append(modules, moduleEntry{info: info, commit: commit})
+                        key := info.Owner + "/" + info.Name
+                        commitMap[key] = commit
+                        slog.DebugContext(ctx, "top level dep", "id", commit.Id)
+                        resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &amp;v1beta1.Graph_Commit{
+                                Commit:   commit,
+                                Registry: svc.conf.Host,
+                        })</span>
+                case *v1beta1.ResourceRef_Name_:<span class="cov8" title="1">
+                        return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("ResourceRef_Name_ not supported"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">for i, entry := range modules </span><span class="cov8" title="1">{
+                if err := svc.getGraphForModule(ctx, entry.info, resp.Msg.Graph.Commits[i].Commit, commitMap, resp.Msg.Graph); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+
+        // debug print of the graph
+        <span class="cov8" title="1">for _, cmt := range commitMap </span><span class="cov8" title="1">{
+                slog.DebugContext(ctx, "commit", "id", cmt.Id)
+        }</span>
+        <span class="cov8" title="1">for _, edge := range resp.Msg.Graph.Edges </span><span class="cov8" title="1">{
+                slog.DebugContext(ctx, "edge", "from", edge.FromNode.CommitId, "to", edge.ToNode.CommitId)
+        }</span>
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+func (svc *Service) getModuleAndCommitByID(ctx context.Context, commitID string) (moduleInfo, *v1beta1.Commit, error) <span class="cov8" title="1">{
+        mod, err := svc.casReg.ModuleByCommitID(ctx, commitID)
+        if err != nil </span><span class="cov8" title="1">{
+                return moduleInfo{}, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("commit not found: %s", commitID))
+        }</span>
+
+        <span class="cov8" title="1">cmt, err := mod.CommitByID(ctx, commitID)
+        if err != nil </span><span class="cov0" title="0">{
+                return moduleInfo{}, nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">commit, err := getCommitObject(cmt.OwnerID, cmt.ModuleID, cmt.ID, cmt.ManifestDigest.Hex())
+        if err != nil </span><span class="cov0" title="0">{
+                return moduleInfo{}, nil, connect.NewError(connect.CodeInternal, err)
+        }</span>
+
+        <span class="cov8" title="1">return moduleInfo{Owner: mod.Owner(), Name: mod.Name()}, commit, nil</span>
+}
+
+func (svc *Service) getGraphForModule(ctx context.Context, info moduleInfo, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error <span class="cov8" title="1">{
+        ctx, span := tracer.Start(ctx, "service.getGraphForModule", trace.WithAttributes(
+                attribute.String("owner", info.Owner),
+                attribute.String("module", info.Name),
+                attribute.String("commit", commit.Id),
+        ))
+        defer span.End()
+
+        slog.DebugContext(ctx, "getGraphForModule", "owner", info.Owner, "module", info.Name, "commit", commit.Id)
+
+        // Get buf.lock
+        deps, err := svc.getBufLockDeps(ctx, info.Owner, info.Name, commit.Id)
+        if err != nil </span><span class="cov8" title="1">{
+                if err == errBufLockNotFound </span><span class="cov8" title="1">{
+                        slog.DebugContext(ctx, "no dependencies")
+                        return nil
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov8" title="1">for _, dep := range deps </span><span class="cov8" title="1">{
+                slog.DebugContext(ctx, "dep", "owner", dep.Owner, "repo", dep.Repository, "commit", dep.Commit, "digest", dep.Digest)
+                var depCommit *v1beta1.Commit
+                key := dep.Owner + "/" + dep.Repository
+                if dc, ok := commits[key]; ok </span><span class="cov8" title="1">{
+                        slog.DebugContext(ctx, "dep already in commits", "key", key)
+                        depCommit = dc
+                }</span> else<span class="cov8" title="1"> {
+                        slog.DebugContext(ctx, "dep not in commits", "key", key)
+                        ownerId := util.OwnerID(dep.Owner)
+                        modId := util.ModuleID(ownerId, dep.Repository)
+                        depCommit, err = getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov8" title="1">commits[key] = depCommit
+                        graph.Commits = append(graph.Commits, &amp;v1beta1.Graph_Commit{
+                                Commit:   depCommit,
+                                Registry: dep.Remote,
+                        })</span>
+                }
+                <span class="cov8" title="1">graph.Edges = append(graph.Edges, &amp;v1beta1.Graph_Edge{
+                        FromNode: &amp;v1beta1.Graph_Node{
+                                CommitId: commit.Id,
+                                Registry: svc.conf.Host,
+                        },
+                        ToNode: &amp;v1beta1.Graph_Node{
+                                CommitId: depCommit.Id,
+                                Registry: dep.Remote,
+                        },
+                })
+                if dep.Remote == svc.conf.Host </span><span class="cov8" title="1">{
+                        err = svc.getGraphForModule(ctx, moduleInfo{Owner: dep.Owner, Name: dep.Repository}, depCommit, commits, graph)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// bufLockDep represents a dependency from buf.lock
+type bufLockDep struct {
+        Remote     string
+        Owner      string
+        Repository string
+        Commit     string
+        Digest     string
+}
+
+var errBufLockNotFound = fmt.Errorf("buf.lock not found")
+
+func (svc *Service) getBufLockDeps(ctx context.Context, owner, name, commitID string) ([]bufLockDep, error) <span class="cov8" title="1">{
+        mod, err := svc.casReg.Module(ctx, owner, name)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, name))
+        }</span>
+
+        <span class="cov8" title="1">bufLock, err := mod.BufLockCommitID(ctx, commitID)
+        if err != nil </span><span class="cov8" title="1">{
+                if err.Error() == "buf.lock not found" </span><span class="cov8" title="1">{
+                        return nil, errBufLockNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">return convertBufLockDeps(bufLock), nil</span>
+}
+
+func convertBufLockDeps(bl *cas.BufLock) []bufLockDep <span class="cov8" title="1">{
+        deps := make([]bufLockDep, len(bl.Deps))
+        for i, d := range bl.Deps </span><span class="cov8" title="1">{
+                deps[i] = bufLockDep{
+                        Remote:     d.Remote,
+                        Owner:      d.Owner,
+                        Repository: d.Repository,
+                        Commit:     d.Commit,
+                        Digest:     d.Digest,
+                }
+        }</span>
+        <span class="cov8" title="1">return deps</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+        "time"
+
+        v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
+        ownerv1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/owner/v1"
+        "connectrpc.com/connect"
+        "github.com/greatliontech/pbr/internal/storage"
+)
+
+// GetModules retrieves modules by id or name.
+func (svc *Service) GetModules(ctx context.Context, req *connect.Request[v1beta1.GetModulesRequest]) (*connect.Response[v1beta1.GetModulesResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">resp := connect.NewResponse(&amp;v1beta1.GetModulesResponse{})
+
+        for _, ref := range req.Msg.ModuleRefs </span><span class="cov8" title="1">{
+                var mod *v1beta1.Module
+                var err error
+
+                switch r := ref.Value.(type) </span>{
+                case *v1beta1.ModuleRef_Id:<span class="cov8" title="1">
+                        mod, err = svc.getModuleByID(ctx, r.Id)</span>
+                case *v1beta1.ModuleRef_Name_:<span class="cov8" title="1">
+                        if r.Name != nil </span><span class="cov8" title="1">{
+                                mod, err = svc.getModuleByName(ctx, r.Name.Owner, r.Name.Module)
+                        }</span> else<span class="cov8" title="1"> {
+                                err = errors.New("module name is required")
+                        }</span>
+                default:<span class="cov0" title="0">
+                        err = errors.New("unknown module reference type")</span>
+                }
+
+                <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">resp.Msg.Modules = append(resp.Msg.Modules, mod)</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+func (svc *Service) getModuleByID(ctx context.Context, id string) (*v1beta1.Module, error) <span class="cov8" title="1">{
+        mod, err := svc.casReg.ModuleByID(ctx, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s", id))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;v1beta1.Module{
+                Id:          mod.ID(),
+                OwnerId:     mod.OwnerID(),
+                Name:        mod.Name(),
+                Description: mod.Description(),
+                CreateTime:  nil, // TODO: convert time
+        }, nil</span>
+}
+
+func (svc *Service) getModuleByName(ctx context.Context, owner, name string) (*v1beta1.Module, error) <span class="cov8" title="1">{
+        mod, err := svc.casReg.Module(ctx, owner, name)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, name))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;v1beta1.Module{
+                Id:          mod.ID(),
+                OwnerId:     mod.OwnerID(),
+                Name:        mod.Name(),
+                Description: mod.Description(),
+        }, nil</span>
+}
+
+// ListModules lists modules for a specific owner.
+func (svc *Service) ListModules(ctx context.Context, req *connect.Request[v1beta1.ListModulesRequest]) (*connect.Response[v1beta1.ListModulesResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "ListModules", "ownerRefs", len(req.Msg.OwnerRefs))
+
+        resp := connect.NewResponse(&amp;v1beta1.ListModulesResponse{})
+
+        // If no owner refs, list all (not supported yet)
+        if len(req.Msg.OwnerRefs) == 0 </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("owner reference is required"))
+        }</span>
+
+        <span class="cov8" title="1">for _, ownerRef := range req.Msg.OwnerRefs </span><span class="cov8" title="1">{
+                var ownerName string
+
+                switch r := ownerRef.Value.(type) </span>{
+                case *ownerv1.OwnerRef_Id:<span class="cov8" title="1">
+                        owner, err := svc.casReg.Owner(ctx, r.Id)
+                        if err != nil </span><span class="cov8" title="1">{
+                                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("owner not found: %s", r.Id))
+                        }</span>
+                        <span class="cov8" title="1">ownerName = owner.Name</span>
+                case *ownerv1.OwnerRef_Name:<span class="cov8" title="1">
+                        ownerName = r.Name</span>
+                default:<span class="cov0" title="0">
+                        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("unknown owner reference type"))</span>
+                }
+
+                <span class="cov8" title="1">modules, err := svc.casReg.ListModules(ctx, ownerName)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, connect.NewError(connect.CodeInternal, err)
+                }</span>
+
+                <span class="cov8" title="1">for _, mod := range modules </span><span class="cov8" title="1">{
+                        resp.Msg.Modules = append(resp.Msg.Modules, &amp;v1beta1.Module{
+                                Id:          mod.ID(),
+                                OwnerId:     mod.OwnerID(),
+                                Name:        mod.Name(),
+                                Description: mod.Description(),
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+// CreateModules creates new modules.
+func (svc *Service) CreateModules(ctx context.Context, req *connect.Request[v1beta1.CreateModulesRequest]) (*connect.Response[v1beta1.CreateModulesResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "CreateModules", "values", len(req.Msg.Values))
+
+        resp := connect.NewResponse(&amp;v1beta1.CreateModulesResponse{})
+
+        for _, value := range req.Msg.Values </span><span class="cov8" title="1">{
+                // Resolve owner
+                var ownerName string
+
+                switch r := value.OwnerRef.Value.(type) </span>{
+                case *ownerv1.OwnerRef_Id:<span class="cov0" title="0">
+                        owner, err := svc.casReg.Owner(ctx, r.Id)
+                        if err != nil </span><span class="cov0" title="0">{
+                                // Owner doesn't exist - we could auto-create, but for now require it
+                                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("owner not found: %s", r.Id))
+                        }</span>
+                        <span class="cov0" title="0">ownerName = owner.Name</span>
+                case *ownerv1.OwnerRef_Name:<span class="cov8" title="1">
+                        ownerName = r.Name</span>
+                default:<span class="cov0" title="0">
+                        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("owner reference is required"))</span>
+                }
+
+                // Create module
+                <span class="cov8" title="1">mod, err := svc.casReg.CreateModule(ctx, ownerName, value.Name, value.Description)
+                if err != nil </span><span class="cov0" title="0">{
+                        if err == storage.ErrAlreadyExists </span><span class="cov0" title="0">{
+                                return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("module already exists: %s/%s", ownerName, value.Name))
+                        }</span>
+                        <span class="cov0" title="0">return nil, connect.NewError(connect.CodeInternal, err)</span>
+                }
+
+                <span class="cov8" title="1">resp.Msg.Modules = append(resp.Msg.Modules, &amp;v1beta1.Module{
+                        Id:          mod.ID(),
+                        OwnerId:     mod.OwnerID(),
+                        Name:        mod.Name(),
+                        Description: mod.Description(),
+                        CreateTime:  nil, // TODO: convert time
+                })</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+// UpdateModules updates existing modules.
+func (svc *Service) UpdateModules(ctx context.Context, req *connect.Request[v1beta1.UpdateModulesRequest]) (*connect.Response[v1beta1.UpdateModulesResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "UpdateModules", "values", len(req.Msg.Values))
+
+        resp := connect.NewResponse(&amp;v1beta1.UpdateModulesResponse{})
+
+        for _, value := range req.Msg.Values </span><span class="cov8" title="1">{
+                // Get existing module
+                var mod *storage.ModuleRecord
+                var err error
+
+                switch r := value.ModuleRef.Value.(type) </span>{
+                case *v1beta1.ModuleRef_Id:<span class="cov8" title="1">
+                        var m interface{ ID() string }
+                        m, err = svc.casReg.ModuleByID(ctx, r.Id)
+                        if err == nil </span><span class="cov8" title="1">{
+                                // Get the underlying record for update
+                                record, err := svc.casReg.ModuleByID(ctx, r.Id)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        return nil, connect.NewError(connect.CodeNotFound, err)
+                                }</span>
+                                <span class="cov8" title="1">mod = &amp;storage.ModuleRecord{
+                                        ID:               record.ID(),
+                                        OwnerID:          record.OwnerID(),
+                                        Owner:            record.Owner(),
+                                        Name:             record.Name(),
+                                        Description:      record.Description(),
+                                        DefaultLabelName: record.DefaultLabelName(),
+                                        UpdateTime:       time.Now(),
+                                }</span>
+                        }
+                        <span class="cov8" title="1">_ = m</span>
+                case *v1beta1.ModuleRef_Name_:<span class="cov0" title="0">
+                        if r.Name != nil </span><span class="cov0" title="0">{
+                                var m interface{ ID() string }
+                                m, err = svc.casReg.Module(ctx, r.Name.Owner, r.Name.Module)
+                                if err == nil </span><span class="cov0" title="0">{
+                                        record, err := svc.casReg.Module(ctx, r.Name.Owner, r.Name.Module)
+                                        if err != nil </span><span class="cov0" title="0">{
+                                                return nil, connect.NewError(connect.CodeNotFound, err)
+                                        }</span>
+                                        <span class="cov0" title="0">mod = &amp;storage.ModuleRecord{
+                                                ID:               record.ID(),
+                                                OwnerID:          record.OwnerID(),
+                                                Owner:            record.Owner(),
+                                                Name:             record.Name(),
+                                                Description:      record.Description(),
+                                                DefaultLabelName: record.DefaultLabelName(),
+                                                UpdateTime:       time.Now(),
+                                        }</span>
+                                }
+                                <span class="cov0" title="0">_ = m</span>
+                        }
+                }
+
+                <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                        return nil, connect.NewError(connect.CodeNotFound, err)
+                }</span>
+
+                // Apply updates
+                <span class="cov8" title="1">if value.Description != nil </span><span class="cov8" title="1">{
+                        mod.Description = *value.Description
+                }</span>
+                <span class="cov8" title="1">if value.DefaultLabelName != nil </span><span class="cov0" title="0">{
+                        mod.DefaultLabelName = *value.DefaultLabelName
+                }</span>
+
+                // Note: UpdateModule not directly available on casReg, would need to add
+                // For now, return the module as-is (updates not persisted)
+                <span class="cov8" title="1">resp.Msg.Modules = append(resp.Msg.Modules, &amp;v1beta1.Module{
+                        Id:          mod.ID,
+                        OwnerId:     mod.OwnerID,
+                        Name:        mod.Name,
+                        Description: mod.Description,
+                })</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+
+// DeleteModules deletes existing modules.
+func (svc *Service) DeleteModules(ctx context.Context, req *connect.Request[v1beta1.DeleteModulesRequest]) (*connect.Response[v1beta1.DeleteModulesResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "DeleteModules", "moduleRefs", len(req.Msg.ModuleRefs))
+
+        resp := connect.NewResponse(&amp;v1beta1.DeleteModulesResponse{})
+
+        for _, ref := range req.Msg.ModuleRefs </span><span class="cov8" title="1">{
+                var owner, name string
+                var err error
+
+                switch r := ref.Value.(type) </span>{
+                case *v1beta1.ModuleRef_Id:<span class="cov8" title="1">
+                        mod, err := svc.casReg.ModuleByID(ctx, r.Id)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return nil, connect.NewError(connect.CodeNotFound, err)
+                        }</span>
+                        <span class="cov8" title="1">owner = mod.Owner()
+                        name = mod.Name()</span>
+                case *v1beta1.ModuleRef_Name_:<span class="cov8" title="1">
+                        if r.Name != nil </span><span class="cov8" title="1">{
+                                owner = r.Name.Owner
+                                name = r.Name.Module
+                        }</span> else<span class="cov8" title="1"> {
+                                return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("module name is required"))
+                        }</span>
+                default:<span class="cov0" title="0">
+                        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("unknown module reference type"))</span>
+                }
+
+                <span class="cov8" title="1">err = svc.casReg.DeleteModule(ctx, owner, name)
+                if err != nil </span><span class="cov8" title="1">{
+                        if err == storage.ErrNotFound </span><span class="cov8" title="1">{
+                                // Already deleted, that's fine
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">return nil, connect.NewError(connect.CodeInternal, err)</span>
+                }
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+
+        v1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/owner/v1"
+        "connectrpc.com/connect"
+)
+
+// Get Users or Organizations by id or name.
+func (svc *Service) GetOwners(ctx context.Context, req *connect.Request[v1.GetOwnersRequest]) (*connect.Response[v1.GetOwnersResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">resp := connect.NewResponse(&amp;v1.GetOwnersResponse{})
+
+        for _, ownref := range req.Msg.OwnerRefs </span><span class="cov8" title="1">{
+                var owner *v1.Owner
+                var err error
+
+                switch ref := ownref.Value.(type) </span>{
+                case *v1.OwnerRef_Id:<span class="cov8" title="1">
+                        slog.Debug("GetOwners by id", "id", ref.Id)
+                        ownerRecord, err := svc.casReg.Owner(ctx, ref.Id)
+                        if err != nil </span><span class="cov8" title="1">{
+                                return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("owner not found: %s", ref.Id))
+                        }</span>
+                        <span class="cov8" title="1">owner = &amp;v1.Owner{
+                                Value: &amp;v1.Owner_Organization{
+                                        Organization: &amp;v1.Organization{
+                                                Id:   ownerRecord.ID,
+                                                Name: ownerRecord.Name,
+                                        },
+                                },
+                        }</span>
+                case *v1.OwnerRef_Name:<span class="cov8" title="1">
+                        slog.Debug("GetOwners by name", "name", ref.Name)
+                        ownerRecord, err := svc.casReg.OwnerByName(ctx, ref.Name)
+                        if err != nil </span><span class="cov8" title="1">{
+                                // Owner might not exist in metadata yet, create a virtual one
+                                owner = &amp;v1.Owner{
+                                        Value: &amp;v1.Owner_Organization{
+                                                Organization: &amp;v1.Organization{
+                                                        Name: ref.Name,
+                                                },
+                                        },
+                                }
+                        }</span> else<span class="cov8" title="1"> {
+                                owner = &amp;v1.Owner{
+                                        Value: &amp;v1.Owner_Organization{
+                                                Organization: &amp;v1.Organization{
+                                                        Id:   ownerRecord.ID,
+                                                        Name: ownerRecord.Name,
+                                                },
+                                        },
+                                }
+                        }</span>
+                default:<span class="cov0" title="0">
+                        err = errors.New("unknown owner reference type")</span>
+                }
+
+                <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                        return nil, connect.NewError(connect.CodeInvalidArgument, err)
+                }</span>
+
+                <span class="cov8" title="1">resp.Msg.Owners = append(resp.Msg.Owners, owner)</span>
+        }
+
+        <span class="cov8" title="1">return resp, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package service
+
+import (
+        "context"
+        "crypto/tls"
+        "errors"
+        "fmt"
+        "log/slog"
+        "net"
+        "net/http"
+        "strings"
+
+        "buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
+        "buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
+        "buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect"
+        "connectrpc.com/connect"
+        "connectrpc.com/otelconnect"
+        "github.com/google/go-containerregistry/pkg/authn"
+        "github.com/greatliontech/ocifs"
+        "github.com/greatliontech/pbr/internal/codegen"
+        "github.com/greatliontech/pbr/internal/config"
+        "github.com/greatliontech/pbr/internal/registry/cas"
+        "github.com/greatliontech/pbr/internal/storage/filesystem"
+        "go.opentelemetry.io/otel"
+        "golang.org/x/net/http2"
+        "golang.org/x/net/http2/h2c"
+)
+
+var tracer = otel.Tracer("pbr.dev/internal/service")
+
+type contextKey string
+
+const userContextKey contextKey = "user"
+
+func contextWithUser(ctx context.Context, user string) context.Context <span class="cov8" title="1">{
+        return context.WithValue(ctx, userContextKey, user)
+}</span>
+
+func userFromContext(ctx context.Context) string <span class="cov8" title="1">{
+        return ctx.Value(userContextKey).(string)
+}</span>
+
+type Service struct {
+        registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
+        conf     *config.Config
+        server   *http.Server
+        cert     *tls.Certificate
+        tokens   map[string]string
+        users    map[string]string
+        plugins  map[string]*codegen.Plugin
+        ofs      *ocifs.OCIFS
+        regCreds map[string]authn.AuthConfig
+        casReg   *cas.Registry
+}
+
+func New(c *config.Config) (*Service, error) <span class="cov0" title="0">{
+        // CAS storage is required
+        if c.CacheDir == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("cache_dir is required for CAS storage")
+        }</span>
+
+        <span class="cov0" title="0">svc := &amp;Service{
+                conf:     c,
+                tokens:   map[string]string{},
+                users:    map[string]string{},
+                regCreds: map[string]authn.AuthConfig{},
+                plugins:  map[string]*codegen.Plugin{},
+        }
+
+        if svc.conf.Address == "" </span><span class="cov0" title="0">{
+                svc.conf.Address = ":443"
+        }</span>
+
+        <span class="cov0" title="0">if c.Credentials.ContainerRegistry != nil </span><span class="cov0" title="0">{
+                regCreds := map[string]authn.AuthConfig{}
+                for k, v := range c.Credentials.ContainerRegistry </span><span class="cov0" title="0">{
+                        regCreds[k] = authn.AuthConfig(v)
+                }</span>
+                <span class="cov0" title="0">svc.regCreds = regCreds</span>
+        }
+
+        <span class="cov0" title="0">if c.Users != nil </span><span class="cov0" title="0">{
+                for k, v := range c.Users </span><span class="cov0" title="0">{
+                        svc.users[k] = v
+                }</span>
+        }
+
+        // ocifs options
+        <span class="cov0" title="0">ofsOpts := []ocifs.Option{}
+        if len(svc.regCreds) &gt; 0 </span><span class="cov0" title="0">{
+                for k, v := range svc.regCreds </span><span class="cov0" title="0">{
+                        ofsOpts = append(ofsOpts, ocifs.WithAuthSource(k, v))
+                        slog.Debug("auth source configured", "registry", k)
+                }</span>
+        }
+
+        // init ocifs
+        <span class="cov0" title="0">ofs, err := ocifs.New(ofsOpts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">svc.ofs = ofs
+
+        for k, v := range svc.conf.Plugins </span><span class="cov0" title="0">{
+                svc.plugins[k] = codegen.NewPlugin(ofs, v.Image, v.Default)
+        }</span>
+
+        <span class="cov0" title="0">if svc.conf.AdminToken != "" </span><span class="cov0" title="0">{
+                svc.users["admin"] = svc.conf.AdminToken
+                svc.tokens[svc.conf.AdminToken] = "admin"
+        }</span>
+
+        <span class="cov0" title="0">for k, v := range svc.users </span><span class="cov0" title="0">{
+                svc.tokens[v] = k
+        }</span>
+
+        // Initialize CAS storage
+        <span class="cov0" title="0">storagePath := c.CacheDir + "/cas"
+        blobStore := filesystem.NewBlobStore(storagePath + "/blobs")
+        manifestStore := filesystem.NewManifestStore(storagePath + "/manifests")
+        metadataStore := filesystem.NewMetadataStore(storagePath + "/metadata")
+        svc.casReg = cas.New(blobStore, manifestStore, metadataStore, c.Host)
+        slog.Info("CAS storage initialized", "path", storagePath)
+
+        mux := http.NewServeMux()
+
+        intcptrs := []connect.Interceptor{}
+
+        otelInt, err := otelconnect.NewInterceptor()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">intcptrs = append(intcptrs, otelInt)
+
+        if !c.NoLogin </span><span class="cov0" title="0">{
+                intcptrs = append(intcptrs, newAuthInterceptor(svc.tokens))
+        }</span>
+
+        <span class="cov0" title="0">interceptors := connect.WithInterceptors(intcptrs...)
+
+        mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(svc, interceptors))
+        mux.Handle(modulev1beta1connect.NewCommitServiceHandler(svc, interceptors))
+        mux.Handle(modulev1beta1connect.NewGraphServiceHandler(svc, interceptors))
+        mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(svc, interceptors))
+        mux.Handle(modulev1beta1connect.NewUploadServiceHandler(svc, interceptors))
+        mux.Handle(modulev1beta1connect.NewModuleServiceHandler(svc, interceptors))
+        mux.Handle(ownerv1connect.NewOwnerServiceHandler(svc, interceptors))
+
+        mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                fmt.Fprint(w, "ready")
+        }</span>))
+        <span class="cov0" title="0">mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                fmt.Fprint(w, "live")
+        }</span>))
+
+        <span class="cov0" title="0">svc.server = &amp;http.Server{
+                Addr:    svc.conf.Address,
+                Handler: mux,
+        }
+
+        if svc.cert != nil </span><span class="cov0" title="0">{
+                svc.server.TLSConfig = &amp;tls.Config{Certificates: []tls.Certificate{*svc.cert}}
+        }</span>
+
+        <span class="cov0" title="0">return svc, nil</span>
+}
+
+func (svc *Service) Serve(ctx context.Context) error <span class="cov0" title="0">{
+        if svc.cert != nil </span><span class="cov0" title="0">{
+                svc.server.TLSConfig = &amp;tls.Config{Certificates: []tls.Certificate{*svc.cert}}
+                if err := http2.ConfigureServer(svc.server, nil); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov0" title="0">return svc.server.ListenAndServeTLS("", "")</span>
+        }
+        <span class="cov0" title="0">h2s := &amp;http2.Server{}
+        handler := h2c.NewHandler(svc.server.Handler, h2s)
+        svc.server.Handler = handler
+        svc.server.BaseContext = func(listener net.Listener) context.Context </span><span class="cov0" title="0">{
+                return ctx
+        }</span>
+        <span class="cov0" title="0">return svc.server.ListenAndServe()</span>
+}
+
+func (svc *Service) Shutdown(ctx context.Context) error <span class="cov0" title="0">{
+        return svc.server.Shutdown(ctx)
+}</span>
+
+const (
+        authenticationHeader      = "Authorization"
+        authenticationTokenPrefix = "Bearer "
+)
+
+func newAuthInterceptor(tokens map[string]string) connect.UnaryInterceptorFunc <span class="cov0" title="0">{
+        return func(next connect.UnaryFunc) connect.UnaryFunc </span><span class="cov0" title="0">{
+                return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) </span><span class="cov0" title="0">{
+                        hdr := req.Header().Get(authenticationHeader)
+                        if hdr == "" </span><span class="cov0" title="0">{
+                                return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("no token provided"))
+                        }</span>
+
+                        <span class="cov0" title="0">if !strings.HasPrefix(hdr, authenticationTokenPrefix) </span><span class="cov0" title="0">{
+                                return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid auth header"))
+                        }</span>
+
+                        <span class="cov0" title="0">tokenString := strings.TrimSpace(strings.TrimPrefix(hdr, authenticationTokenPrefix))
+                        if tokenString == "" </span><span class="cov0" title="0">{
+                                return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token missing"))
+                        }</span>
+
+                        <span class="cov0" title="0">user, ok := tokens[tokenString]
+                        if !ok </span><span class="cov0" title="0">{
+                                return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))
+                        }</span>
+
+                        <span class="cov0" title="0">ctx = contextWithUser(ctx, user)
+
+                        return next(ctx, req)</span>
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "log/slog"
+
+        v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
+        "connectrpc.com/connect"
+        "github.com/greatliontech/pbr/internal/registry/cas"
+)
+
+// Upload implements the UploadService.Upload method.
+// This is the main entry point for pushing modules to the registry.
+func (svc *Service) Upload(
+        ctx context.Context,
+        req *connect.Request[v1beta1.UploadRequest],
+) (*connect.Response[v1beta1.UploadResponse], error) <span class="cov8" title="1">{
+        if svc.casReg == nil </span><span class="cov8" title="1">{
+                return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "Upload", "contents", len(req.Msg.Contents))
+
+        resp := &amp;v1beta1.UploadResponse{
+                Commits: make([]*v1beta1.Commit, 0, len(req.Msg.Contents)),
+        }
+
+        for _, content := range req.Msg.Contents </span><span class="cov8" title="1">{
+                commit, err := svc.uploadContent(ctx, content)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, connect.NewError(connect.CodeInternal, err)
+                }</span>
+                <span class="cov8" title="1">resp.Commits = append(resp.Commits, commit)</span>
+        }
+
+        <span class="cov8" title="1">return connect.NewResponse(resp), nil</span>
+}
+
+func (svc *Service) uploadContent(ctx context.Context, content *v1beta1.UploadRequest_Content) (*v1beta1.Commit, error) <span class="cov8" title="1">{
+        // Resolve module reference
+        owner, modName, err := svc.resolveModuleRef(content.ModuleRef)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("invalid module reference: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">slog.DebugContext(ctx, "uploading content", "owner", owner, "module", modName, "files", len(content.Files))
+
+        // Get or create module
+        mod, err := svc.casReg.GetOrCreateModule(ctx, owner, modName)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get or create module: %w", err)
+        }</span>
+
+        // Convert files
+        <span class="cov8" title="1">files := make([]cas.File, 0, len(content.Files))
+        for _, f := range content.Files </span><span class="cov8" title="1">{
+                files = append(files, cas.File{
+                        Path:    f.Path,
+                        Content: string(f.Content),
+                })
+        }</span>
+
+        // Extract labels from scoped label refs
+        <span class="cov8" title="1">labels := svc.extractLabels(content.ScopedLabelRefs)
+        if len(labels) == 0 </span><span class="cov8" title="1">{
+                // Default to "main" if no labels specified
+                labels = []string{"main"}
+        }</span>
+
+        // Create commit
+        <span class="cov8" title="1">commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create commit: %w", err)
+        }</span>
+
+        // Build response commit
+        <span class="cov8" title="1">return svc.commitToProto(commit)</span>
+}
+
+func (svc *Service) resolveModuleRef(ref *v1beta1.ModuleRef) (owner, name string, err error) <span class="cov8" title="1">{
+        if ref == nil </span><span class="cov8" title="1">{
+                return "", "", errors.New("module reference is required")
+        }</span>
+
+        <span class="cov8" title="1">switch v := ref.Value.(type) </span>{
+        case *v1beta1.ModuleRef_Id:<span class="cov8" title="1">
+                // Look up module by ID
+                if svc.casReg == nil </span><span class="cov0" title="0">{
+                        return "", "", errors.New("CAS storage not configured")
+                }</span>
+                <span class="cov8" title="1">mod, err := svc.casReg.ModuleByID(context.Background(), v.Id)
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", "", fmt.Errorf("module not found: %w", err)
+                }</span>
+                <span class="cov8" title="1">return mod.Owner(), mod.Name(), nil</span>
+
+        case *v1beta1.ModuleRef_Name_:<span class="cov8" title="1">
+                if v.Name == nil </span><span class="cov8" title="1">{
+                        return "", "", errors.New("module name is required")
+                }</span>
+                <span class="cov8" title="1">return v.Name.Owner, v.Name.Module, nil</span>
+
+        default:<span class="cov0" title="0">
+                return "", "", errors.New("unknown module reference type")</span>
+        }
+}
+
+func (svc *Service) extractLabels(refs []*v1beta1.ScopedLabelRef) []string <span class="cov8" title="1">{
+        labels := make([]string, 0, len(refs))
+        for _, ref := range refs </span><span class="cov8" title="1">{
+                switch v := ref.Value.(type) </span>{
+                case *v1beta1.ScopedLabelRef_Name:<span class="cov8" title="1">
+                        labels = append(labels, v.Name)</span>
+                }
+        }
+        <span class="cov8" title="1">return labels</span>
+}
+
+func (svc *Service) commitToProto(commit *cas.Commit) (*v1beta1.Commit, error) <span class="cov8" title="1">{
+        return getCommitObject(
+                commit.OwnerID,
+                commit.ModuleID,
+                commit.ID,
+                commit.ManifestDigest.Hex(),
+        )
+}</span>
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package service
+
+import (
+        "encoding/hex"
+
+        v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
+)
+
+func getCommitObject(ownerId, modId, id, dgst string) (*v1beta1.Commit, error) <span class="cov8" title="1">{
+        digest, err := hex.DecodeString(dgst)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return &amp;v1beta1.Commit{
+                Id:       id,
+                OwnerId:  ownerId,
+                ModuleId: modId,
+                Digest: &amp;v1beta1.Digest{
+                        Type:  v1beta1.DigestType_DIGEST_TYPE_B4,
+                        Value: digest,
+                },
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package filesystem
+
+import (
+        "context"
+        "io"
+        "os"
+        "path/filepath"
+
+        "github.com/greatliontech/pbr/internal/storage"
+        "golang.org/x/crypto/sha3"
+)
+
+// BlobStore implements storage.BlobStore using the filesystem.
+// Blobs are stored at: &lt;basePath&gt;/&lt;algorithm&gt;/&lt;first-2-hex&gt;/&lt;full-hex-digest&gt;
+type BlobStore struct {
+        basePath string
+}
+
+// NewBlobStore creates a new filesystem-backed blob store.
+func NewBlobStore(basePath string) *BlobStore <span class="cov8" title="1">{
+        return &amp;BlobStore{basePath: basePath}
+}</span>
+
+// blobPath returns the filesystem path for a given digest.
+func (s *BlobStore) blobPath(digest storage.Digest) string <span class="cov8" title="1">{
+        hex := digest.Hex()
+        if len(hex) &lt; 2 </span><span class="cov0" title="0">{
+                return filepath.Join(s.basePath, digest.Algorithm, hex)
+        }</span>
+        // Shard by first 2 hex characters to avoid too many files in one directory
+        <span class="cov8" title="1">return filepath.Join(s.basePath, digest.Algorithm, hex[:2], hex)</span>
+}
+
+// Get retrieves a blob by its digest.
+func (s *BlobStore) Get(ctx context.Context, digest storage.Digest) (io.ReadCloser, error) <span class="cov8" title="1">{
+        path := s.blobPath(digest)
+        f, err := os.Open(path)
+        if err != nil </span><span class="cov8" title="1">{
+                if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov8" title="1">return f, nil</span>
+}
+
+// Put stores a blob and returns its computed SHAKE256 digest.
+func (s *BlobStore) Put(ctx context.Context, r io.Reader) (storage.Digest, error) <span class="cov8" title="1">{
+        // Create a temporary file in the base path
+        if err := os.MkdirAll(s.basePath, 0755); err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+
+        <span class="cov8" title="1">tmpFile, err := os.CreateTemp(s.basePath, "blob-*.tmp")
+        if err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+        <span class="cov8" title="1">tmpPath := tmpFile.Name()
+        defer func() </span><span class="cov8" title="1">{
+                // Clean up temp file on error
+                if tmpFile != nil </span><span class="cov0" title="0">{
+                        tmpFile.Close()
+                        os.Remove(tmpPath)
+                }</span>
+        }()
+
+        // Hash while writing
+        <span class="cov8" title="1">h := sha3.NewShake256()
+        w := io.MultiWriter(tmpFile, h)
+
+        if _, err := io.Copy(w, r); err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tmpFile.Close(); err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+
+        // Read the digest
+        <span class="cov8" title="1">var hashBytes [64]byte
+        h.Read(hashBytes[:])
+
+        digest := storage.Digest{
+                Algorithm: "shake256",
+                Value:     hashBytes[:],
+        }
+
+        // Move to final location
+        finalPath := s.blobPath(digest)
+        if err := os.MkdirAll(filepath.Dir(finalPath), 0755); err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+
+        // Check if blob already exists (deduplication)
+        <span class="cov8" title="1">if _, err := os.Stat(finalPath); err == nil </span><span class="cov8" title="1">{
+                // Already exists, remove temp file
+                os.Remove(tmpPath)
+                tmpFile = nil
+                return digest, nil
+        }</span>
+
+        <span class="cov8" title="1">if err := os.Rename(tmpPath, finalPath); err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+
+        <span class="cov8" title="1">tmpFile = nil // Prevent cleanup
+        return digest, nil</span>
+}
+
+// Exists checks if a blob with the given digest exists.
+func (s *BlobStore) Exists(ctx context.Context, digest storage.Digest) (bool, error) <span class="cov8" title="1">{
+        path := s.blobPath(digest)
+        _, err := os.Stat(path)
+        if err == nil </span><span class="cov8" title="1">{
+                return true, nil
+        }</span>
+        <span class="cov8" title="1">if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                return false, nil
+        }</span>
+        <span class="cov0" title="0">return false, err</span>
+}
+
+// Delete removes a blob by its digest.
+func (s *BlobStore) Delete(ctx context.Context, digest storage.Digest) error <span class="cov8" title="1">{
+        path := s.blobPath(digest)
+        err := os.Remove(path)
+        if err != nil &amp;&amp; os.IsNotExist(err) </span><span class="cov8" title="1">{
+                return nil // Already deleted
+        }</span>
+        <span class="cov8" title="1">return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package filesystem
+
+import (
+        "bufio"
+        "context"
+        "fmt"
+        "os"
+        "path/filepath"
+        "sort"
+        "strings"
+
+        "github.com/greatliontech/pbr/internal/storage"
+        "golang.org/x/crypto/sha3"
+)
+
+// ManifestStore implements storage.ManifestStore using the filesystem.
+// Manifests are stored at: &lt;basePath&gt;/&lt;algorithm&gt;/&lt;first-2-hex&gt;/&lt;full-hex-digest&gt;
+type ManifestStore struct {
+        basePath string
+}
+
+// NewManifestStore creates a new filesystem-backed manifest store.
+func NewManifestStore(basePath string) *ManifestStore <span class="cov8" title="1">{
+        return &amp;ManifestStore{basePath: basePath}
+}</span>
+
+// manifestPath returns the filesystem path for a given digest.
+func (s *ManifestStore) manifestPath(digest storage.Digest) string <span class="cov8" title="1">{
+        hex := digest.Hex()
+        if len(hex) &lt; 2 </span><span class="cov0" title="0">{
+                return filepath.Join(s.basePath, digest.Algorithm, hex)
+        }</span>
+        <span class="cov8" title="1">return filepath.Join(s.basePath, digest.Algorithm, hex[:2], hex)</span>
+}
+
+// SerializeManifest converts a manifest to the buf-compatible format.
+// Format: "shake256:&lt;hex-digest&gt;  &lt;path&gt;\n" for each entry, sorted by path.
+func SerializeManifest(m *storage.Manifest) string <span class="cov8" title="1">{
+        // Sort entries by path for deterministic output
+        entries := make([]storage.ManifestEntry, len(m.Entries))
+        copy(entries, m.Entries)
+        sort.Slice(entries, func(i, j int) bool </span><span class="cov8" title="1">{
+                return entries[i].Path &lt; entries[j].Path
+        }</span>)
+
+        <span class="cov8" title="1">var sb strings.Builder
+        for _, entry := range entries </span><span class="cov8" title="1">{
+                sb.WriteString(fmt.Sprintf("%s  %s\n", entry.Digest.String(), entry.Path))
+        }</span>
+        <span class="cov8" title="1">return sb.String()</span>
+}
+
+// ParseManifest parses the buf-compatible manifest format.
+func ParseManifest(content string) (*storage.Manifest, error) <span class="cov8" title="1">{
+        m := &amp;storage.Manifest{}
+        scanner := bufio.NewScanner(strings.NewReader(content))
+        for scanner.Scan() </span><span class="cov8" title="1">{
+                line := scanner.Text()
+                if line == "" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                // Format: "algorithm:hex  path"
+                <span class="cov8" title="1">parts := strings.SplitN(line, "  ", 2)
+                if len(parts) != 2 </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid manifest line: %q", line)
+                }</span>
+                <span class="cov8" title="1">digest, err := storage.ParseDigest(parts[0])
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid digest in manifest: %w", err)
+                }</span>
+                <span class="cov8" title="1">m.Entries = append(m.Entries, storage.ManifestEntry{
+                        Digest: digest,
+                        Path:   parts[1],
+                })</span>
+        }
+        <span class="cov8" title="1">if err := scanner.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return m, nil</span>
+}
+
+// computeDigest computes the SHAKE256 digest of the given content.
+func computeDigest(content string) storage.Digest <span class="cov8" title="1">{
+        h := sha3.NewShake256()
+        h.Write([]byte(content))
+        var hashBytes [64]byte
+        h.Read(hashBytes[:])
+        return storage.Digest{
+                Algorithm: "shake256",
+                Value:     hashBytes[:],
+        }
+}</span>
+
+// GetManifest retrieves a manifest by its digest.
+func (s *ManifestStore) GetManifest(ctx context.Context, digest storage.Digest) (*storage.Manifest, error) <span class="cov8" title="1">{
+        path := s.manifestPath(digest)
+        content, err := os.ReadFile(path)
+        if err != nil </span><span class="cov8" title="1">{
+                if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov8" title="1">return ParseManifest(string(content))</span>
+}
+
+// PutManifest stores a manifest and returns its computed digest.
+func (s *ManifestStore) PutManifest(ctx context.Context, manifest *storage.Manifest) (storage.Digest, error) <span class="cov8" title="1">{
+        content := SerializeManifest(manifest)
+        digest := computeDigest(content)
+
+        path := s.manifestPath(digest)
+
+        // Check if already exists (deduplication)
+        if _, err := os.Stat(path); err == nil </span><span class="cov8" title="1">{
+                return digest, nil
+        }</span>
+
+        // Ensure directory exists
+        <span class="cov8" title="1">if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+
+        // Write atomically via temp file
+        <span class="cov8" title="1">tmpFile, err := os.CreateTemp(filepath.Dir(path), "manifest-*.tmp")
+        if err != nil </span><span class="cov0" title="0">{
+                return storage.Digest{}, err
+        }</span>
+        <span class="cov8" title="1">tmpPath := tmpFile.Name()
+
+        if _, err := tmpFile.WriteString(content); err != nil </span><span class="cov0" title="0">{
+                tmpFile.Close()
+                os.Remove(tmpPath)
+                return storage.Digest{}, err
+        }</span>
+
+        <span class="cov8" title="1">if err := tmpFile.Close(); err != nil </span><span class="cov0" title="0">{
+                os.Remove(tmpPath)
+                return storage.Digest{}, err
+        }</span>
+
+        <span class="cov8" title="1">if err := os.Rename(tmpPath, path); err != nil </span><span class="cov0" title="0">{
+                os.Remove(tmpPath)
+                return storage.Digest{}, err
+        }</span>
+
+        <span class="cov8" title="1">return digest, nil</span>
+}
+
+// Exists checks if a manifest with the given digest exists.
+func (s *ManifestStore) Exists(ctx context.Context, digest storage.Digest) (bool, error) <span class="cov8" title="1">{
+        path := s.manifestPath(digest)
+        _, err := os.Stat(path)
+        if err == nil </span><span class="cov8" title="1">{
+                return true, nil
+        }</span>
+        <span class="cov8" title="1">if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                return false, nil
+        }</span>
+        <span class="cov0" title="0">return false, err</span>
+}
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package filesystem
+
+import (
+        "context"
+        "encoding/json"
+        "os"
+        "path/filepath"
+        "sort"
+        "sync"
+        "time"
+
+        "github.com/greatliontech/pbr/internal/storage"
+)
+
+// MetadataStore implements storage.MetadataStore using the filesystem.
+// Structure:
+//
+//        &lt;basePath&gt;/owners/&lt;id&gt;.json
+//        &lt;basePath&gt;/modules/&lt;id&gt;.json
+//        &lt;basePath&gt;/commits/&lt;id&gt;.json
+//        &lt;basePath&gt;/labels/&lt;module-id&gt;/&lt;name&gt;.json
+//        &lt;basePath&gt;/index/owner-modules/&lt;owner-id&gt;.json    -&gt; []moduleID
+//        &lt;basePath&gt;/index/module-commits/&lt;module-id&gt;.json  -&gt; []commitID
+type MetadataStore struct {
+        basePath string
+        mu       sync.RWMutex
+}
+
+// NewMetadataStore creates a new filesystem-backed metadata store.
+func NewMetadataStore(basePath string) *MetadataStore <span class="cov8" title="1">{
+        return &amp;MetadataStore{basePath: basePath}
+}</span>
+
+// Helper to read JSON file into a struct.
+func readJSON(path string, v interface{}) error <span class="cov8" title="1">{
+        data, err := os.ReadFile(path)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return json.Unmarshal(data, v)</span>
+}
+
+// Helper to write JSON file atomically.
+func writeJSON(path string, v interface{}) error <span class="cov8" title="1">{
+        if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">data, err := json.MarshalIndent(v, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">tmpFile, err := os.CreateTemp(filepath.Dir(path), "*.tmp")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">tmpPath := tmpFile.Name()
+
+        if _, err := tmpFile.Write(data); err != nil </span><span class="cov0" title="0">{
+                tmpFile.Close()
+                os.Remove(tmpPath)
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := tmpFile.Close(); err != nil </span><span class="cov0" title="0">{
+                os.Remove(tmpPath)
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return os.Rename(tmpPath, path)</span>
+}
+
+// ----- Owner operations -----
+
+func (s *MetadataStore) ownerPath(id string) string <span class="cov8" title="1">{
+        return filepath.Join(s.basePath, "owners", id+".json")
+}</span>
+
+func (s *MetadataStore) GetOwner(ctx context.Context, id string) (*storage.OwnerRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        var owner storage.OwnerRecord
+        if err := readJSON(s.ownerPath(id), &amp;owner); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov8" title="1">return &amp;owner, nil</span>
+}
+
+func (s *MetadataStore) GetOwnerByName(ctx context.Context, name string) (*storage.OwnerRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        // Scan owners directory
+        ownersDir := filepath.Join(s.basePath, "owners")
+        entries, err := os.ReadDir(ownersDir)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">var owner storage.OwnerRecord
+                if err := readJSON(filepath.Join(ownersDir, entry.Name()), &amp;owner); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">if owner.Name == name </span><span class="cov8" title="1">{
+                        return &amp;owner, nil
+                }</span>
+        }
+        <span class="cov0" title="0">return nil, storage.ErrNotFound</span>
+}
+
+func (s *MetadataStore) CreateOwner(ctx context.Context, owner *storage.OwnerRecord) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        path := s.ownerPath(owner.ID)
+        if _, err := os.Stat(path); err == nil </span><span class="cov8" title="1">{
+                return storage.ErrAlreadyExists
+        }</span>
+
+        <span class="cov8" title="1">return writeJSON(path, owner)</span>
+}
+
+func (s *MetadataStore) ListOwners(ctx context.Context) ([]*storage.OwnerRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        ownersDir := filepath.Join(s.basePath, "owners")
+        entries, err := os.ReadDir(ownersDir)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, nil
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">var owners []*storage.OwnerRecord
+        for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">var owner storage.OwnerRecord
+                if err := readJSON(filepath.Join(ownersDir, entry.Name()), &amp;owner); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">owners = append(owners, &amp;owner)</span>
+        }
+        <span class="cov8" title="1">return owners, nil</span>
+}
+
+// ----- Module operations -----
+
+func (s *MetadataStore) modulePath(id string) string <span class="cov8" title="1">{
+        return filepath.Join(s.basePath, "modules", id+".json")
+}</span>
+
+func (s *MetadataStore) ownerModulesIndexPath(ownerID string) string <span class="cov8" title="1">{
+        return filepath.Join(s.basePath, "index", "owner-modules", ownerID+".json")
+}</span>
+
+func (s *MetadataStore) GetModule(ctx context.Context, id string) (*storage.ModuleRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        var module storage.ModuleRecord
+        if err := readJSON(s.modulePath(id), &amp;module); err != nil </span><span class="cov8" title="1">{
+                if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov8" title="1">return &amp;module, nil</span>
+}
+
+func (s *MetadataStore) GetModuleByName(ctx context.Context, owner, name string) (*storage.ModuleRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        // Scan modules directory
+        modulesDir := filepath.Join(s.basePath, "modules")
+        entries, err := os.ReadDir(modulesDir)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">var module storage.ModuleRecord
+                if err := readJSON(filepath.Join(modulesDir, entry.Name()), &amp;module); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">if module.Owner == owner &amp;&amp; module.Name == name </span><span class="cov8" title="1">{
+                        return &amp;module, nil
+                }</span>
+        }
+        <span class="cov0" title="0">return nil, storage.ErrNotFound</span>
+}
+
+func (s *MetadataStore) ListModules(ctx context.Context, ownerID string) ([]*storage.ModuleRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        // Read from index
+        var moduleIDs []string
+        indexPath := s.ownerModulesIndexPath(ownerID)
+        if err := readJSON(indexPath, &amp;moduleIDs); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, nil
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">var modules []*storage.ModuleRecord
+        for _, id := range moduleIDs </span><span class="cov8" title="1">{
+                var module storage.ModuleRecord
+                if err := readJSON(s.modulePath(id), &amp;module); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">modules = append(modules, &amp;module)</span>
+        }
+        <span class="cov8" title="1">return modules, nil</span>
+}
+
+func (s *MetadataStore) CreateModule(ctx context.Context, module *storage.ModuleRecord) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        path := s.modulePath(module.ID)
+        if _, err := os.Stat(path); err == nil </span><span class="cov0" title="0">{
+                return storage.ErrAlreadyExists
+        }</span>
+
+        <span class="cov8" title="1">if err := writeJSON(path, module); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Update index
+        <span class="cov8" title="1">return s.addToOwnerModulesIndex(module.OwnerID, module.ID)</span>
+}
+
+func (s *MetadataStore) addToOwnerModulesIndex(ownerID, moduleID string) error <span class="cov8" title="1">{
+        indexPath := s.ownerModulesIndexPath(ownerID)
+
+        var moduleIDs []string
+        if err := readJSON(indexPath, &amp;moduleIDs); err != nil &amp;&amp; !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Check if already in index
+        <span class="cov8" title="1">for _, id := range moduleIDs </span><span class="cov0" title="0">{
+                if id == moduleID </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+
+        <span class="cov8" title="1">moduleIDs = append(moduleIDs, moduleID)
+        return writeJSON(indexPath, moduleIDs)</span>
+}
+
+func (s *MetadataStore) UpdateModule(ctx context.Context, module *storage.ModuleRecord) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        path := s.modulePath(module.ID)
+        if _, err := os.Stat(path); os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return storage.ErrNotFound
+        }</span>
+
+        <span class="cov8" title="1">return writeJSON(path, module)</span>
+}
+
+func (s *MetadataStore) DeleteModule(ctx context.Context, id string) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        // Read module first to get ownerID
+        var module storage.ModuleRecord
+        if err := readJSON(s.modulePath(id), &amp;module); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        // Remove from index
+        <span class="cov8" title="1">if err := s.removeFromOwnerModulesIndex(module.OwnerID, id); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Delete module file
+        <span class="cov8" title="1">return os.Remove(s.modulePath(id))</span>
+}
+
+func (s *MetadataStore) removeFromOwnerModulesIndex(ownerID, moduleID string) error <span class="cov8" title="1">{
+        indexPath := s.ownerModulesIndexPath(ownerID)
+
+        var moduleIDs []string
+        if err := readJSON(indexPath, &amp;moduleIDs); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        // Remove moduleID
+        <span class="cov8" title="1">var newIDs []string
+        for _, id := range moduleIDs </span><span class="cov8" title="1">{
+                if id != moduleID </span><span class="cov0" title="0">{
+                        newIDs = append(newIDs, id)
+                }</span>
+        }
+
+        <span class="cov8" title="1">if len(newIDs) == 0 </span><span class="cov8" title="1">{
+                return os.Remove(indexPath)
+        }</span>
+
+        <span class="cov0" title="0">return writeJSON(indexPath, newIDs)</span>
+}
+
+// ----- Commit operations -----
+
+func (s *MetadataStore) commitPath(id string) string <span class="cov8" title="1">{
+        return filepath.Join(s.basePath, "commits", id+".json")
+}</span>
+
+func (s *MetadataStore) moduleCommitsIndexPath(moduleID string) string <span class="cov8" title="1">{
+        return filepath.Join(s.basePath, "index", "module-commits", moduleID+".json")
+}</span>
+
+// commitJSON is the JSON-serializable form of CommitRecord.
+type commitJSON struct {
+        ID               string `json:"id"`
+        ModuleID         string `json:"module_id"`
+        OwnerID          string `json:"owner_id"`
+        ManifestDigest   string `json:"manifest_digest"`
+        CreateTime       string `json:"create_time"`
+        CreatedByUserID  string `json:"created_by_user_id,omitempty"`
+        SourceControlURL string `json:"source_control_url,omitempty"`
+}
+
+func commitToJSON(c *storage.CommitRecord) *commitJSON <span class="cov8" title="1">{
+        return &amp;commitJSON{
+                ID:               c.ID,
+                ModuleID:         c.ModuleID,
+                OwnerID:          c.OwnerID,
+                ManifestDigest:   c.ManifestDigest.String(),
+                CreateTime:       c.CreateTime.Format(time.RFC3339),
+                CreatedByUserID:  c.CreatedByUserID,
+                SourceControlURL: c.SourceControlURL,
+        }
+}</span>
+
+func commitFromJSON(cj *commitJSON) (*storage.CommitRecord, error) <span class="cov8" title="1">{
+        digest, err := storage.ParseDigest(cj.ManifestDigest)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">var createTime time.Time
+        if cj.CreateTime != "" </span><span class="cov8" title="1">{
+                createTime, err = time.Parse(time.RFC3339, cj.CreateTime)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+        <span class="cov8" title="1">return &amp;storage.CommitRecord{
+                ID:               cj.ID,
+                ModuleID:         cj.ModuleID,
+                OwnerID:          cj.OwnerID,
+                ManifestDigest:   digest,
+                CreateTime:       createTime,
+                CreatedByUserID:  cj.CreatedByUserID,
+                SourceControlURL: cj.SourceControlURL,
+        }, nil</span>
+}
+
+func (s *MetadataStore) GetCommit(ctx context.Context, id string) (*storage.CommitRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        var cj commitJSON
+        if err := readJSON(s.commitPath(id), &amp;cj); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov8" title="1">return commitFromJSON(&amp;cj)</span>
+}
+
+func (s *MetadataStore) GetCommitByDigest(ctx context.Context, digest storage.Digest) (*storage.CommitRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        // Scan commits directory
+        commitsDir := filepath.Join(s.basePath, "commits")
+        entries, err := os.ReadDir(commitsDir)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">digestStr := digest.String()
+        for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">var cj commitJSON
+                if err := readJSON(filepath.Join(commitsDir, entry.Name()), &amp;cj); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">if cj.ManifestDigest == digestStr </span><span class="cov8" title="1">{
+                        return commitFromJSON(&amp;cj)
+                }</span>
+        }
+        <span class="cov0" title="0">return nil, storage.ErrNotFound</span>
+}
+
+func (s *MetadataStore) ListCommits(ctx context.Context, moduleID string, limit int, pageToken string) ([]*storage.CommitRecord, string, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        // Read from index
+        var commitIDs []string
+        indexPath := s.moduleCommitsIndexPath(moduleID)
+        if err := readJSON(indexPath, &amp;commitIDs); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, "", nil
+                }</span>
+                <span class="cov0" title="0">return nil, "", err</span>
+        }
+
+        // Sort by most recent first (reverse order since we append)
+        <span class="cov8" title="1">sort.Sort(sort.Reverse(sort.StringSlice(commitIDs)))
+
+        // Handle pagination
+        startIdx := 0
+        if pageToken != "" </span><span class="cov0" title="0">{
+                for i, id := range commitIDs </span><span class="cov0" title="0">{
+                        if id == pageToken </span><span class="cov0" title="0">{
+                                startIdx = i + 1
+                                break</span>
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">if limit &lt;= 0 </span><span class="cov0" title="0">{
+                limit = 100
+        }</span>
+
+        <span class="cov8" title="1">var commits []*storage.CommitRecord
+        var nextToken string
+
+        for i := startIdx; i &lt; len(commitIDs) &amp;&amp; len(commits) &lt; limit; i++ </span><span class="cov8" title="1">{
+                var cj commitJSON
+                if err := readJSON(s.commitPath(commitIDs[i]), &amp;cj); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">commit, err := commitFromJSON(&amp;cj)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">commits = append(commits, commit)
+                if len(commits) == limit &amp;&amp; i+1 &lt; len(commitIDs) </span><span class="cov0" title="0">{
+                        nextToken = commitIDs[i]
+                }</span>
+        }
+
+        <span class="cov8" title="1">return commits, nextToken, nil</span>
+}
+
+func (s *MetadataStore) CreateCommit(ctx context.Context, commit *storage.CommitRecord) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        path := s.commitPath(commit.ID)
+        if _, err := os.Stat(path); err == nil </span><span class="cov8" title="1">{
+                // Already exists - this is ok for idempotency
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">cj := commitToJSON(commit)
+        if err := writeJSON(path, cj); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Update index
+        <span class="cov8" title="1">return s.addToModuleCommitsIndex(commit.ModuleID, commit.ID)</span>
+}
+
+func (s *MetadataStore) addToModuleCommitsIndex(moduleID, commitID string) error <span class="cov8" title="1">{
+        indexPath := s.moduleCommitsIndexPath(moduleID)
+
+        var commitIDs []string
+        if err := readJSON(indexPath, &amp;commitIDs); err != nil &amp;&amp; !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Check if already in index
+        <span class="cov8" title="1">for _, id := range commitIDs </span><span class="cov0" title="0">{
+                if id == commitID </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+
+        <span class="cov8" title="1">commitIDs = append(commitIDs, commitID)
+        return writeJSON(indexPath, commitIDs)</span>
+}
+
+// ----- Label operations -----
+
+func (s *MetadataStore) labelPath(moduleID, name string) string <span class="cov8" title="1">{
+        return filepath.Join(s.basePath, "labels", moduleID, name+".json")
+}</span>
+
+func (s *MetadataStore) GetLabel(ctx context.Context, moduleID, name string) (*storage.LabelRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        var label storage.LabelRecord
+        if err := readJSON(s.labelPath(moduleID, name), &amp;label); err != nil </span><span class="cov8" title="1">{
+                if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                        return nil, storage.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov8" title="1">return &amp;label, nil</span>
+}
+
+func (s *MetadataStore) ListLabels(ctx context.Context, moduleID string) ([]*storage.LabelRecord, error) <span class="cov8" title="1">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+
+        labelsDir := filepath.Join(s.basePath, "labels", moduleID)
+        entries, err := os.ReadDir(labelsDir)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, nil
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">var labels []*storage.LabelRecord
+        for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">var label storage.LabelRecord
+                if err := readJSON(filepath.Join(labelsDir, entry.Name()), &amp;label); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">labels = append(labels, &amp;label)</span>
+        }
+        <span class="cov8" title="1">return labels, nil</span>
+}
+
+func (s *MetadataStore) CreateOrUpdateLabel(ctx context.Context, label *storage.LabelRecord) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        return writeJSON(s.labelPath(label.ModuleID, label.Name), label)
+}</span>
+
+func (s *MetadataStore) DeleteLabel(ctx context.Context, moduleID, name string) error <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+
+        path := s.labelPath(moduleID, name)
+        err := os.Remove(path)
+        if err != nil &amp;&amp; os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package storage
+
+import (
+        "context"
+        "encoding/hex"
+        "fmt"
+        "io"
+)
+
+// Digest represents a content-addressable hash.
+type Digest struct {
+        Algorithm string // e.g., "shake256"
+        Value     []byte // raw hash bytes (64 bytes for SHAKE256)
+}
+
+// String returns the digest in the format "algorithm:hex".
+func (d Digest) String() string <span class="cov0" title="0">{
+        return fmt.Sprintf("%s:%s", d.Algorithm, hex.EncodeToString(d.Value))
+}</span>
+
+// Hex returns just the hex-encoded hash value.
+func (d Digest) Hex() string <span class="cov0" title="0">{
+        return hex.EncodeToString(d.Value)
+}</span>
+
+// ShortHex returns the first n characters of the hex-encoded hash.
+func (d Digest) ShortHex(n int) string <span class="cov0" title="0">{
+        h := d.Hex()
+        if len(h) &lt; n </span><span class="cov0" title="0">{
+                return h
+        }</span>
+        <span class="cov0" title="0">return h[:n]</span>
+}
+
+// ParseDigest parses a digest string in the format "algorithm:hex".
+func ParseDigest(s string) (Digest, error) <span class="cov0" title="0">{
+        for i, c := range s </span><span class="cov0" title="0">{
+                if c == ':' </span><span class="cov0" title="0">{
+                        algorithm := s[:i]
+                        hexStr := s[i+1:]
+                        value, err := hex.DecodeString(hexStr)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return Digest{}, fmt.Errorf("invalid digest hex: %w", err)
+                        }</span>
+                        <span class="cov0" title="0">return Digest{Algorithm: algorithm, Value: value}, nil</span>
+                }
+        }
+        <span class="cov0" title="0">return Digest{}, fmt.Errorf("invalid digest format: missing algorithm prefix")</span>
+}
+
+// ManifestEntry represents a single file in a manifest.
+type ManifestEntry struct {
+        Digest Digest
+        Path   string
+}
+
+// Manifest represents a collection of files with their content digests.
+type Manifest struct {
+        Entries []ManifestEntry
+}
+
+// BlobStore is the interface for content-addressable blob storage.
+type BlobStore interface {
+        // Get retrieves a blob by its digest.
+        // Returns ErrNotFound if the blob does not exist.
+        Get(ctx context.Context, digest Digest) (io.ReadCloser, error)
+
+        // Put stores a blob and returns its computed SHAKE256 digest.
+        Put(ctx context.Context, r io.Reader) (Digest, error)
+
+        // Exists checks if a blob with the given digest exists.
+        Exists(ctx context.Context, digest Digest) (bool, error)
+
+        // Delete removes a blob by its digest.
+        // Returns nil if the blob does not exist.
+        Delete(ctx context.Context, digest Digest) error
+}
+
+// ManifestStore manages manifests (collections of file blobs).
+type ManifestStore interface {
+        // GetManifest retrieves a manifest by its digest.
+        // Returns ErrNotFound if the manifest does not exist.
+        GetManifest(ctx context.Context, digest Digest) (*Manifest, error)
+
+        // PutManifest stores a manifest and returns its computed digest.
+        // The manifest digest is the SHAKE256 hash of the serialized manifest content.
+        PutManifest(ctx context.Context, manifest *Manifest) (Digest, error)
+
+        // Exists checks if a manifest with the given digest exists.
+        Exists(ctx context.Context, digest Digest) (bool, error)
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package telemetry
+
+import (
+        "go.opentelemetry.io/otel/sdk/log"
+        "go.opentelemetry.io/otel/sdk/metric"
+        "go.opentelemetry.io/otel/sdk/trace"
+)
+
+type options struct {
+        traceExporter  trace.SpanExporter
+        metricExporter metric.Exporter
+        logExporter    log.Exporter
+        version        string
+        instanceId     string
+        ns             string
+}
+
+type Option func(*options)
+
+func WithTraceExporter(exporter trace.SpanExporter) Option <span class="cov0" title="0">{
+        return func(o *options) </span><span class="cov0" title="0">{
+                o.traceExporter = exporter
+        }</span>
+}
+
+func WithMetricExporter(exporter metric.Exporter) Option <span class="cov0" title="0">{
+        return func(o *options) </span><span class="cov0" title="0">{
+                o.metricExporter = exporter
+        }</span>
+}
+
+func WithLogExporter(exporter log.Exporter) Option <span class="cov0" title="0">{
+        return func(o *options) </span><span class="cov0" title="0">{
+                o.logExporter = exporter
+        }</span>
+}
+
+func WithVersion(version string) Option <span class="cov0" title="0">{
+        return func(o *options) </span><span class="cov0" title="0">{
+                o.version = version
+        }</span>
+}
+
+func WithInstanceId(instanceId string) Option <span class="cov0" title="0">{
+        return func(o *options) </span><span class="cov0" title="0">{
+                o.instanceId = instanceId
+        }</span>
+}
+
+func WithNamespace(ns string) Option <span class="cov0" title="0">{
+        return func(o *options) </span><span class="cov0" title="0">{
+                o.ns = ns
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package telemetry
+
+import (
+        "context"
+        "errors"
+        "time"
+
+        "go.opentelemetry.io/otel"
+        "go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+        "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
+        "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+        "go.opentelemetry.io/otel/log/global"
+        "go.opentelemetry.io/otel/propagation"
+        "go.opentelemetry.io/otel/sdk/log"
+        "go.opentelemetry.io/otel/sdk/metric"
+        "go.opentelemetry.io/otel/sdk/resource"
+        "go.opentelemetry.io/otel/sdk/trace"
+        semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+)
+
+func Setup(ctx context.Context, opts ...Option) (shutdown func(context.Context) error, err error) <span class="cov0" title="0">{
+        options, err := defaultOptions()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">for _, opt := range opts </span><span class="cov0" title="0">{
+                opt(options)
+        }</span>
+
+        <span class="cov0" title="0">res := resource.NewWithAttributes(
+                semconv.SchemaURL,
+                semconv.ServiceName("pbr"),
+                semconv.ServiceVersion(options.version),
+                semconv.ServiceInstanceID(options.instanceId),
+                semconv.ServiceNamespace(options.ns),
+        )
+
+        var shutdownFuncs []func(context.Context) error
+
+        // shutdown calls cleanup functions registered via shutdownFuncs.
+        // The errors from the calls are joined.
+        // Each registered cleanup will be invoked once.
+        shutdown = func(ctx context.Context) error </span><span class="cov0" title="0">{
+                var err error
+                for _, fn := range shutdownFuncs </span><span class="cov0" title="0">{
+                        err = errors.Join(err, fn(ctx))
+                }</span>
+                <span class="cov0" title="0">shutdownFuncs = nil
+                return err</span>
+        }
+
+        // handleErr calls shutdown for cleanup and makes sure that all errors are returned.
+        <span class="cov0" title="0">handleErr := func(inErr error) </span><span class="cov0" title="0">{
+                err = errors.Join(inErr, shutdown(ctx))
+        }</span>
+
+        // Set up propagator.
+        <span class="cov0" title="0">prop := newPropagator()
+        otel.SetTextMapPropagator(prop)
+
+        // Set up trace provider.
+        tracerProvider, err := newTraceProvider(res, options)
+        if err != nil </span><span class="cov0" title="0">{
+                handleErr(err)
+                return
+        }</span>
+        <span class="cov0" title="0">shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+        otel.SetTracerProvider(tracerProvider)
+
+        // Set up meter provider.
+        // meterProvider, err := newMeterProvider(res, options)
+        // if err != nil {
+        //         handleErr(err)
+        //         return
+        // }
+        // shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+        // otel.SetMeterProvider(meterProvider)
+
+        // Set up logger provider.
+        loggerProvider, err := newLoggerProvider(res, options)
+        if err != nil </span><span class="cov0" title="0">{
+                handleErr(err)
+                return
+        }</span>
+        <span class="cov0" title="0">shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
+        global.SetLoggerProvider(loggerProvider)
+
+        return</span>
+}
+
+func defaultOptions() (*options, error) <span class="cov0" title="0">{
+        traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">metricExporter, err := stdoutmetric.New()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">logExporter, err := stdoutlog.New()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;options{
+                traceExporter:  traceExporter,
+                metricExporter: metricExporter,
+                logExporter:    logExporter,
+        }, nil</span>
+}
+
+func newPropagator() propagation.TextMapPropagator <span class="cov0" title="0">{
+        return propagation.NewCompositeTextMapPropagator(
+                propagation.TraceContext{},
+                propagation.Baggage{},
+        )
+}</span>
+
+func newTraceProvider(res *resource.Resource, opts *options) (*trace.TracerProvider, error) <span class="cov0" title="0">{
+        traceProvider := trace.NewTracerProvider(
+                trace.WithBatcher(opts.traceExporter,
+                        // Default is 5s. Set to 1s for demonstrative purposes.
+                        trace.WithBatchTimeout(time.Second)),
+                trace.WithResource(res),
+        )
+        return traceProvider, nil
+}</span>
+
+func newMeterProvider(res *resource.Resource, opts *options) (*metric.MeterProvider, error) <span class="cov0" title="0">{
+        meterProvider := metric.NewMeterProvider(
+                metric.WithReader(metric.NewPeriodicReader(opts.metricExporter,
+                        // Default is 1m. Set to 3s for demonstrative purposes.
+                        metric.WithInterval(3*time.Second))),
+                metric.WithResource(res),
+        )
+        return meterProvider, nil
+}</span>
+
+func newLoggerProvider(res *resource.Resource, opts *options) (*log.LoggerProvider, error) <span class="cov0" title="0">{
+        loggerProvider := log.NewLoggerProvider(
+                log.WithProcessor(log.NewBatchProcessor(opts.logExporter)),
+                log.WithResource(res),
+        )
+        return loggerProvider, nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file22" style="display: none">package util
+
+import (
+        "crypto/sha256"
+        "encoding/hex"
+)
+
+func OwnerID(name string) string <span class="cov8" title="1">{
+        return fakeUUID(name)
+}</span>
+
+func ModuleID(ownerID, name string) string <span class="cov8" title="1">{
+        return fakeUUID(ownerID + "/" + name)
+}</span>
+
+func fakeUUID(input string) string <span class="cov8" title="1">{
+        // Hash the input string using SHA-256
+        hash := sha256.Sum256([]byte(input))
+
+        // Convert the hash to a hexadecimal string
+        hexString := hex.EncodeToString(hash[:])
+
+        // Take the first 32 characters to resemble a UUID without dashes
+        // Adjust as needed to ensure the hash length matches your UUID requirements
+        if len(hexString) &gt; 32 </span><span class="cov8" title="1">{
+                hexString = hexString[:32]
+        }</span>
+
+        <span class="cov8" title="1">return hexString</span>
+}
+</pre>
+		
+		<pre class="file" id="file23" style="display: none">package util
+
+import "sync"
+
+type SyncMap[K comparable, V any] struct {
+        m sync.Map
+}
+
+func (m *SyncMap[K, V]) Delete(key K) <span class="cov0" title="0">{ m.m.Delete(key) }</span>
+
+func (m *SyncMap[K, V]) Load(key K) (value V, ok bool) <span class="cov0" title="0">{
+        v, ok := m.m.Load(key)
+        if !ok </span><span class="cov0" title="0">{
+                return value, ok
+        }</span>
+        <span class="cov0" title="0">return v.(V), ok</span>
+}
+
+func (m *SyncMap[K, V]) LoadAndDelete(key K) (value V, loaded bool) <span class="cov0" title="0">{
+        v, loaded := m.m.LoadAndDelete(key)
+        if !loaded </span><span class="cov0" title="0">{
+                return value, loaded
+        }</span>
+        <span class="cov0" title="0">return v.(V), loaded</span>
+}
+
+func (m *SyncMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) <span class="cov0" title="0">{
+        a, loaded := m.m.LoadOrStore(key, value)
+        return a.(V), loaded
+}</span>
+
+func (m *SyncMap[K, V]) Range(f func(key K, value V) bool) <span class="cov0" title="0">{
+        m.m.Range(func(key, value any) bool </span><span class="cov0" title="0">{ return f(key.(K), value.(V)) }</span>)
+}
+
+func (m *SyncMap[K, V]) Store(key K, value V) <span class="cov0" title="0">{ m.m.Store(key, value) }</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

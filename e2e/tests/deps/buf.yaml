@@ -1,0 +1,4 @@
+version: v1
+name: pbr-example.greatlion.tech/e2e/deps
+deps:
+  - pbr-example.greatlion.tech/e2e/basic

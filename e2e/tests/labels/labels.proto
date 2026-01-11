@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package e2e.labels;
+
+option go_package = "e2e/labels";
+
+// Message for testing labels/versions
+message LabeledMessage {
+  string id = 1;
+  string version = 2;
+  string content = 3;
+}
+
+service LabeledService {
+  rpc GetLabeled(GetLabeledRequest) returns (GetLabeledResponse);
+}
+
+message GetLabeledRequest {
+  string id = 1;
+}
+
+message GetLabeledResponse {
+  LabeledMessage message = 1;
+}

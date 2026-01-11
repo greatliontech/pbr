@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package e2e.deps;
+
+import "basic.proto";
+
+option go_package = "e2e/deps";
+
+// Message that depends on basic module
+message DependentMessage {
+  string id = 1;
+  e2e.basic.BasicMessage basic = 2;
+  repeated string tags = 3;
+}
+
+// Service that extends basic functionality
+service DependentService {
+  rpc GetDependent(GetDependentRequest) returns (GetDependentResponse);
+  rpc ListDependents(ListDependentsRequest) returns (ListDependentsResponse);
+}
+
+message GetDependentRequest {
+  string id = 1;
+}
+
+message GetDependentResponse {
+  DependentMessage message = 1;
+}
+
+message ListDependentsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListDependentsResponse {
+  repeated DependentMessage messages = 1;
+  string next_page_token = 2;
+}

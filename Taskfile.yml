@@ -1,0 +1,233 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+vars:
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "0.0.0-dev"
+  BINARY_NAME: pbr
+  BUILD_DIR: ./bin
+  MAIN_PKG: ./cmd/pbr
+  LDFLAGS: -ldflags "-X main.version={{.VERSION}}"
+
+tasks:
+  default:
+    desc: Display this help message.
+    cmds:
+      - task --list
+    silent: true
+
+  # Build tasks
+  build:
+    desc: Build the pbr binary
+    cmds:
+      - go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PKG}}
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BUILD_DIR}}/{{.BINARY_NAME}}"
+
+  build:linux:
+    desc: Build for Linux (amd64)
+    env:
+      GOOS: linux
+      GOARCH: amd64
+    cmds:
+      - go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.MAIN_PKG}}
+
+  build:linux:arm64:
+    desc: Build for Linux (arm64)
+    env:
+      GOOS: linux
+      GOARCH: arm64
+    cmds:
+      - go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-arm64 {{.MAIN_PKG}}
+
+  build:darwin:
+    desc: Build for macOS (amd64)
+    env:
+      GOOS: darwin
+      GOARCH: amd64
+    cmds:
+      - go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.MAIN_PKG}}
+
+  build:darwin:arm64:
+    desc: Build for macOS (arm64)
+    env:
+      GOOS: darwin
+      GOARCH: arm64
+    cmds:
+      - go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64 {{.MAIN_PKG}}
+
+  build:all:
+    desc: Build for all platforms
+    deps:
+      - build:linux
+      - build:linux:arm64
+      - build:darwin
+      - build:darwin:arm64
+
+  # Test tasks
+  test:
+    desc: Run all unit tests
+    cmds:
+      - go test -v ./...
+
+  test:short:
+    desc: Run short tests only
+    cmds:
+      - go test -short ./...
+
+  test:race:
+    desc: Run tests with race detector
+    cmds:
+      - go test -race ./...
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+    generates:
+      - coverage.out
+      - coverage.html
+
+  test:coverage:func:
+    desc: Show coverage by function
+    deps:
+      - test:coverage
+    cmds:
+      - go tool cover -func=coverage.out
+
+  # Lint and format tasks
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+
+  # Clean tasks
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -f coverage.out coverage.html
+
+  # Development tasks
+  dev:
+    desc: Run the server in development mode
+    cmds:
+      - go run {{.MAIN_PKG}} -config-file ./e2e/config.yaml
+
+  # E2E tests
+  e2e:setup:
+    desc: Setup e2e test environment (generate certs)
+    dir: e2e
+    cmds:
+      - go run ./cert
+
+  e2e:run:
+    desc: Run full e2e test suite (requires server running)
+    dir: e2e
+    cmds:
+      - ./run_tests.sh
+
+  e2e:run:basic:
+    desc: Run basic module e2e tests only
+    dir: e2e
+    cmds:
+      - ./run_tests.sh --test basic
+
+  e2e:run:deps:
+    desc: Run dependency e2e tests only
+    dir: e2e
+    cmds:
+      - ./run_tests.sh --test deps
+
+  e2e:run:labels:
+    desc: Run labels/versions e2e tests only
+    dir: e2e
+    cmds:
+      - ./run_tests.sh --test labels
+
+  e2e:run:info:
+    desc: Run module info e2e tests only
+    dir: e2e
+    cmds:
+      - ./run_tests.sh --test info
+
+  e2e:legacy:push:
+    desc: Test pushing legacy test module
+    dir: e2e/test
+    cmds:
+      - buf push --create
+
+  e2e:legacy:pull:
+    desc: Test pulling dependencies for legacy test
+    dir: e2e/test
+    cmds:
+      - buf dep update
+
+  e2e:legacy:list:
+    desc: Test listing legacy test modules
+    dir: e2e/test
+    cmds:
+      - buf registry module list pbr-example.greatlion.tech/test
+
+  e2e:legacy:export:
+    desc: Test exporting legacy test module
+    dir: e2e/test
+    cmds:
+      - rm -rf ./export
+      - buf export . -o ./export
+      - ls -la ./export
+
+  # Module management tasks
+  mod:
+    desc: Run go mod tidy
+    cmds:
+      - go mod tidy
+
+  mod:download:
+    desc: Download dependencies
+    cmds:
+      - go mod download
+
+  mod:verify:
+    desc: Verify dependencies
+    cmds:
+      - go mod verify
+
+  # Docker tasks
+  docker:build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t pbr:{{.VERSION}} .
+
+  # Release tasks
+  release:
+    desc: Create release artifacts
+    cmds:
+      - task: clean
+      - task: build:all
+      - cd {{.BUILD_DIR}} && sha256sum * > checksums.txt
+
+  # CI tasks
+  ci:
+    desc: Run all CI checks
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
+      - task: build

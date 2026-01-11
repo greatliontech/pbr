@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package e2e.basic;
+
+option go_package = "e2e/basic";
+
+// Simple message for basic e2e testing
+message BasicMessage {
+  string id = 1;
+  string name = 2;
+  int32 value = 3;
+}
+
+// Simple service for testing
+service BasicService {
+  rpc GetBasic(GetBasicRequest) returns (GetBasicResponse);
+  rpc CreateBasic(CreateBasicRequest) returns (CreateBasicResponse);
+}
+
+message GetBasicRequest {
+  string id = 1;
+}
+
+message GetBasicResponse {
+  BasicMessage message = 1;
+}
+
+message CreateBasicRequest {
+  string name = 1;
+  int32 value = 2;
+}
+
+message CreateBasicResponse {
+  BasicMessage message = 1;
+}
