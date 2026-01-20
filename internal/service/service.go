@@ -300,7 +300,7 @@ func debugMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Read body for logging (if small enough)
 		var bodyPreview string
-		if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 1024 {
+		if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 4096 {
 			body, err := io.ReadAll(r.Body)
 			if err == nil {
 				bodyPreview = string(body)
@@ -309,12 +309,23 @@ func debugMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
+		// Build headers map for logging
+		headers := make(map[string]string)
+		for k, v := range r.Header {
+			if len(v) == 1 {
+				headers[k] = v[0]
+			} else {
+				headers[k] = fmt.Sprintf("%v", v)
+			}
+		}
+
 		slog.Debug("HTTP request",
 			"method", r.Method,
 			"path", r.URL.Path,
-			"content-type", r.Header.Get("Content-Type"),
+			"query", r.URL.RawQuery,
+			"headers", headers,
 			"content-length", r.ContentLength,
-			"body-preview", bodyPreview,
+			"body", bodyPreview,
 		)
 
 		// Wrap response writer to capture status
