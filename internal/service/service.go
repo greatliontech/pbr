@@ -159,10 +159,8 @@ func New(c *config.Config) (*Service, error) {
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(svc, interceptors))
-	mux.Handle(modulev1beta1connect.NewUploadServiceHandler(svc, interceptors))
-	mux.Handle(modulev1beta1connect.NewModuleServiceHandler(svc, interceptors))
-	mux.Handle(modulev1connect.NewModuleServiceHandler(NewModuleServiceV1(svc), interceptors))
-	mux.Handle(modulev1connect.NewUploadServiceHandler(NewUploadServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewModuleServiceHandler(NewModuleService(svc), interceptors))
+	mux.Handle(modulev1connect.NewUploadServiceHandler(NewUploadService(svc), interceptors))
 	mux.Handle(ownerv1connect.NewOwnerServiceHandler(svc, interceptors))
 
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

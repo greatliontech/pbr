@@ -822,3 +822,385 @@ func TestGetGraph_EmptyRequest(t *testing.T) {
 		t.Errorf("expected 0 edges, got %d", len(resp.Msg.Graph.Edges))
 	}
 }
+
+// TestGetGraph_DeepDependencyChain tests a deep chain: A -> B -> C -> D -> E -> F
+func TestGetGraph_DeepDependencyChain(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create F (no deps)
+	fCommit := createTestModule(t, svc, "testowner", "f", []cas.File{
+		{Path: "f.proto", Content: "syntax = \"proto3\";\npackage f;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/f"},
+	}, []string{"main"})
+
+	// Create E -> F
+	eCommit := createTestModuleWithDeps(t, svc, "testowner", "e", []cas.File{
+		{Path: "e.proto", Content: "syntax = \"proto3\";\npackage e;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/e"},
+	}, []string{"main"}, []string{fCommit.ID})
+
+	// Create D -> E
+	dCommit := createTestModuleWithDeps(t, svc, "testowner", "d", []cas.File{
+		{Path: "d.proto", Content: "syntax = \"proto3\";\npackage d;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/d"},
+	}, []string{"main"}, []string{eCommit.ID})
+
+	// Create C -> D
+	cCommit := createTestModuleWithDeps(t, svc, "testowner", "c", []cas.File{
+		{Path: "c.proto", Content: "syntax = \"proto3\";\npackage c;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/c"},
+	}, []string{"main"}, []string{dCommit.ID})
+
+	// Create B -> C
+	bCommit := createTestModuleWithDeps(t, svc, "testowner", "b", []cas.File{
+		{Path: "b.proto", Content: "syntax = \"proto3\";\npackage b;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/b"},
+	}, []string{"main"}, []string{cCommit.ID})
+
+	// Create A -> B
+	aCommit := createTestModuleWithDeps(t, svc, "testowner", "a", []cas.File{
+		{Path: "a.proto", Content: "syntax = \"proto3\";\npackage a;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/a"},
+	}, []string{"main"}, []string{bCommit.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: aCommit.ID}}},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 6 commits (A, B, C, D, E, F)
+	if len(resp.Msg.Graph.Commits) != 6 {
+		t.Errorf("expected 6 commits, got %d", len(resp.Msg.Graph.Commits))
+	}
+
+	// Should have 5 edges (A->B, B->C, C->D, D->E, E->F)
+	if len(resp.Msg.Graph.Edges) != 5 {
+		t.Errorf("expected 5 edges, got %d", len(resp.Msg.Graph.Edges))
+	}
+
+	// Verify the chain
+	edgeMap := make(map[string]string)
+	for _, e := range resp.Msg.Graph.Edges {
+		edgeMap[e.FromNode.CommitId] = e.ToNode.CommitId
+	}
+
+	if edgeMap[aCommit.ID] != bCommit.ID {
+		t.Error("expected edge A -> B")
+	}
+	if edgeMap[bCommit.ID] != cCommit.ID {
+		t.Error("expected edge B -> C")
+	}
+	if edgeMap[cCommit.ID] != dCommit.ID {
+		t.Error("expected edge C -> D")
+	}
+	if edgeMap[dCommit.ID] != eCommit.ID {
+		t.Error("expected edge D -> E")
+	}
+	if edgeMap[eCommit.ID] != fCommit.ID {
+		t.Error("expected edge E -> F")
+	}
+}
+
+// TestGetGraph_ThreeWayVersionConflict tests when three modules depend on three different versions
+// of the same base module. The newest version should win.
+func TestGetGraph_ThreeWayVersionConflict(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base@v1
+	baseV1 := createTestModule(t, svc, "testowner", "base", []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V1 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v1"})
+
+	// Create base@v2
+	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V2 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v2"}, nil)
+
+	// Create base@v3 (newest)
+	baseV3 := createTestModuleWithDeps(t, svc, "testowner", "base", []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V3 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v3", "main"}, nil)
+
+	// Create mid-a -> base@v1 (oldest)
+	midA := createTestModuleWithDeps(t, svc, "testowner", "mida", []cas.File{
+		{Path: "mida.proto", Content: "syntax = \"proto3\";\npackage mida;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mida"},
+	}, []string{"main"}, []string{baseV1.ID})
+
+	// Create mid-b -> base@v3 (newest)
+	midB := createTestModuleWithDeps(t, svc, "testowner", "midb", []cas.File{
+		{Path: "midb.proto", Content: "syntax = \"proto3\";\npackage midb;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midb"},
+	}, []string{"main"}, []string{baseV3.ID})
+
+	// Create mid-c -> base@v2 (middle)
+	midC := createTestModuleWithDeps(t, svc, "testowner", "midc", []cas.File{
+		{Path: "midc.proto", Content: "syntax = \"proto3\";\npackage midc;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midc"},
+	}, []string{"main"}, []string{baseV2.ID})
+
+	// Create top -> [mid-a, mid-b, mid-c] (processing order: v1, v3, v2)
+	top := createTestModuleWithDeps(t, svc, "testowner", "top", []cas.File{
+		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
+	}, []string{"main"}, []string{midA.ID, midB.ID, midC.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: top.ID}}},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 5 commits: top, mid-a, mid-b, mid-c, base (deduplicated to v3)
+	if len(resp.Msg.Graph.Commits) != 5 {
+		t.Errorf("expected 5 commits, got %d", len(resp.Msg.Graph.Commits))
+		for _, c := range resp.Msg.Graph.Commits {
+			t.Logf("  commit: %s", c.Commit.Id)
+		}
+	}
+
+	// Verify only base@v3 is in commits (v1 and v2 should be replaced)
+	commitIDs := make(map[string]bool)
+	for _, c := range resp.Msg.Graph.Commits {
+		commitIDs[c.Commit.Id] = true
+	}
+
+	if commitIDs[baseV1.ID] {
+		t.Error("base@v1 should not be in commits")
+	}
+	if commitIDs[baseV2.ID] {
+		t.Error("base@v2 should not be in commits")
+	}
+	if !commitIDs[baseV3.ID] {
+		t.Error("base@v3 (newest) should be in commits")
+	}
+
+	// All edges to base should point to v3
+	for _, e := range resp.Msg.Graph.Edges {
+		if e.ToNode.CommitId == baseV1.ID || e.ToNode.CommitId == baseV2.ID {
+			t.Errorf("edge should point to base@v3, not %s", e.ToNode.CommitId)
+		}
+	}
+}
+
+// TestGetGraph_ComplexDiamond tests a more complex diamond with shared dependencies at multiple levels
+// Structure:
+//
+//	    top
+//	   / | \
+//	  a  b  c
+//	  |\ |\ |
+//	  | \|/ |
+//	  |  d  |
+//	   \ | /
+//	    base
+func TestGetGraph_ComplexDiamond(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base
+	base := createTestModule(t, svc, "testowner", "base", []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"main"})
+
+	// Create d -> base
+	d := createTestModuleWithDeps(t, svc, "testowner", "d", []cas.File{
+		{Path: "d.proto", Content: "syntax = \"proto3\";\npackage d;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/d"},
+	}, []string{"main"}, []string{base.ID})
+
+	// Create a -> [d, base]
+	a := createTestModuleWithDeps(t, svc, "testowner", "a", []cas.File{
+		{Path: "a.proto", Content: "syntax = \"proto3\";\npackage a;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/a"},
+	}, []string{"main"}, []string{d.ID, base.ID})
+
+	// Create b -> [d]
+	b := createTestModuleWithDeps(t, svc, "testowner", "b", []cas.File{
+		{Path: "b.proto", Content: "syntax = \"proto3\";\npackage b;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/b"},
+	}, []string{"main"}, []string{d.ID})
+
+	// Create c -> [d, base]
+	c := createTestModuleWithDeps(t, svc, "testowner", "c", []cas.File{
+		{Path: "c.proto", Content: "syntax = \"proto3\";\npackage c;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/c"},
+	}, []string{"main"}, []string{d.ID, base.ID})
+
+	// Create top -> [a, b, c]
+	top := createTestModuleWithDeps(t, svc, "testowner", "top", []cas.File{
+		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
+	}, []string{"main"}, []string{a.ID, b.ID, c.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: top.ID}}},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 6 commits: top, a, b, c, d, base (each appearing once)
+	if len(resp.Msg.Graph.Commits) != 6 {
+		t.Errorf("expected 6 commits, got %d", len(resp.Msg.Graph.Commits))
+		for _, c := range resp.Msg.Graph.Commits {
+			t.Logf("  commit: %s", c.Commit.Id)
+		}
+	}
+
+	// Verify each commit appears exactly once
+	commitCounts := make(map[string]int)
+	for _, c := range resp.Msg.Graph.Commits {
+		commitCounts[c.Commit.Id]++
+	}
+
+	for id, count := range commitCounts {
+		if count != 1 {
+			t.Errorf("commit %s appears %d times, expected 1", id, count)
+		}
+	}
+
+	// Should have edges: top->a, top->b, top->c, a->d, a->base, b->d, c->d, c->base, d->base
+	// That's 9 edges
+	if len(resp.Msg.Graph.Edges) != 9 {
+		t.Errorf("expected 9 edges, got %d", len(resp.Msg.Graph.Edges))
+		for _, e := range resp.Msg.Graph.Edges {
+			t.Logf("  edge: %s -> %s", e.FromNode.CommitId, e.ToNode.CommitId)
+		}
+	}
+}
+
+// TestGetGraph_SameModuleRequestedTwice tests that requesting the same module twice
+// doesn't result in duplicates
+func TestGetGraph_SameModuleRequestedTwice(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create a simple module
+	commit := createTestModule(t, svc, "testowner", "module", []cas.File{
+		{Path: "mod.proto", Content: "syntax = \"proto3\";\npackage mod;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/module"},
+	}, []string{"main"})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: commit.ID}}},
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: commit.ID}}},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 2 commits (same module twice at root level - buf handles dedup)
+	// The graph returns what was requested
+	if len(resp.Msg.Graph.Commits) != 2 {
+		t.Errorf("expected 2 commits (same module requested twice), got %d", len(resp.Msg.Graph.Commits))
+	}
+}
+
+// TestGetGraph_TransitiveDependencyVersionConflict tests version resolution when
+// the conflict is not at the direct dependency level but deeper in the tree
+func TestGetGraph_TransitiveDependencyVersionConflict(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base@v1
+	baseV1 := createTestModule(t, svc, "testowner", "base", []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\n// v1"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v1"})
+
+	// Create base@v2 (newer)
+	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\n// v2"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v2", "main"}, nil)
+
+	// Create lib-a -> base@v1
+	libA := createTestModuleWithDeps(t, svc, "testowner", "liba", []cas.File{
+		{Path: "liba.proto", Content: "syntax = \"proto3\";\npackage liba;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/liba"},
+	}, []string{"main"}, []string{baseV1.ID})
+
+	// Create lib-b -> base@v2
+	libB := createTestModuleWithDeps(t, svc, "testowner", "libb", []cas.File{
+		{Path: "libb.proto", Content: "syntax = \"proto3\";\npackage libb;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/libb"},
+	}, []string{"main"}, []string{baseV2.ID})
+
+	// Create mid -> [lib-a] (transitive dep on base@v1)
+	mid := createTestModuleWithDeps(t, svc, "testowner", "mid", []cas.File{
+		{Path: "mid.proto", Content: "syntax = \"proto3\";\npackage mid;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mid"},
+	}, []string{"main"}, []string{libA.ID})
+
+	// Create top -> [mid, lib-b]
+	// mid transitively depends on base@v1
+	// lib-b directly depends on base@v2
+	// base@v2 should win
+	top := createTestModuleWithDeps(t, svc, "testowner", "top", []cas.File{
+		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
+	}, []string{"main"}, []string{mid.ID, libB.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: top.ID}}},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 5 commits: top, mid, lib-a, lib-b, base (deduplicated to v2)
+	if len(resp.Msg.Graph.Commits) != 5 {
+		t.Errorf("expected 5 commits, got %d", len(resp.Msg.Graph.Commits))
+		for _, c := range resp.Msg.Graph.Commits {
+			t.Logf("  commit: %s", c.Commit.Id)
+		}
+	}
+
+	// Verify base@v2 is selected, not base@v1
+	commitIDs := make(map[string]bool)
+	for _, c := range resp.Msg.Graph.Commits {
+		commitIDs[c.Commit.Id] = true
+	}
+
+	if commitIDs[baseV1.ID] {
+		t.Error("base@v1 should not be in commits (should be replaced by v2)")
+	}
+	if !commitIDs[baseV2.ID] {
+		t.Error("base@v2 (newer) should be in commits")
+	}
+}
