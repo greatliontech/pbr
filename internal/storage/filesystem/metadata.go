@@ -361,7 +361,7 @@ func commitToJSON(c *storage.CommitRecord) *commitJSON {
 		ModuleID:         c.ModuleID,
 		OwnerID:          c.OwnerID,
 		ManifestDigest:   c.ManifestDigest.String(),
-		CreateTime:       c.CreateTime.Format(time.RFC3339),
+		CreateTime:       c.CreateTime.Format(time.RFC3339Nano),
 		CreatedByUserID:  c.CreatedByUserID,
 		SourceControlURL: c.SourceControlURL,
 		DepCommitIDs:     c.DepCommitIDs,
@@ -375,9 +375,13 @@ func commitFromJSON(cj *commitJSON) (*storage.CommitRecord, error) {
 	}
 	var createTime time.Time
 	if cj.CreateTime != "" {
-		createTime, err = time.Parse(time.RFC3339, cj.CreateTime)
+		// Try RFC3339Nano first (new format), fall back to RFC3339 (old format)
+		createTime, err = time.Parse(time.RFC3339Nano, cj.CreateTime)
 		if err != nil {
-			return nil, err
+			createTime, err = time.Parse(time.RFC3339, cj.CreateTime)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &storage.CommitRecord{

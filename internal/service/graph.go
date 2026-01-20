@@ -51,6 +51,7 @@ func (svc *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 				return nil, err
 			}
 			modules = append(modules, moduleEntry{info: info, commit: commit})
+			// Use module name as key for deduplication
 			key := info.Owner + "/" + info.Name
 			commitMap[key] = commit
 			slog.DebugContext(ctx, "top level dep", "id", commit.Id)
@@ -65,6 +66,7 @@ func (svc *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 				return nil, err
 			}
 			modules = append(modules, moduleEntry{info: info, commit: commit})
+			// Use module name as key for deduplication
 			key := info.Owner + "/" + info.Name
 			commitMap[key] = commit
 			slog.DebugContext(ctx, "top level dep", "id", commit.Id)
@@ -181,36 +183,72 @@ func (svc *Service) getGraphForModule(ctx context.Context, info moduleInfo, comm
 
 	for _, dep := range deps {
 		slog.DebugContext(ctx, "dep", "owner", dep.Owner, "repo", dep.Repository, "commit", dep.Commit, "digest", dep.Digest)
-		var depCommit *v1beta1.Commit
-		key := dep.Owner + "/" + dep.Repository
-		if dc, ok := commits[key]; ok {
-			slog.DebugContext(ctx, "dep already in commits", "key", key)
-			depCommit = dc
-		} else {
-			slog.DebugContext(ctx, "dep not in commits", "key", key)
-			ownerId := util.OwnerID(dep.Owner)
-			modId := util.ModuleID(ownerId, dep.Repository)
-			depCommit, err = getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
-			if err != nil {
-				return err
+
+		// Use module name as key for deduplication (buf CLI expects one version per module)
+		moduleKey := dep.Owner + "/" + dep.Repository
+
+		// Create the commit object for this specific dependency
+		ownerId := util.OwnerID(dep.Owner)
+		modId := util.ModuleID(ownerId, dep.Repository)
+		depCommit, err := getCommitObject(ownerId, modId, dep.Commit, strings.TrimPrefix(dep.Digest, "shake256:"))
+		if err != nil {
+			return err
+		}
+
+		// Check if we've already seen this module
+		existingCommit, alreadySeen := commits[moduleKey]
+		if alreadySeen {
+			if existingCommit.Id != depCommit.Id {
+				// Version conflict - compare commit IDs directly
+				// UUID v7 commit IDs are lexicographically sortable by creation time
+				if depCommit.Id > existingCommit.Id {
+					// New commit is newer - update to use it
+					slog.DebugContext(ctx, "module version conflict, new is newer", "key", moduleKey, "old", existingCommit.Id, "new", depCommit.Id)
+					commits[moduleKey] = depCommit
+					// Update the commit in the graph
+					for i, gc := range graph.Commits {
+						if gc.Commit.Id == existingCommit.Id {
+							graph.Commits[i].Commit = depCommit
+							break
+						}
+					}
+					// Update any existing edges that pointed to the old commit
+					for i, edge := range graph.Edges {
+						if edge.ToNode.CommitId == existingCommit.Id {
+							graph.Edges[i].ToNode.CommitId = depCommit.Id
+						}
+					}
+				} else {
+					slog.DebugContext(ctx, "module version conflict, keeping existing (newer)", "key", moduleKey, "existing", existingCommit.Id, "new", depCommit.Id)
+				}
+			} else {
+				slog.DebugContext(ctx, "module already in commits with same version", "key", moduleKey)
 			}
-			commits[key] = depCommit
+		} else {
+			slog.DebugContext(ctx, "adding module to commits", "key", moduleKey, "commit", dep.Commit)
+			commits[moduleKey] = depCommit
 			graph.Commits = append(graph.Commits, &v1beta1.Graph_Commit{
 				Commit:   depCommit,
 				Registry: dep.Remote,
 			})
 		}
+
+		// Add edge to the current resolved commit
 		graph.Edges = append(graph.Edges, &v1beta1.Graph_Edge{
 			FromNode: &v1beta1.Graph_Node{
 				CommitId: commit.Id,
 				Registry: svc.conf.Host,
 			},
 			ToNode: &v1beta1.Graph_Node{
-				CommitId: depCommit.Id,
+				CommitId: commits[moduleKey].Id,
 				Registry: dep.Remote,
 			},
 		})
-		if dep.Remote == svc.conf.Host {
+
+		// Recurse into dependencies if this is a local module and we haven't processed this version yet
+		// Note: we always recurse even if we've seen this module before with a different version,
+		// because the new version may have different dependencies
+		if dep.Remote == svc.conf.Host && !alreadySeen {
 			err = svc.getGraphForModule(ctx, moduleInfo{Owner: dep.Owner, Name: dep.Repository}, depCommit, commits, graph)
 			if err != nil {
 				return err
@@ -272,35 +310,3 @@ func (svc *Service) getStoredDeps(ctx context.Context, owner, name, commitID str
 	return deps, nil
 }
 
-var errBufLockNotFound = fmt.Errorf("buf.lock not found")
-
-func (svc *Service) getBufLockDeps(ctx context.Context, owner, name, commitID string) ([]bufLockDep, error) {
-	mod, err := svc.casReg.Module(ctx, owner, name)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, name))
-	}
-
-	bufLock, err := mod.BufLockCommitID(ctx, commitID)
-	if err != nil {
-		if err.Error() == "buf.lock not found" {
-			return nil, errBufLockNotFound
-		}
-		return nil, err
-	}
-
-	return convertBufLockDeps(bufLock), nil
-}
-
-func convertBufLockDeps(bl *cas.BufLock) []bufLockDep {
-	deps := make([]bufLockDep, len(bl.Deps))
-	for i, d := range bl.Deps {
-		deps[i] = bufLockDep{
-			Remote:     d.Remote,
-			Owner:      d.Owner,
-			Repository: d.Repository,
-			Commit:     d.Commit,
-			Digest:     d.Digest,
-		}
-	}
-	return deps
-}

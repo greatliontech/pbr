@@ -315,6 +315,248 @@ deps:
 	}
 }
 
+// TestGetGraph_DiamondWithDifferentVersions_NewerProcessedLast tests the scenario where:
+// - mid-a depends on base@v1 (older)
+// - mid-b depends on base@v2 (newer)
+// - top depends on [mid-a, mid-b] (mid-a processed first)
+//
+// The graph service should resolve to base@v2 (newer) regardless of processing order.
+func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedLast(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base@v1
+	baseV1Files := []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; }"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}
+	baseV1Commit := createTestModule(t, svc, "testowner", "base", baseV1Files, []string{"v1"})
+
+	// Create mid-a (depends on base@v1)
+	midAFiles := []cas.File{
+		{Path: "mida.proto", Content: "syntax = \"proto3\";\npackage mida;\nimport \"base.proto\";"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mida"},
+	}
+	midACommit := createTestModuleWithDeps(t, svc, "testowner", "mida", midAFiles, []string{"main"}, []string{baseV1Commit.ID})
+
+	// Create base@v2 (new version with additional field)
+	baseV2Files := []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; string name = 2; }"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}
+	baseV2Commit := createTestModuleWithDeps(t, svc, "testowner", "base", baseV2Files, []string{"v2", "main"}, nil)
+
+	// Verify base@v1 and base@v2 have different commit IDs
+	if baseV1Commit.ID == baseV2Commit.ID {
+		t.Fatalf("expected different commit IDs for base v1 and v2, got same: %s", baseV1Commit.ID)
+	}
+
+	// Create mid-b (depends on base@v2)
+	midBFiles := []cas.File{
+		{Path: "midb.proto", Content: "syntax = \"proto3\";\npackage midb;\nimport \"base.proto\";"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midb"},
+	}
+	midBCommit := createTestModuleWithDeps(t, svc, "testowner", "midb", midBFiles, []string{"main"}, []string{baseV2Commit.ID})
+
+	// Create top (depends on mid-a and mid-b)
+	topFiles := []cas.File{
+		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;\nimport \"mida.proto\";\nimport \"midb.proto\";"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
+	}
+	topCommit := createTestModuleWithDeps(t, svc, "testowner", "top", topFiles, []string{"main"}, []string{midACommit.ID, midBCommit.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{
+				ResourceRef: &v1beta1.ResourceRef{
+					Value: &v1beta1.ResourceRef_Id{
+						Id: topCommit.ID,
+					},
+				},
+			},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 4 commits: top, mid-a, mid-b, base (deduplicated to v2)
+	if len(resp.Msg.Graph.Commits) != 4 {
+		t.Errorf("expected 4 commits (top, mid-a, mid-b, base), got %d", len(resp.Msg.Graph.Commits))
+		for _, c := range resp.Msg.Graph.Commits {
+			t.Logf("  commit: %s", c.Commit.Id)
+		}
+	}
+
+	// Should have 4 edges: top->mid-a, top->mid-b, mid-a->base@v2, mid-b->base@v2
+	// Note: both mid-a and mid-b edges point to base@v2 due to "last seen wins"
+	if len(resp.Msg.Graph.Edges) != 4 {
+		t.Errorf("expected 4 edges, got %d", len(resp.Msg.Graph.Edges))
+		for _, e := range resp.Msg.Graph.Edges {
+			t.Logf("  edge: %s -> %s", e.FromNode.CommitId, e.ToNode.CommitId)
+		}
+	}
+
+	// Build edge map for verification
+	edgeMap := make(map[string][]string)
+	for _, e := range resp.Msg.Graph.Edges {
+		edgeMap[e.FromNode.CommitId] = append(edgeMap[e.FromNode.CommitId], e.ToNode.CommitId)
+	}
+
+	// Verify top -> mid-a and top -> mid-b
+	topEdges := edgeMap[topCommit.ID]
+	if len(topEdges) != 2 {
+		t.Errorf("expected 2 edges from top, got %d", len(topEdges))
+	}
+
+	// Verify mid-a -> base@v2 (updated due to "last seen wins")
+	midAEdges := edgeMap[midACommit.ID]
+	if len(midAEdges) != 1 || midAEdges[0] != baseV2Commit.ID {
+		t.Errorf("expected mid-a -> base@v2 (due to resolution), got %v", midAEdges)
+	}
+
+	// Verify mid-b -> base@v2
+	midBEdges := edgeMap[midBCommit.ID]
+	if len(midBEdges) != 1 || midBEdges[0] != baseV2Commit.ID {
+		t.Errorf("expected mid-b -> base@v2, got %v", midBEdges)
+	}
+
+	// Verify only base@v2 is in the commits (v1 was replaced)
+	commitIDs := make(map[string]bool)
+	for _, c := range resp.Msg.Graph.Commits {
+		commitIDs[c.Commit.Id] = true
+	}
+	if commitIDs[baseV1Commit.ID] {
+		t.Error("base@v1 should not be in commits (should be replaced by v2)")
+	}
+	if !commitIDs[baseV2Commit.ID] {
+		t.Error("base@v2 not found in commits")
+	}
+}
+
+// TestGetGraph_DiamondWithDifferentVersions_NewerProcessedFirst tests the scenario where:
+// - mid-a depends on base@v2 (newer)
+// - mid-b depends on base@v1 (older)
+// - top depends on [mid-a, mid-b] (mid-a processed first, so newer version seen first)
+//
+// The graph service should STILL resolve to base@v2 (newer) even though the older
+// version is processed last. This ensures we keep the newer version, not "last seen".
+func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedFirst(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base@v1 (older)
+	baseV1Files := []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; }"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}
+	baseV1Commit := createTestModule(t, svc, "testowner", "base", baseV1Files, []string{"v1"})
+
+	// Create base@v2 (newer) - created AFTER v1, so it has a later timestamp
+	baseV2Files := []cas.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; string name = 2; }"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}
+	baseV2Commit := createTestModuleWithDeps(t, svc, "testowner", "base", baseV2Files, []string{"v2", "main"}, nil)
+
+	// Verify base@v1 and base@v2 have different commit IDs
+	if baseV1Commit.ID == baseV2Commit.ID {
+		t.Fatalf("expected different commit IDs for base v1 and v2, got same: %s", baseV1Commit.ID)
+	}
+
+	// Create mid-a (depends on base@v2 - the NEWER version)
+	midAFiles := []cas.File{
+		{Path: "mida.proto", Content: "syntax = \"proto3\";\npackage mida;\nimport \"base.proto\";"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mida"},
+	}
+	midACommit := createTestModuleWithDeps(t, svc, "testowner", "mida", midAFiles, []string{"main"}, []string{baseV2Commit.ID})
+
+	// Create mid-b (depends on base@v1 - the OLDER version)
+	midBFiles := []cas.File{
+		{Path: "midb.proto", Content: "syntax = \"proto3\";\npackage midb;\nimport \"base.proto\";"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midb"},
+	}
+	midBCommit := createTestModuleWithDeps(t, svc, "testowner", "midb", midBFiles, []string{"main"}, []string{baseV1Commit.ID})
+
+	// Create top (depends on mid-a THEN mid-b)
+	// mid-a is processed first (depends on v2), mid-b processed second (depends on v1)
+	// We should KEEP v2 because it's newer, not switch to v1 just because it's "last seen"
+	topFiles := []cas.File{
+		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;\nimport \"mida.proto\";\nimport \"midb.proto\";"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
+	}
+	topCommit := createTestModuleWithDeps(t, svc, "testowner", "top", topFiles, []string{"main"}, []string{midACommit.ID, midBCommit.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{
+				ResourceRef: &v1beta1.ResourceRef{
+					Value: &v1beta1.ResourceRef_Id{
+						Id: topCommit.ID,
+					},
+				},
+			},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 4 commits: top, mid-a, mid-b, base (deduplicated to v2 - the NEWER one)
+	if len(resp.Msg.Graph.Commits) != 4 {
+		t.Errorf("expected 4 commits (top, mid-a, mid-b, base), got %d", len(resp.Msg.Graph.Commits))
+		for _, c := range resp.Msg.Graph.Commits {
+			t.Logf("  commit: %s", c.Commit.Id)
+		}
+	}
+
+	// Should have 4 edges: top->mid-a, top->mid-b, mid-a->base@v2, mid-b->base@v2
+	if len(resp.Msg.Graph.Edges) != 4 {
+		t.Errorf("expected 4 edges, got %d", len(resp.Msg.Graph.Edges))
+		for _, e := range resp.Msg.Graph.Edges {
+			t.Logf("  edge: %s -> %s", e.FromNode.CommitId, e.ToNode.CommitId)
+		}
+	}
+
+	// Build edge map for verification
+	edgeMap := make(map[string][]string)
+	for _, e := range resp.Msg.Graph.Edges {
+		edgeMap[e.FromNode.CommitId] = append(edgeMap[e.FromNode.CommitId], e.ToNode.CommitId)
+	}
+
+	// Verify mid-a -> base@v2 (the version it originally depended on)
+	midAEdges := edgeMap[midACommit.ID]
+	if len(midAEdges) != 1 || midAEdges[0] != baseV2Commit.ID {
+		t.Errorf("expected mid-a -> base@v2, got %v", midAEdges)
+	}
+
+	// Verify mid-b -> base@v2 (updated to newer version, NOT its original v1)
+	midBEdges := edgeMap[midBCommit.ID]
+	if len(midBEdges) != 1 || midBEdges[0] != baseV2Commit.ID {
+		t.Errorf("expected mid-b -> base@v2 (resolved to newer), got %v", midBEdges)
+		t.Logf("base@v1 commit: %s", baseV1Commit.ID)
+		t.Logf("base@v2 commit: %s", baseV2Commit.ID)
+	}
+
+	// Verify only base@v2 is in the commits (v1 should NOT be there)
+	commitIDs := make(map[string]bool)
+	for _, c := range resp.Msg.Graph.Commits {
+		commitIDs[c.Commit.Id] = true
+	}
+	if commitIDs[baseV1Commit.ID] {
+		t.Error("base@v1 should not be in commits (should keep v2 as it's newer)")
+	}
+	if !commitIDs[baseV2Commit.ID] {
+		t.Error("base@v2 not found in commits")
+	}
+}
+
 func TestGetGraph_DiamondDependencies(t *testing.T) {
 	svc, cleanup := setupTestService(t)
 	defer cleanup()

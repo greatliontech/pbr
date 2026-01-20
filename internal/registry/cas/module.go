@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/greatliontech/pbr/internal/storage"
 )
 
@@ -223,8 +224,8 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 	}
 
 	// Create new commit
-	// Commit ID is first 32 chars of manifest digest hex
-	commitID := manifestDigest.ShortHex(32)
+	// Commit ID is UUID v7 (time-sortable) as 32 hex chars
+	commitID := strings.ReplaceAll(uuid.Must(uuid.NewV7()).String(), "-", "")
 
 	commitRecord := &storage.CommitRecord{
 		ID:               commitID,

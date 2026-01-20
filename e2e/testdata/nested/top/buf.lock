@@ -4,15 +4,15 @@ deps:
   - remote: pbr.test
     owner: e2e
     repository: base
-    commit: 07e5d218cd77f50ecfda9184d18fd3c7
-    digest: shake256:07e5d218cd77f50ecfda9184d18fd3c7cfdd672a8e0bd4ceb9ce9aef3315730d83b0f1df43bce9d7e212de66cb7021c68e7e98a600d4e8eefacbdca6c9d637fa
+    commit: 019bdd8ce09273c39137dfc57fdbdbd9
+    digest: shake256:1c9b4cfcbd31037e18503570459430a498e0cd05c8df1ec55fda9ac0945532fee8b91db7b9371e0497122f959bb229dc161f6eae26ba151ad0766b95db5fc7fe
   - remote: pbr.test
     owner: e2e
     repository: mid-a
-    commit: 971da1dd3aa5e45274e992fd26c72963
+    commit: 019bdd8cdfa67c569c9b2bc6b1e182be
     digest: shake256:971da1dd3aa5e45274e992fd26c72963afb4edbca6c1d38df79bed001c6b427810c2a0af587ef2bb174eff121a68cec5038af4fa20c8154447d34d2b53f8aa6a
   - remote: pbr.test
     owner: e2e
     repository: mid-b
-    commit: 4dced4af0572b57e2fd5b5e33474d838
+    commit: 019bdd8ce2a37e858d99b3b675a4539e
     digest: shake256:4dced4af0572b57e2fd5b5e33474d838ee0761750fe5c5814497314df66a0147755c4b19cd38481983decb794f086a53760074114e3a709cfa81bde1bc035f21

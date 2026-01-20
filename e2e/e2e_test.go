@@ -396,42 +396,85 @@ func runTestSuite(t *testing.T, env *testEnv) {
 		})
 	})
 
-	// Test nested dependencies with diamond pattern:
+	// Test nested dependencies with diamond pattern where mid-a and mid-b
+	// depend on different versions of base:
 	//         top
 	//        /   \
 	//    mid-a   mid-b
-	//        \   /
-	//         base
+	//      |       |
+	//   base@v1  base@v2
+	//
+	// This tests that the dependency graph correctly tracks different versions
+	// of the same module as dependencies.
 	t.Run("NestedDependencies", func(t *testing.T) {
 		nestedDir := filepath.Join(env.testdataDir, "nested")
+		baseProtoPath := filepath.Join(nestedDir, "base", "base.proto")
 
-		// Push base module first (leaf dependency)
-		t.Run("push_base", func(t *testing.T) {
-			dir := filepath.Join(nestedDir, "base")
-			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
-		})
+		// Read original base.proto content for restoration later
+		originalBaseProto, err := os.ReadFile(baseProtoPath)
+		if err != nil {
+			t.Fatalf("failed to read base.proto: %v", err)
+		}
+		defer func() {
+			// Restore original base.proto
+			os.WriteFile(baseProtoPath, originalBaseProto, 0644)
+		}()
 
-		// Push base again with v1.0.0 label
+		// Step 1: Push base module (initial version - v1)
 		t.Run("push_base_v1", func(t *testing.T) {
 			dir := filepath.Join(nestedDir, "base")
-			env.runBufExpectSuccess(t, ctx, dir, "push", "--label", "v1.0.0")
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
 		})
 
-		// Push mid-a (depends on base)
-		t.Run("push_mid_a", func(t *testing.T) {
+		// Step 2: dep update from mid-a (picks up base v1)
+		t.Run("mid_a_dep_update", func(t *testing.T) {
 			dir := filepath.Join(nestedDir, "mid-a")
 			env.runBufExpectSuccess(t, ctx, dir, "dep", "update")
+		})
+
+		// Step 3: Push mid-a (now depends on base v1)
+		t.Run("push_mid_a", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "mid-a")
 			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
 		})
 
-		// Push mid-b (also depends on base)
-		t.Run("push_mid_b", func(t *testing.T) {
+		// Step 4: Modify base.proto (add a new field to create v2)
+		t.Run("modify_base", func(t *testing.T) {
+			modifiedBaseProto := string(originalBaseProto) + `
+// Added in v2
+message BaseMetadata {
+  string version = 1;
+  int64 timestamp = 2;
+}
+`
+			if err := os.WriteFile(baseProtoPath, []byte(modifiedBaseProto), 0644); err != nil {
+				t.Fatalf("failed to write modified base.proto: %v", err)
+			}
+		})
+
+		// Step 5: Push base again (v2 - with the new message)
+		t.Run("push_base_v2", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "base")
+			env.runBufExpectSuccess(t, ctx, dir, "push")
+		})
+
+		// Step 6: dep update from mid-b (picks up base v2 - the newer version)
+		t.Run("mid_b_dep_update", func(t *testing.T) {
 			dir := filepath.Join(nestedDir, "mid-b")
 			env.runBufExpectSuccess(t, ctx, dir, "dep", "update")
+		})
+
+		// Step 7: Push mid-b (now depends on base v2)
+		t.Run("push_mid_b", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "mid-b")
 			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
 		})
 
-		// Test top module (depends on both mid-a and mid-b, creating diamond)
+		// Step 8: dep update from top (depends on mid-a and mid-b)
+		// At this point:
+		// - mid-a depends on base@v1
+		// - mid-b depends on base@v2
+		// buf CLI should resolve base to the latest version (v2)
 		t.Run("top_dep_update", func(t *testing.T) {
 			dir := filepath.Join(nestedDir, "top")
 			output, err := env.runBuf(t, ctx, dir, "dep", "update", "--debug")
@@ -441,11 +484,62 @@ func runTestSuite(t *testing.T, env *testEnv) {
 			}
 		})
 
+		// Step 8b: Verify top's buf.lock has base@v2 (matching mid-b's dependency)
+		t.Run("verify_top_buf_lock", func(t *testing.T) {
+			// Read mid-b's buf.lock to get base@v2 commit ID
+			midBLock, err := os.ReadFile(filepath.Join(nestedDir, "mid-b", "buf.lock"))
+			if err != nil {
+				t.Fatalf("failed to read mid-b buf.lock: %v", err)
+			}
+			midBBaseCommit := extractCommitFromBufLock(string(midBLock), "base")
+			if midBBaseCommit == "" {
+				t.Fatalf("could not find base commit in mid-b buf.lock:\n%s", midBLock)
+			}
+			t.Logf("mid-b depends on base commit: %s", midBBaseCommit)
+
+			// Read mid-a's buf.lock to get base@v1 commit ID
+			midALock, err := os.ReadFile(filepath.Join(nestedDir, "mid-a", "buf.lock"))
+			if err != nil {
+				t.Fatalf("failed to read mid-a buf.lock: %v", err)
+			}
+			midABaseCommit := extractCommitFromBufLock(string(midALock), "base")
+			if midABaseCommit == "" {
+				t.Fatalf("could not find base commit in mid-a buf.lock:\n%s", midALock)
+			}
+			t.Logf("mid-a depends on base commit: %s", midABaseCommit)
+
+			// Verify mid-a and mid-b have different base commits
+			if midABaseCommit == midBBaseCommit {
+				t.Fatalf("expected mid-a and mid-b to depend on different base commits, but both have: %s", midABaseCommit)
+			}
+
+			// Read top's buf.lock
+			topLock, err := os.ReadFile(filepath.Join(nestedDir, "top", "buf.lock"))
+			if err != nil {
+				t.Fatalf("failed to read top buf.lock: %v", err)
+			}
+			topBaseCommit := extractCommitFromBufLock(string(topLock), "base")
+			if topBaseCommit == "" {
+				t.Fatalf("could not find base commit in top buf.lock:\n%s", topLock)
+			}
+			t.Logf("top depends on base commit: %s", topBaseCommit)
+
+			// Verify top's base commit matches mid-b's (v2, the later version)
+			if topBaseCommit != midBBaseCommit {
+				t.Errorf("expected top to depend on base@v2 (commit %s from mid-b), but got commit %s", midBBaseCommit, topBaseCommit)
+				t.Logf("mid-a base commit (v1): %s", midABaseCommit)
+				t.Logf("mid-b base commit (v2): %s", midBBaseCommit)
+				t.Logf("top base commit: %s", topBaseCommit)
+			}
+		})
+
+		// Step 9: Build top to verify all dependencies resolve correctly
 		t.Run("top_build", func(t *testing.T) {
 			dir := filepath.Join(nestedDir, "top")
 			env.runBufExpectSuccess(t, ctx, dir, "build")
 		})
 
+		// Step 10: Push top
 		t.Run("top_push", func(t *testing.T) {
 			dir := filepath.Join(nestedDir, "top")
 			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
@@ -556,6 +650,44 @@ func savePEM(path, typ string, data []byte) error {
 	}
 	defer f.Close()
 	return pem.Encode(f, &pem.Block{Type: typ, Bytes: data})
+}
+
+// extractCommitFromBufLock extracts the commit ID for a given repository from buf.lock content
+func extractCommitFromBufLock(content, repository string) string {
+	lines := strings.Split(content, "\n")
+	inDeps := false
+	foundRepo := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "deps:" {
+			inDeps = true
+			continue
+		}
+
+		if !inDeps {
+			continue
+		}
+
+		// Check for repository line
+		if strings.HasPrefix(trimmed, "repository:") {
+			repo := strings.TrimSpace(strings.TrimPrefix(trimmed, "repository:"))
+			foundRepo = (repo == repository)
+		}
+
+		// If we found the repo, look for commit line
+		if foundRepo && strings.HasPrefix(trimmed, "commit:") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "commit:"))
+		}
+
+		// Reset if we hit a new dep entry
+		if strings.HasPrefix(trimmed, "- remote:") {
+			foundRepo = false
+		}
+	}
+
+	return ""
 }
 
 func generateEnvoyConfig(host string) string {

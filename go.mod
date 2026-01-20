@@ -12,6 +12,7 @@ require (
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/drone/envsubst v1.0.3
 	github.com/google/go-containerregistry v0.20.2
+	github.com/google/uuid v1.6.0
 	github.com/greatliontech/container v0.0.0-20240707150325-26ad04413ca3
 	github.com/greatliontech/ocifs v0.1.1
 	github.com/remychantenay/slog-otel v1.3.2
@@ -55,7 +56,6 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hanwen/go-fuse/v2 v2.7.2 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
