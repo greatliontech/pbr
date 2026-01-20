@@ -13,12 +13,23 @@ type Config struct {
 	Plugins     map[string]Plugin
 	Users       map[string]string
 	TLS         *TLS
+	Storage     *Storage
 	Host        string
 	Address     string
 	LogLevel    string
 	CacheDir    string
 	AdminToken  string
 	NoLogin     bool
+}
+
+// Storage configures the backend storage using gocloud.dev URLs.
+// See https://gocloud.dev/howto/blob/ and https://gocloud.dev/howto/docstore/ for URL formats.
+type Storage struct {
+	// BlobURL is the gocloud.dev blob URL (e.g., "file:///path/to/blobs", "s3://bucket", "gs://bucket")
+	BlobURL string `yaml:"blob_url"`
+	// DocstoreURL is the gocloud.dev docstore URL (e.g., "mem://", "firestore://project/collection")
+	// For memdocstore, use "mem://" - data will be persisted to CacheDir/docstore on shutdown
+	DocstoreURL string `yaml:"docstore_url"`
 }
 
 type Module struct {
@@ -142,6 +153,21 @@ func ParseConfig(b []byte) (*Config, error) {
 		}
 		if c.TLS.KeyPEM != "" {
 			c.TLS.KeyPEM, err = envsubst.EvalEnv(c.TLS.KeyPEM)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	// Storage URL env substitution
+	if c.Storage != nil {
+		if c.Storage.BlobURL != "" {
+			c.Storage.BlobURL, err = envsubst.EvalEnv(c.Storage.BlobURL)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if c.Storage.DocstoreURL != "" {
+			c.Storage.DocstoreURL, err = envsubst.EvalEnv(c.Storage.DocstoreURL)
 			if err != nil {
 				return nil, err
 			}

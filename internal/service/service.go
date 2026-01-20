@@ -23,8 +23,12 @@ import (
 	"github.com/greatliontech/pbr/internal/codegen"
 	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/registry"
-	"github.com/greatliontech/pbr/internal/storage/filesystem"
+	"github.com/greatliontech/pbr/internal/storage"
 	"go.opentelemetry.io/otel"
+	"gocloud.dev/blob"
+	_ "gocloud.dev/blob/fileblob"
+	"gocloud.dev/docstore"
+	"gocloud.dev/docstore/memdocstore"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -131,13 +135,36 @@ func New(c *config.Config) (*Service, error) {
 		}
 	}
 
-	// Initialize CAS storage
-	storagePath := c.CacheDir + "/cas"
-	blobStore := filesystem.NewBlobStore(storagePath + "/blobs")
-	manifestStore := filesystem.NewManifestStore(storagePath + "/manifests")
-	metadataStore := filesystem.NewMetadataStore(storagePath + "/metadata")
+	// Initialize CAS storage using gocloud.dev
+	// fileblob URL format: file:///absolute/path?create_dir=true
+	blobURL := "file://" + c.CacheDir + "/cas/blobs?create_dir=true"
+	if c.Storage != nil && c.Storage.BlobURL != "" {
+		blobURL = c.Storage.BlobURL
+	}
+
+	bucket, err := blob.OpenBucket(context.Background(), blobURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open blob bucket: %w", err)
+	}
+	blobStore := storage.NewBlobStore(bucket)
+	manifestStore := storage.NewManifestStore(bucket)
+	slog.Info("Blob storage initialized", "url", blobURL)
+
+	// Initialize metadata storage using docstore
+	docstoreURL := "mem://"
+	if c.Storage != nil && c.Storage.DocstoreURL != "" {
+		docstoreURL = c.Storage.DocstoreURL
+	}
+
+	owners, modules, commits, labels, err := openDocstoreCollections(docstoreURL, c.CacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open docstore: %w", err)
+	}
+	metadataStore := storage.NewMetadataStore(owners, modules, commits, labels)
+	slog.Info("Metadata storage initialized", "url", docstoreURL)
+
 	svc.casReg = registry.New(blobStore, manifestStore, metadataStore, c.Host)
-	slog.Info("CAS storage initialized", "path", storagePath)
+	slog.Info("CAS registry initialized")
 
 	mux := http.NewServeMux()
 
@@ -309,4 +336,62 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+// openDocstoreCollections opens the four docstore collections needed for metadata.
+// For memdocstore (mem://), it creates collections that persist to files in cacheDir.
+func openDocstoreCollections(urlBase, cacheDir string) (owners, modules, commits, labels *docstore.Collection, err error) {
+	if strings.HasPrefix(urlBase, "mem://") {
+		// Use memdocstore with file persistence
+		metadataDir := cacheDir + "/cas/metadata"
+		if err := os.MkdirAll(metadataDir, 0755); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to create metadata directory: %w", err)
+		}
+
+		owners, err = memdocstore.OpenCollection("ID", &memdocstore.Options{
+			Filename: metadataDir + "/owners.json",
+		})
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to open owners collection: %w", err)
+		}
+		modules, err = memdocstore.OpenCollection("ID", &memdocstore.Options{
+			Filename: metadataDir + "/modules.json",
+		})
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to open modules collection: %w", err)
+		}
+		commits, err = memdocstore.OpenCollection("ID", &memdocstore.Options{
+			Filename: metadataDir + "/commits.json",
+		})
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to open commits collection: %w", err)
+		}
+		labels, err = memdocstore.OpenCollection("ID", &memdocstore.Options{
+			Filename: metadataDir + "/labels.json",
+		})
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to open labels collection: %w", err)
+		}
+		return owners, modules, commits, labels, nil
+	}
+
+	// For other docstore URLs, open collections using the URL
+	// The URL should be the base, and we append collection names
+	owners, err = docstore.OpenCollection(context.Background(), urlBase+"/owners?id_field=ID")
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to open owners collection: %w", err)
+	}
+	modules, err = docstore.OpenCollection(context.Background(), urlBase+"/modules?id_field=ID")
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to open modules collection: %w", err)
+	}
+	commits, err = docstore.OpenCollection(context.Background(), urlBase+"/commits?id_field=ID")
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to open commits collection: %w", err)
+	}
+	labels, err = docstore.OpenCollection(context.Background(), urlBase+"/labels?id_field=ID")
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to open labels collection: %w", err)
+	}
+	return owners, modules, commits, labels, nil
 }

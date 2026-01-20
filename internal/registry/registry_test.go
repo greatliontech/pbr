@@ -2,28 +2,35 @@ package registry
 
 import (
 	"context"
-	"os"
 	"testing"
 
-	"github.com/greatliontech/pbr/internal/storage/filesystem"
+	"github.com/greatliontech/pbr/internal/storage"
+	"gocloud.dev/blob/memblob"
+	"gocloud.dev/docstore/memdocstore"
 )
 
 func setupTestRegistry(t *testing.T) (*Registry, func()) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "cas-registry-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
+	bucket := memblob.OpenBucket(nil)
 
-	blobStore := filesystem.NewBlobStore(tmpDir + "/blobs")
-	manifestStore := filesystem.NewManifestStore(tmpDir + "/manifests")
-	metadataStore := filesystem.NewMetadataStore(tmpDir + "/metadata")
+	blobStore := storage.NewBlobStore(bucket)
+	manifestStore := storage.NewManifestStore(bucket)
+
+	owners, _ := memdocstore.OpenCollection("ID", nil)
+	modules, _ := memdocstore.OpenCollection("ID", nil)
+	commits, _ := memdocstore.OpenCollection("ID", nil)
+	labels, _ := memdocstore.OpenCollection("ID", nil)
+	metadataStore := storage.NewMetadataStore(owners, modules, commits, labels)
 
 	reg := New(blobStore, manifestStore, metadataStore, "test.registry.com")
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		bucket.Close()
+		owners.Close()
+		modules.Close()
+		commits.Close()
+		labels.Close()
 	}
 
 	return reg, cleanup

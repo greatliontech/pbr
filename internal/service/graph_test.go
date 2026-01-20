@@ -2,27 +2,30 @@ package service
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/config"
 	"github.com/greatliontech/pbr/internal/registry"
-	"github.com/greatliontech/pbr/internal/storage/filesystem"
+	"github.com/greatliontech/pbr/internal/storage"
+	"gocloud.dev/blob/memblob"
+	"gocloud.dev/docstore/memdocstore"
 )
 
 func setupTestService(t *testing.T) (*Service, func()) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "graph-service-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
+	bucket := memblob.OpenBucket(nil)
 
-	blobStore := filesystem.NewBlobStore(tmpDir + "/blobs")
-	manifestStore := filesystem.NewManifestStore(tmpDir + "/manifests")
-	metadataStore := filesystem.NewMetadataStore(tmpDir + "/metadata")
+	blobStore := storage.NewBlobStore(bucket)
+	manifestStore := storage.NewManifestStore(bucket)
+
+	owners, _ := memdocstore.OpenCollection("ID", nil)
+	modules, _ := memdocstore.OpenCollection("ID", nil)
+	commits, _ := memdocstore.OpenCollection("ID", nil)
+	labels, _ := memdocstore.OpenCollection("ID", nil)
+	metadataStore := storage.NewMetadataStore(owners, modules, commits, labels)
 
 	casReg := registry.New(blobStore, manifestStore, metadataStore, "test.registry.com")
 
@@ -36,7 +39,11 @@ func setupTestService(t *testing.T) (*Service, func()) {
 	}
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		bucket.Close()
+		owners.Close()
+		modules.Close()
+		commits.Close()
+		labels.Close()
 	}
 
 	return svc, cleanup
