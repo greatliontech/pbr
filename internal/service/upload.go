@@ -21,14 +21,20 @@ func (svc *Service) Upload(
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
-	slog.DebugContext(ctx, "Upload", "contents", len(req.Msg.Contents))
+	// Extract dependency commit IDs from DepRefs
+	depCommitIDs := make([]string, 0, len(req.Msg.DepRefs))
+	for _, ref := range req.Msg.DepRefs {
+		depCommitIDs = append(depCommitIDs, ref.CommitId)
+	}
+
+	slog.DebugContext(ctx, "Upload", "contents", len(req.Msg.Contents), "depCommitIds", len(depCommitIDs))
 
 	resp := &v1beta1.UploadResponse{
 		Commits: make([]*v1beta1.Commit, 0, len(req.Msg.Contents)),
 	}
 
 	for _, content := range req.Msg.Contents {
-		commit, err := svc.uploadContent(ctx, content)
+		commit, err := svc.uploadContent(ctx, content, depCommitIDs)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -38,14 +44,14 @@ func (svc *Service) Upload(
 	return connect.NewResponse(resp), nil
 }
 
-func (svc *Service) uploadContent(ctx context.Context, content *v1beta1.UploadRequest_Content) (*v1beta1.Commit, error) {
+func (svc *Service) uploadContent(ctx context.Context, content *v1beta1.UploadRequest_Content, depCommitIDs []string) (*v1beta1.Commit, error) {
 	// Resolve module reference
 	owner, modName, err := svc.resolveModuleRef(content.ModuleRef)
 	if err != nil {
 		return nil, fmt.Errorf("invalid module reference: %w", err)
 	}
 
-	slog.DebugContext(ctx, "uploading content", "owner", owner, "module", modName, "files", len(content.Files))
+	slog.DebugContext(ctx, "uploading content", "owner", owner, "module", modName, "files", len(content.Files), "depCommitIds", len(depCommitIDs))
 
 	// Get or create module
 	mod, err := svc.casReg.GetOrCreateModule(ctx, owner, modName)
@@ -69,8 +75,8 @@ func (svc *Service) uploadContent(ctx context.Context, content *v1beta1.UploadRe
 		labels = []string{"main"}
 	}
 
-	// Create commit
-	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl)
+	// Create commit with dependency commit IDs
+	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl, depCommitIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create commit: %w", err)
 	}

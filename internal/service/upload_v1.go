@@ -6,12 +6,45 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 
 	v1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/registry/cas"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// protoImportRegex matches import statements in proto files.
+var protoImportRegex = regexp.MustCompile(`import\s+"([^"]+)"`)
+
+// extractProtoImports extracts import paths from proto files.
+func extractProtoImports(files []cas.File) []string {
+	imports := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, f := range files {
+		if len(f.Path) < 6 || f.Path[len(f.Path)-6:] != ".proto" {
+			continue
+		}
+
+		matches := protoImportRegex.FindAllStringSubmatch(f.Content, -1)
+		for _, match := range matches {
+			if len(match) > 1 {
+				imp := match[1]
+				// Skip google protobuf imports (standard library)
+				if len(imp) > 7 && imp[:7] == "google/" {
+					continue
+				}
+				if !seen[imp] {
+					seen[imp] = true
+					imports = append(imports, imp)
+				}
+			}
+		}
+	}
+
+	return imports
+}
 
 // UploadServiceV1 implements the v1 UploadService interface by wrapping Service.
 type UploadServiceV1 struct {
@@ -32,14 +65,14 @@ func (u *UploadServiceV1) Upload(
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("CAS storage not configured"))
 	}
 
-	slog.DebugContext(ctx, "UploadV1", "contents", len(req.Msg.Contents))
+	slog.DebugContext(ctx, "UploadV1", "contents", len(req.Msg.Contents), "depCommitIds", len(req.Msg.DepCommitIds))
 
 	resp := &v1.UploadResponse{
 		Commits: make([]*v1.Commit, 0, len(req.Msg.Contents)),
 	}
 
 	for _, content := range req.Msg.Contents {
-		commit, err := u.uploadContent(ctx, content)
+		commit, err := u.uploadContent(ctx, content, req.Msg.DepCommitIds)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -49,14 +82,14 @@ func (u *UploadServiceV1) Upload(
 	return connect.NewResponse(resp), nil
 }
 
-func (u *UploadServiceV1) uploadContent(ctx context.Context, content *v1.UploadRequest_Content) (*v1.Commit, error) {
+func (u *UploadServiceV1) uploadContent(ctx context.Context, content *v1.UploadRequest_Content, depCommitIDs []string) (*v1.Commit, error) {
 	// Resolve module reference
 	owner, modName, err := u.resolveModuleRef(content.ModuleRef)
 	if err != nil {
 		return nil, fmt.Errorf("invalid module reference: %w", err)
 	}
 
-	slog.DebugContext(ctx, "uploading content v1", "owner", owner, "module", modName, "files", len(content.Files))
+	slog.DebugContext(ctx, "uploading content v1", "owner", owner, "module", modName, "files", len(content.Files), "depCommitIds", len(depCommitIDs))
 
 	// Get or create module
 	mod, err := u.svc.casReg.GetOrCreateModule(ctx, owner, modName)
@@ -80,14 +113,91 @@ func (u *UploadServiceV1) uploadContent(ctx context.Context, content *v1.UploadR
 		labels = []string{"main"}
 	}
 
-	// Create commit
-	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl)
+	// If no dependencies provided, try to detect from proto imports
+	if len(depCommitIDs) == 0 {
+		detectedDeps := u.detectDependenciesFromImports(ctx, files)
+		if len(detectedDeps) > 0 {
+			slog.DebugContext(ctx, "detected dependencies from imports", "count", len(detectedDeps))
+			depCommitIDs = detectedDeps
+		}
+	}
+
+	// Create commit with dependency commit IDs
+	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl, depCommitIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create commit: %w", err)
 	}
 
 	// Build response commit
 	return u.commitToProto(commit)
+}
+
+// detectDependenciesFromImports parses proto imports and tries to resolve them to known modules.
+func (u *UploadServiceV1) detectDependenciesFromImports(ctx context.Context, files []cas.File) []string {
+	imports := extractProtoImports(files)
+	if len(imports) == 0 {
+		return nil
+	}
+
+	slog.DebugContext(ctx, "extracted proto imports", "imports", imports)
+
+	// Try to resolve each import to a known module
+	depCommitIDs := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, imp := range imports {
+		// Look for modules that have this file
+		commitID := u.findModuleWithFile(ctx, imp)
+		if commitID != "" && !seen[commitID] {
+			seen[commitID] = true
+			depCommitIDs = append(depCommitIDs, commitID)
+			slog.DebugContext(ctx, "resolved import to commit", "import", imp, "commitID", commitID)
+		}
+	}
+
+	return depCommitIDs
+}
+
+// findModuleWithFile searches for a module that contains the given file path.
+func (u *UploadServiceV1) findModuleWithFile(ctx context.Context, filePath string) string {
+	// This is a simple implementation that searches all known modules.
+	// In production, this could be optimized with an index.
+
+	// List all owners and their modules
+	owners, err := u.svc.casReg.ListOwners(ctx)
+	if err != nil {
+		slog.DebugContext(ctx, "failed to list owners", "error", err)
+		return ""
+	}
+
+	for _, owner := range owners {
+		modules, err := u.svc.casReg.ListModules(ctx, owner.Name)
+		if err != nil {
+			continue
+		}
+
+		for _, mod := range modules {
+			// Get the latest commit (main label)
+			commit, err := mod.Commit(ctx, "main")
+			if err != nil {
+				continue
+			}
+
+			// Check if this commit has the file
+			files, _, err := mod.FilesAndCommitByCommitID(ctx, commit.ID)
+			if err != nil {
+				continue
+			}
+
+			for _, f := range files {
+				if f.Path == filePath {
+					return commit.ID
+				}
+			}
+		}
+	}
+
+	return ""
 }
 
 func (u *UploadServiceV1) resolveModuleRef(ref *v1.ModuleRef) (owner, name string, err error) {

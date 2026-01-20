@@ -1,0 +1,9 @@
+version: v1
+name: pbr.test/e2e/top
+deps:
+  - pbr.test/e2e/mid-a
+  - pbr.test/e2e/mid-b
+lint:
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+    - PACKAGE_VERSION_SUFFIX

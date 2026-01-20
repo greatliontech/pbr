@@ -89,6 +89,7 @@ func (m *Module) CommitByID(ctx context.Context, id string) (*Commit, error) {
 		OwnerID:        record.OwnerID,
 		ManifestDigest: record.ManifestDigest,
 		CreateTime:     record.CreateTime,
+		DepCommitIDs:   record.DepCommitIDs,
 	}, nil
 }
 
@@ -177,8 +178,8 @@ func (m *Module) parseBufLock(files []File) (*BufLock, error) {
 
 // CreateCommit creates a new commit with the given files.
 // Returns the created commit or an existing commit if content is identical.
-func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string, sourceControlURL string) (*Commit, error) {
-	slog.DebugContext(ctx, "Module.CreateCommit", "owner", m.Owner(), "module", m.Name(), "files", len(files), "labels", labels)
+func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string, sourceControlURL string, depCommitIDs []string) (*Commit, error) {
+	slog.DebugContext(ctx, "Module.CreateCommit", "owner", m.Owner(), "module", m.Name(), "files", len(files), "labels", labels, "depCommitIDs", len(depCommitIDs))
 
 	// Store blobs and build manifest
 	manifest := &storage.Manifest{}
@@ -217,6 +218,7 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 			OwnerID:        existingCommit.OwnerID,
 			ManifestDigest: existingCommit.ManifestDigest,
 			CreateTime:     existingCommit.CreateTime,
+			DepCommitIDs:   existingCommit.DepCommitIDs,
 		}, nil
 	}
 
@@ -231,6 +233,7 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		ManifestDigest:   manifestDigest,
 		CreateTime:       time.Now(),
 		SourceControlURL: sourceControlURL,
+		DepCommitIDs:     depCommitIDs,
 	}
 
 	if err := m.registry.metadata.CreateCommit(ctx, commitRecord); err != nil {
@@ -250,6 +253,7 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		OwnerID:        m.record.OwnerID,
 		ManifestDigest: manifestDigest,
 		CreateTime:     commitRecord.CreateTime,
+		DepCommitIDs:   depCommitIDs,
 	}, nil
 }
 
@@ -278,6 +282,7 @@ func (m *Module) ListCommits(ctx context.Context, limit int, pageToken string) (
 			OwnerID:        record.OwnerID,
 			ManifestDigest: record.ManifestDigest,
 			CreateTime:     record.CreateTime,
+			DepCommitIDs:   record.DepCommitIDs,
 		}
 	}
 

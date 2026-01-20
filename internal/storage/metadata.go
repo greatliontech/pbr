@@ -33,6 +33,7 @@ type CommitRecord struct {
 	CreateTime       time.Time
 	CreatedByUserID  string
 	SourceControlURL string
+	DepCommitIDs     []string // dependency commit IDs
 }
 
 // LabelRecord represents a named reference to a commit (like a branch or tag).

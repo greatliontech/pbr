@@ -44,6 +44,11 @@ func setupTestService(t *testing.T) (*Service, func()) {
 
 func createTestModule(t *testing.T, svc *Service, owner, name string, files []cas.File, labels []string) *cas.Commit {
 	t.Helper()
+	return createTestModuleWithDeps(t, svc, owner, name, files, labels, nil)
+}
+
+func createTestModuleWithDeps(t *testing.T, svc *Service, owner, name string, files []cas.File, labels []string, depCommitIDs []string) *cas.Commit {
+	t.Helper()
 
 	ctx := context.Background()
 	mod, err := svc.casReg.GetOrCreateModule(ctx, owner, name)
@@ -51,7 +56,7 @@ func createTestModule(t *testing.T, svc *Service, owner, name string, files []ca
 		t.Fatalf("failed to create module: %v", err)
 	}
 
-	commit, err := mod.CreateCommit(ctx, files, labels, "")
+	commit, err := mod.CreateCommit(ctx, files, labels, "", depCommitIDs)
 	if err != nil {
 		t.Fatalf("failed to create commit: %v", err)
 	}
@@ -177,7 +182,7 @@ func TestGetGraph_SingleDependency(t *testing.T) {
 	}
 	depCommit := createTestModule(t, svc, "testowner", "depmodule", depFiles, []string{"main"})
 
-	// Create main module with dependency
+	// Create main module with dependency (pass depCommitIDs)
 	mainFiles := []cas.File{
 		{Path: "main.proto", Content: "syntax = \"proto3\";\npackage main;\nimport \"dep.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mainmodule"},
@@ -189,7 +194,7 @@ deps:
     commit: ` + depCommit.ID + `
     digest: shake256:` + depCommit.ManifestDigest.Hex()},
 	}
-	mainCommit := createTestModule(t, svc, "testowner", "mainmodule", mainFiles, []string{"main"})
+	mainCommit := createTestModuleWithDeps(t, svc, "testowner", "mainmodule", mainFiles, []string{"main"}, []string{depCommit.ID})
 
 	ctx := contextWithUser(context.Background(), "testuser")
 	req := connect.NewRequest(&v1beta1.GetGraphRequest{
@@ -252,7 +257,7 @@ deps:
     commit: ` + cCommit.ID + `
     digest: shake256:` + cCommit.ManifestDigest.Hex()},
 	}
-	bCommit := createTestModule(t, svc, "testowner", "moduleb", bFiles, []string{"main"})
+	bCommit := createTestModuleWithDeps(t, svc, "testowner", "moduleb", bFiles, []string{"main"}, []string{cCommit.ID})
 
 	// Create A (depends on B)
 	aFiles := []cas.File{
@@ -266,7 +271,7 @@ deps:
     commit: ` + bCommit.ID + `
     digest: shake256:` + bCommit.ManifestDigest.Hex()},
 	}
-	aCommit := createTestModule(t, svc, "testowner", "modulea", aFiles, []string{"main"})
+	aCommit := createTestModuleWithDeps(t, svc, "testowner", "modulea", aFiles, []string{"main"}, []string{bCommit.ID})
 
 	ctx := contextWithUser(context.Background(), "testuser")
 	req := connect.NewRequest(&v1beta1.GetGraphRequest{
@@ -334,7 +339,7 @@ deps:
     commit: ` + dCommit.ID + `
     digest: shake256:` + dCommit.ManifestDigest.Hex()},
 	}
-	bCommit := createTestModule(t, svc, "testowner", "moduleb", bFiles, []string{"main"})
+	bCommit := createTestModuleWithDeps(t, svc, "testowner", "moduleb", bFiles, []string{"main"}, []string{dCommit.ID})
 
 	// C (depends on D)
 	cFiles := []cas.File{
@@ -348,7 +353,7 @@ deps:
     commit: ` + dCommit.ID + `
     digest: shake256:` + dCommit.ManifestDigest.Hex()},
 	}
-	cCommit := createTestModule(t, svc, "testowner", "modulec", cFiles, []string{"main"})
+	cCommit := createTestModuleWithDeps(t, svc, "testowner", "modulec", cFiles, []string{"main"}, []string{dCommit.ID})
 
 	// A (depends on B and C)
 	aFiles := []cas.File{
@@ -367,7 +372,7 @@ deps:
     commit: ` + cCommit.ID + `
     digest: shake256:` + cCommit.ManifestDigest.Hex()},
 	}
-	aCommit := createTestModule(t, svc, "testowner", "modulea", aFiles, []string{"main"})
+	aCommit := createTestModuleWithDeps(t, svc, "testowner", "modulea", aFiles, []string{"main"}, []string{bCommit.ID, cCommit.ID})
 
 	ctx := contextWithUser(context.Background(), "testuser")
 	req := connect.NewRequest(&v1beta1.GetGraphRequest{
@@ -412,7 +417,9 @@ func TestGetGraph_ExternalDependency(t *testing.T) {
 	defer cleanup()
 
 	// Create module with external dependency (different registry)
-	// Note: digest must be 128 hex chars (64 bytes) for shake256
+	// Note: External dependencies are not tracked via DepCommitIDs since they're
+	// not in our registry. The buf CLI resolves external deps directly from their
+	// registries. Our graph only tracks local dependencies via stored DepCommitIDs.
 	mainFiles := []cas.File{
 		{Path: "main.proto", Content: "syntax = \"proto3\";\npackage main;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mainmodule"},
@@ -444,32 +451,14 @@ deps:
 		t.Fatalf("GetGraph failed: %v", err)
 	}
 
-	// Should have 2 commits (main + external dep)
-	if len(resp.Msg.Graph.Commits) != 2 {
-		t.Errorf("expected 2 commits, got %d", len(resp.Msg.Graph.Commits))
+	// Should have 1 commit (main only - external deps are not tracked via DepCommitIDs)
+	if len(resp.Msg.Graph.Commits) != 1 {
+		t.Errorf("expected 1 commit, got %d", len(resp.Msg.Graph.Commits))
 	}
 
-	// Should have 1 edge
-	if len(resp.Msg.Graph.Edges) != 1 {
-		t.Errorf("expected 1 edge, got %d", len(resp.Msg.Graph.Edges))
-	}
-
-	// External dependency should have different registry
-	foundExternal := false
-	for _, c := range resp.Msg.Graph.Commits {
-		if c.Registry == "buf.build" {
-			foundExternal = true
-			break
-		}
-	}
-	if !foundExternal {
-		t.Error("expected to find external dependency with buf.build registry")
-	}
-
-	// Edge to external dep should have external registry
-	edge := resp.Msg.Graph.Edges[0]
-	if edge.ToNode.Registry != "buf.build" {
-		t.Errorf("expected to node registry buf.build, got %s", edge.ToNode.Registry)
+	// Should have 0 edges (external deps are resolved by buf CLI from their registries)
+	if len(resp.Msg.Graph.Edges) != 0 {
+		t.Errorf("expected 0 edges, got %d", len(resp.Msg.Graph.Edges))
 	}
 }
 
@@ -526,9 +515,16 @@ func TestGetGraph_MultipleRootModules(t *testing.T) {
 	}
 }
 
-func TestGetGraph_ResourceRefNameNotSupported(t *testing.T) {
+func TestGetGraph_ResourceRefNameSupported(t *testing.T) {
 	svc, cleanup := setupTestService(t)
 	defer cleanup()
+
+	// Create a module first
+	files := []cas.File{
+		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmodule"},
+	}
+	commit := createTestModule(t, svc, "testowner", "testmodule", files, []string{"main"})
 
 	ctx := contextWithUser(context.Background(), "testuser")
 	req := connect.NewRequest(&v1beta1.GetGraphRequest{
@@ -546,17 +542,19 @@ func TestGetGraph_ResourceRefNameNotSupported(t *testing.T) {
 		},
 	})
 
-	_, err := svc.GetGraph(ctx, req)
-	if err == nil {
-		t.Fatal("expected error for ResourceRef_Name")
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
 	}
 
-	connectErr, ok := err.(*connect.Error)
-	if !ok {
-		t.Fatalf("expected connect error, got %T", err)
+	// Should have 1 commit
+	if len(resp.Msg.Graph.Commits) != 1 {
+		t.Errorf("expected 1 commit, got %d", len(resp.Msg.Graph.Commits))
 	}
-	if connectErr.Code() != connect.CodeInvalidArgument {
-		t.Errorf("expected CodeInvalidArgument, got %v", connectErr.Code())
+
+	// Verify the commit ID matches
+	if resp.Msg.Graph.Commits[0].Commit.Id != commit.ID {
+		t.Errorf("expected commit ID %s, got %s", commit.ID, resp.Msg.Graph.Commits[0].Commit.Id)
 	}
 }
 

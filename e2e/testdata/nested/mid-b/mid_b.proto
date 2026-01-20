@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package mid_b;
+
+import "base.proto";
+
+option go_package = "pbr.test/e2e/mid_b";
+
+// ServiceB also uses BaseMessage from the base module
+message ServiceBRequest {
+  base.BaseConfig config = 1;
+  string query = 2;
+}
+
+message ServiceBResponse {
+  base.BaseMessage data = 1;
+  int32 count = 2;
+}
+
+service ServiceB {
+  rpc Query(ServiceBRequest) returns (ServiceBResponse);
+}

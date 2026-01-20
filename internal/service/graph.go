@@ -168,14 +168,15 @@ func (svc *Service) getGraphForModule(ctx context.Context, info moduleInfo, comm
 
 	slog.DebugContext(ctx, "getGraphForModule", "owner", info.Owner, "module", info.Name, "commit", commit.Id)
 
-	// Get buf.lock
-	deps, err := svc.getBufLockDeps(ctx, info.Owner, info.Name, commit.Id)
+	// Get dependencies from stored commit metadata
+	deps, err := svc.getStoredDeps(ctx, info.Owner, info.Name, commit.Id)
 	if err != nil {
-		if err == errBufLockNotFound {
-			slog.DebugContext(ctx, "no dependencies")
-			return nil
-		}
 		return err
+	}
+
+	if len(deps) == 0 {
+		slog.DebugContext(ctx, "no dependencies")
+		return nil
 	}
 
 	for _, dep := range deps {
@@ -219,13 +220,56 @@ func (svc *Service) getGraphForModule(ctx context.Context, info moduleInfo, comm
 	return nil
 }
 
-// bufLockDep represents a dependency from buf.lock
+// bufLockDep represents a dependency (from stored commit metadata or buf.lock)
 type bufLockDep struct {
 	Remote     string
 	Owner      string
 	Repository string
 	Commit     string
 	Digest     string
+}
+
+// getStoredDeps retrieves dependencies from the commit's stored DepCommitIDs.
+func (svc *Service) getStoredDeps(ctx context.Context, owner, name, commitID string) ([]bufLockDep, error) {
+	mod, err := svc.casReg.Module(ctx, owner, name)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, name))
+	}
+
+	commit, err := mod.CommitByID(ctx, commitID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("commit not found: %s", commitID))
+	}
+
+	if len(commit.DepCommitIDs) == 0 {
+		return nil, nil
+	}
+
+	deps := make([]bufLockDep, 0, len(commit.DepCommitIDs))
+	for _, depCommitID := range commit.DepCommitIDs {
+		// Look up the dependency commit to get module info
+		depMod, err := svc.casReg.ModuleByCommitID(ctx, depCommitID)
+		if err != nil {
+			slog.DebugContext(ctx, "dependency commit not found locally", "depCommitID", depCommitID)
+			continue
+		}
+
+		depCommit, err := depMod.CommitByID(ctx, depCommitID)
+		if err != nil {
+			slog.DebugContext(ctx, "failed to get dependency commit", "depCommitID", depCommitID, "error", err)
+			continue
+		}
+
+		deps = append(deps, bufLockDep{
+			Remote:     svc.conf.Host,
+			Owner:      depMod.Owner(),
+			Repository: depMod.Name(),
+			Commit:     depCommitID,
+			Digest:     "shake256:" + depCommit.ManifestDigest.Hex(),
+		})
+	}
+
+	return deps, nil
 }
 
 var errBufLockNotFound = fmt.Errorf("buf.lock not found")

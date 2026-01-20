@@ -345,13 +345,14 @@ func (s *MetadataStore) moduleCommitsIndexPath(moduleID string) string {
 
 // commitJSON is the JSON-serializable form of CommitRecord.
 type commitJSON struct {
-	ID               string `json:"id"`
-	ModuleID         string `json:"module_id"`
-	OwnerID          string `json:"owner_id"`
-	ManifestDigest   string `json:"manifest_digest"`
-	CreateTime       string `json:"create_time"`
-	CreatedByUserID  string `json:"created_by_user_id,omitempty"`
-	SourceControlURL string `json:"source_control_url,omitempty"`
+	ID               string   `json:"id"`
+	ModuleID         string   `json:"module_id"`
+	OwnerID          string   `json:"owner_id"`
+	ManifestDigest   string   `json:"manifest_digest"`
+	CreateTime       string   `json:"create_time"`
+	CreatedByUserID  string   `json:"created_by_user_id,omitempty"`
+	SourceControlURL string   `json:"source_control_url,omitempty"`
+	DepCommitIDs     []string `json:"dep_commit_ids,omitempty"`
 }
 
 func commitToJSON(c *storage.CommitRecord) *commitJSON {
@@ -363,6 +364,7 @@ func commitToJSON(c *storage.CommitRecord) *commitJSON {
 		CreateTime:       c.CreateTime.Format(time.RFC3339),
 		CreatedByUserID:  c.CreatedByUserID,
 		SourceControlURL: c.SourceControlURL,
+		DepCommitIDs:     c.DepCommitIDs,
 	}
 }
 
@@ -386,6 +388,7 @@ func commitFromJSON(cj *commitJSON) (*storage.CommitRecord, error) {
 		CreateTime:       createTime,
 		CreatedByUserID:  cj.CreatedByUserID,
 		SourceControlURL: cj.SourceControlURL,
+		DepCommitIDs:     cj.DepCommitIDs,
 	}, nil
 }
 

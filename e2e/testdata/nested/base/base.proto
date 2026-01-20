@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package base;
+
+option go_package = "pbr.test/e2e/base";
+
+// BaseMessage is used by other modules
+message BaseMessage {
+  string id = 1;
+  string name = 2;
+}
+
+// BaseConfig for configuration
+message BaseConfig {
+  string key = 1;
+  string value = 2;
+}

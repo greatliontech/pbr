@@ -1,3 +1,19 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /build
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o pbr ./cmd/pbr/
+
+# Runtime stage
 FROM alpine:3.20.1
 
 RUN apk add --no-cache fuse=2.9.9-r5
@@ -9,7 +25,7 @@ ARG USER_GID=$USER_UID
 RUN addgroup -S -g $USER_GID $USERNAME \
   && adduser -S -u $USER_GID -G $USERNAME $USERNAME
 
-COPY pbr /app/pbr
+COPY --from=builder /build/pbr /app/pbr
 
 # Create data directory with proper permissions
 RUN mkdir -p /data && chown -R $USERNAME:$USERNAME /data

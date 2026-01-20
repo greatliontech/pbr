@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package top;
+
+import "mid_a.proto";
+import "mid_b.proto";
+import "base.proto";
+
+option go_package = "pbr.test/e2e/top";
+
+// TopService combines both mid-a and mid-b services
+message TopRequest {
+  mid_a.ServiceARequest service_a_req = 1;
+  mid_b.ServiceBRequest service_b_req = 2;
+  base.BaseMessage metadata = 3;
+}
+
+message TopResponse {
+  mid_a.ServiceAResponse service_a_resp = 1;
+  mid_b.ServiceBResponse service_b_resp = 2;
+}
+
+service TopService {
+  rpc Execute(TopRequest) returns (TopResponse);
+}

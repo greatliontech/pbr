@@ -184,6 +184,11 @@ func (r *Registry) OwnerByName(ctx context.Context, name string) (*storage.Owner
 	return r.metadata.GetOwnerByName(ctx, name)
 }
 
+// ListOwners lists all owners.
+func (r *Registry) ListOwners(ctx context.Context) ([]*storage.OwnerRecord, error) {
+	return r.metadata.ListOwners(ctx)
+}
+
 // File represents a file in a module.
 type File struct {
 	Path    string
@@ -198,6 +203,7 @@ type Commit struct {
 	OwnerID        string
 	ManifestDigest storage.Digest
 	CreateTime     time.Time
+	DepCommitIDs   []string // dependency commit IDs
 }
 
 // BufLock represents a parsed buf.lock file.

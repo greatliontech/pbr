@@ -163,11 +163,6 @@ func New(c *config.Config) (*Service, error) {
 	mux.Handle(modulev1beta1connect.NewModuleServiceHandler(svc, interceptors))
 	mux.Handle(modulev1connect.NewModuleServiceHandler(NewModuleServiceV1(svc), interceptors))
 	mux.Handle(modulev1connect.NewUploadServiceHandler(NewUploadServiceV1(svc), interceptors))
-	mux.Handle(modulev1connect.NewDownloadServiceHandler(NewDownloadServiceV1(svc), interceptors))
-	mux.Handle(modulev1connect.NewCommitServiceHandler(NewCommitServiceV1(svc), interceptors))
-	mux.Handle(modulev1connect.NewGraphServiceHandler(NewGraphServiceV1(svc), interceptors))
-	mux.Handle(modulev1connect.NewResourceServiceHandler(NewResourceServiceV1(svc), interceptors))
-	mux.Handle(modulev1connect.NewLabelServiceHandler(NewLabelServiceV1(svc), interceptors))
 	mux.Handle(ownerv1connect.NewOwnerServiceHandler(svc, interceptors))
 
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

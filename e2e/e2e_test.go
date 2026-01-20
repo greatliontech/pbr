@@ -242,11 +242,16 @@ func (e *testEnv) cleanup(ctx context.Context) {
 func (e *testEnv) runBuf(t *testing.T, ctx context.Context, workDir string, args ...string) (string, error) {
 	t.Helper()
 
+	// Get current user ID to run container as same user (avoids permission issues with buf.lock)
+	uid := os.Getuid()
+	gid := os.Getgid()
+
 	// Run buf CLI in container
 	req := testcontainers.ContainerRequest{
 		Image:    bufImage,
 		Networks: []string{e.network.Name},
 		Cmd:      args,
+		User:     fmt.Sprintf("%d:%d", uid, gid),
 		Files: []testcontainers.ContainerFile{
 			{HostFilePath: filepath.Join(e.certsDir, "ca.crt"), ContainerFilePath: "/etc/ssl/certs/ca.crt", FileMode: 0644},
 		},
@@ -262,6 +267,7 @@ func (e *testEnv) runBuf(t *testing.T, ctx context.Context, workDir string, args
 		WorkingDir: "/workspace",
 		Env: map[string]string{
 			"SSL_CERT_FILE": "/etc/ssl/certs/ca.crt",
+			"HOME":          "/tmp", // Writable dir for buf cache when running as non-root
 		},
 		WaitingFor: wait.ForExit(),
 	}
@@ -387,6 +393,62 @@ func runTestSuite(t *testing.T, env *testEnv) {
 
 		t.Run("push_v1.0.0", func(t *testing.T) {
 			env.runBufExpectSuccess(t, ctx, dir, "push", "--label", "v1.0.0")
+		})
+	})
+
+	// Test nested dependencies with diamond pattern:
+	//         top
+	//        /   \
+	//    mid-a   mid-b
+	//        \   /
+	//         base
+	t.Run("NestedDependencies", func(t *testing.T) {
+		nestedDir := filepath.Join(env.testdataDir, "nested")
+
+		// Push base module first (leaf dependency)
+		t.Run("push_base", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "base")
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
+		})
+
+		// Push base again with v1.0.0 label
+		t.Run("push_base_v1", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "base")
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--label", "v1.0.0")
+		})
+
+		// Push mid-a (depends on base)
+		t.Run("push_mid_a", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "mid-a")
+			env.runBufExpectSuccess(t, ctx, dir, "dep", "update")
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
+		})
+
+		// Push mid-b (also depends on base)
+		t.Run("push_mid_b", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "mid-b")
+			env.runBufExpectSuccess(t, ctx, dir, "dep", "update")
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
+		})
+
+		// Test top module (depends on both mid-a and mid-b, creating diamond)
+		t.Run("top_dep_update", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "top")
+			output, err := env.runBuf(t, ctx, dir, "dep", "update", "--debug")
+			if err != nil {
+				env.dumpPBRLogs(t, ctx)
+				t.Fatalf("buf dep update --debug failed: %v\nOutput: %s", err, output)
+			}
+		})
+
+		t.Run("top_build", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "top")
+			env.runBufExpectSuccess(t, ctx, dir, "build")
+		})
+
+		t.Run("top_push", func(t *testing.T) {
+			dir := filepath.Join(nestedDir, "top")
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
 		})
 	})
 

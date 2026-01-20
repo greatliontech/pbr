@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package mid_a;
+
+import "base.proto";
+
+option go_package = "pbr.test/e2e/mid_a";
+
+// ServiceA uses BaseMessage from the base module
+message ServiceARequest {
+  base.BaseMessage message = 1;
+  string action = 2;
+}
+
+message ServiceAResponse {
+  base.BaseMessage result = 1;
+  bool success = 2;
+}
+
+service ServiceA {
+  rpc Process(ServiceARequest) returns (ServiceAResponse);
+}
