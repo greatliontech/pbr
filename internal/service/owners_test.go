@@ -7,7 +7,7 @@ import (
 	v1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/owner/v1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/config"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 )
 
 func TestGetOwners_NoCASConfigured(t *testing.T) {
@@ -94,7 +94,7 @@ func TestGetOwners_ByName_ExistingOwner(t *testing.T) {
 	ctx := context.Background()
 
 	// First create a module to establish the owner
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "existingowner", "testmodule", files, []string{"main"})
@@ -141,7 +141,7 @@ func TestGetOwners_ById(t *testing.T) {
 	ctx := context.Background()
 
 	// First create a module to establish the owner
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "testowner", "testmodule", files, []string{"main"})
@@ -231,7 +231,7 @@ func TestGetOwners_MultipleOwners(t *testing.T) {
 	ctx := context.Background()
 
 	// Create modules for different owners
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "owner1", "module1", files, []string{"main"})
@@ -285,7 +285,7 @@ func TestGetOwners_MixedRefs(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a module to establish an owner
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "existingowner", "testmodule", files, []string{"main"})

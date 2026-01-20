@@ -22,7 +22,7 @@ import (
 	"github.com/greatliontech/ocifs"
 	"github.com/greatliontech/pbr/internal/codegen"
 	"github.com/greatliontech/pbr/internal/config"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/storage/filesystem"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/net/http2"
@@ -56,7 +56,7 @@ type Service struct {
 	plugins  map[string]*codegen.Plugin
 	ofs      *ocifs.OCIFS
 	regCreds map[string]authn.AuthConfig
-	casReg   *cas.Registry
+	casReg   *registry.Registry
 }
 
 func New(c *config.Config) (*Service, error) {
@@ -136,7 +136,7 @@ func New(c *config.Config) (*Service, error) {
 	blobStore := filesystem.NewBlobStore(storagePath + "/blobs")
 	manifestStore := filesystem.NewManifestStore(storagePath + "/manifests")
 	metadataStore := filesystem.NewMetadataStore(storagePath + "/metadata")
-	svc.casReg = cas.New(blobStore, manifestStore, metadataStore, c.Host)
+	svc.casReg = registry.New(blobStore, manifestStore, metadataStore, c.Host)
 	slog.Info("CAS storage initialized", "path", storagePath)
 
 	mux := http.NewServeMux()

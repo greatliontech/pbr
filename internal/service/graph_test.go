@@ -8,7 +8,7 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/config"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/storage/filesystem"
 )
 
@@ -24,7 +24,7 @@ func setupTestService(t *testing.T) (*Service, func()) {
 	manifestStore := filesystem.NewManifestStore(tmpDir + "/manifests")
 	metadataStore := filesystem.NewMetadataStore(tmpDir + "/metadata")
 
-	casReg := cas.New(blobStore, manifestStore, metadataStore, "test.registry.com")
+	casReg := registry.New(blobStore, manifestStore, metadataStore, "test.registry.com")
 
 	svc := &Service{
 		conf: &config.Config{
@@ -42,12 +42,12 @@ func setupTestService(t *testing.T) (*Service, func()) {
 	return svc, cleanup
 }
 
-func createTestModule(t *testing.T, svc *Service, owner, name string, files []cas.File, labels []string) *cas.Commit {
+func createTestModule(t *testing.T, svc *Service, owner, name string, files []registry.File, labels []string) *registry.Commit {
 	t.Helper()
 	return createTestModuleWithDeps(t, svc, owner, name, files, labels, nil)
 }
 
-func createTestModuleWithDeps(t *testing.T, svc *Service, owner, name string, files []cas.File, labels []string, depCommitIDs []string) *cas.Commit {
+func createTestModuleWithDeps(t *testing.T, svc *Service, owner, name string, files []registry.File, labels []string, depCommitIDs []string) *registry.Commit {
 	t.Helper()
 
 	ctx := context.Background()
@@ -124,7 +124,7 @@ func TestGetGraph_SingleModuleNoDependencies(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with no buf.lock (no dependencies)
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmodule"},
 	}
@@ -176,14 +176,14 @@ func TestGetGraph_SingleDependency(t *testing.T) {
 	defer cleanup()
 
 	// Create dependency module first
-	depFiles := []cas.File{
+	depFiles := []registry.File{
 		{Path: "dep.proto", Content: "syntax = \"proto3\";\npackage dep;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/depmodule"},
 	}
 	depCommit := createTestModule(t, svc, "testowner", "depmodule", depFiles, []string{"main"})
 
 	// Create main module with dependency (pass depCommitIDs)
-	mainFiles := []cas.File{
+	mainFiles := []registry.File{
 		{Path: "main.proto", Content: "syntax = \"proto3\";\npackage main;\nimport \"dep.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mainmodule"},
 		{Path: "buf.lock", Content: `version: v1
@@ -239,14 +239,14 @@ func TestGetGraph_ChainedDependencies(t *testing.T) {
 	defer cleanup()
 
 	// Create C (no deps)
-	cFiles := []cas.File{
+	cFiles := []registry.File{
 		{Path: "c.proto", Content: "syntax = \"proto3\";\npackage c;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/modulec"},
 	}
 	cCommit := createTestModule(t, svc, "testowner", "modulec", cFiles, []string{"main"})
 
 	// Create B (depends on C)
-	bFiles := []cas.File{
+	bFiles := []registry.File{
 		{Path: "b.proto", Content: "syntax = \"proto3\";\npackage b;\nimport \"c.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/moduleb"},
 		{Path: "buf.lock", Content: `version: v1
@@ -260,7 +260,7 @@ deps:
 	bCommit := createTestModuleWithDeps(t, svc, "testowner", "moduleb", bFiles, []string{"main"}, []string{cCommit.ID})
 
 	// Create A (depends on B)
-	aFiles := []cas.File{
+	aFiles := []registry.File{
 		{Path: "a.proto", Content: "syntax = \"proto3\";\npackage a;\nimport \"b.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/modulea"},
 		{Path: "buf.lock", Content: `version: v1
@@ -326,21 +326,21 @@ func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedLast(t *testing.T) 
 	defer cleanup()
 
 	// Create base@v1
-	baseV1Files := []cas.File{
+	baseV1Files := []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; }"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}
 	baseV1Commit := createTestModule(t, svc, "testowner", "base", baseV1Files, []string{"v1"})
 
 	// Create mid-a (depends on base@v1)
-	midAFiles := []cas.File{
+	midAFiles := []registry.File{
 		{Path: "mida.proto", Content: "syntax = \"proto3\";\npackage mida;\nimport \"base.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mida"},
 	}
 	midACommit := createTestModuleWithDeps(t, svc, "testowner", "mida", midAFiles, []string{"main"}, []string{baseV1Commit.ID})
 
 	// Create base@v2 (new version with additional field)
-	baseV2Files := []cas.File{
+	baseV2Files := []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; string name = 2; }"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}
@@ -352,14 +352,14 @@ func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedLast(t *testing.T) 
 	}
 
 	// Create mid-b (depends on base@v2)
-	midBFiles := []cas.File{
+	midBFiles := []registry.File{
 		{Path: "midb.proto", Content: "syntax = \"proto3\";\npackage midb;\nimport \"base.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midb"},
 	}
 	midBCommit := createTestModuleWithDeps(t, svc, "testowner", "midb", midBFiles, []string{"main"}, []string{baseV2Commit.ID})
 
 	// Create top (depends on mid-a and mid-b)
-	topFiles := []cas.File{
+	topFiles := []registry.File{
 		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;\nimport \"mida.proto\";\nimport \"midb.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
 	}
@@ -449,14 +449,14 @@ func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedFirst(t *testing.T)
 	defer cleanup()
 
 	// Create base@v1 (older)
-	baseV1Files := []cas.File{
+	baseV1Files := []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; }"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}
 	baseV1Commit := createTestModule(t, svc, "testowner", "base", baseV1Files, []string{"v1"})
 
 	// Create base@v2 (newer) - created AFTER v1, so it has a later timestamp
-	baseV2Files := []cas.File{
+	baseV2Files := []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage BaseMessage { string id = 1; string name = 2; }"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}
@@ -468,14 +468,14 @@ func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedFirst(t *testing.T)
 	}
 
 	// Create mid-a (depends on base@v2 - the NEWER version)
-	midAFiles := []cas.File{
+	midAFiles := []registry.File{
 		{Path: "mida.proto", Content: "syntax = \"proto3\";\npackage mida;\nimport \"base.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mida"},
 	}
 	midACommit := createTestModuleWithDeps(t, svc, "testowner", "mida", midAFiles, []string{"main"}, []string{baseV2Commit.ID})
 
 	// Create mid-b (depends on base@v1 - the OLDER version)
-	midBFiles := []cas.File{
+	midBFiles := []registry.File{
 		{Path: "midb.proto", Content: "syntax = \"proto3\";\npackage midb;\nimport \"base.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midb"},
 	}
@@ -484,7 +484,7 @@ func TestGetGraph_DiamondWithDifferentVersions_NewerProcessedFirst(t *testing.T)
 	// Create top (depends on mid-a THEN mid-b)
 	// mid-a is processed first (depends on v2), mid-b processed second (depends on v1)
 	// We should KEEP v2 because it's newer, not switch to v1 just because it's "last seen"
-	topFiles := []cas.File{
+	topFiles := []registry.File{
 		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;\nimport \"mida.proto\";\nimport \"midb.proto\";"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
 	}
@@ -563,14 +563,14 @@ func TestGetGraph_DiamondDependencies(t *testing.T) {
 
 	// Diamond pattern: A -> B, A -> C, B -> D, C -> D
 	// D (base, no deps)
-	dFiles := []cas.File{
+	dFiles := []registry.File{
 		{Path: "d.proto", Content: "syntax = \"proto3\";\npackage d;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/moduled"},
 	}
 	dCommit := createTestModule(t, svc, "testowner", "moduled", dFiles, []string{"main"})
 
 	// B (depends on D)
-	bFiles := []cas.File{
+	bFiles := []registry.File{
 		{Path: "b.proto", Content: "syntax = \"proto3\";\npackage b;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/moduleb"},
 		{Path: "buf.lock", Content: `version: v1
@@ -584,7 +584,7 @@ deps:
 	bCommit := createTestModuleWithDeps(t, svc, "testowner", "moduleb", bFiles, []string{"main"}, []string{dCommit.ID})
 
 	// C (depends on D)
-	cFiles := []cas.File{
+	cFiles := []registry.File{
 		{Path: "c.proto", Content: "syntax = \"proto3\";\npackage c;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/modulec"},
 		{Path: "buf.lock", Content: `version: v1
@@ -598,7 +598,7 @@ deps:
 	cCommit := createTestModuleWithDeps(t, svc, "testowner", "modulec", cFiles, []string{"main"}, []string{dCommit.ID})
 
 	// A (depends on B and C)
-	aFiles := []cas.File{
+	aFiles := []registry.File{
 		{Path: "a.proto", Content: "syntax = \"proto3\";\npackage a;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/modulea"},
 		{Path: "buf.lock", Content: `version: v1
@@ -662,7 +662,7 @@ func TestGetGraph_ExternalDependency(t *testing.T) {
 	// Note: External dependencies are not tracked via DepCommitIDs since they're
 	// not in our registry. The buf CLI resolves external deps directly from their
 	// registries. Our graph only tracks local dependencies via stored DepCommitIDs.
-	mainFiles := []cas.File{
+	mainFiles := []registry.File{
 		{Path: "main.proto", Content: "syntax = \"proto3\";\npackage main;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mainmodule"},
 		{Path: "buf.lock", Content: `version: v1
@@ -709,13 +709,13 @@ func TestGetGraph_MultipleRootModules(t *testing.T) {
 	defer cleanup()
 
 	// Create two independent modules
-	files1 := []cas.File{
+	files1 := []registry.File{
 		{Path: "mod1.proto", Content: "syntax = \"proto3\";\npackage mod1;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/module1"},
 	}
 	commit1 := createTestModule(t, svc, "testowner", "module1", files1, []string{"main"})
 
-	files2 := []cas.File{
+	files2 := []registry.File{
 		{Path: "mod2.proto", Content: "syntax = \"proto3\";\npackage mod2;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/module2"},
 	}
@@ -762,7 +762,7 @@ func TestGetGraph_ResourceRefNameSupported(t *testing.T) {
 	defer cleanup()
 
 	// Create a module first
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmodule"},
 	}
@@ -829,37 +829,37 @@ func TestGetGraph_DeepDependencyChain(t *testing.T) {
 	defer cleanup()
 
 	// Create F (no deps)
-	fCommit := createTestModule(t, svc, "testowner", "f", []cas.File{
+	fCommit := createTestModule(t, svc, "testowner", "f", []registry.File{
 		{Path: "f.proto", Content: "syntax = \"proto3\";\npackage f;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/f"},
 	}, []string{"main"})
 
 	// Create E -> F
-	eCommit := createTestModuleWithDeps(t, svc, "testowner", "e", []cas.File{
+	eCommit := createTestModuleWithDeps(t, svc, "testowner", "e", []registry.File{
 		{Path: "e.proto", Content: "syntax = \"proto3\";\npackage e;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/e"},
 	}, []string{"main"}, []string{fCommit.ID})
 
 	// Create D -> E
-	dCommit := createTestModuleWithDeps(t, svc, "testowner", "d", []cas.File{
+	dCommit := createTestModuleWithDeps(t, svc, "testowner", "d", []registry.File{
 		{Path: "d.proto", Content: "syntax = \"proto3\";\npackage d;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/d"},
 	}, []string{"main"}, []string{eCommit.ID})
 
 	// Create C -> D
-	cCommit := createTestModuleWithDeps(t, svc, "testowner", "c", []cas.File{
+	cCommit := createTestModuleWithDeps(t, svc, "testowner", "c", []registry.File{
 		{Path: "c.proto", Content: "syntax = \"proto3\";\npackage c;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/c"},
 	}, []string{"main"}, []string{dCommit.ID})
 
 	// Create B -> C
-	bCommit := createTestModuleWithDeps(t, svc, "testowner", "b", []cas.File{
+	bCommit := createTestModuleWithDeps(t, svc, "testowner", "b", []registry.File{
 		{Path: "b.proto", Content: "syntax = \"proto3\";\npackage b;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/b"},
 	}, []string{"main"}, []string{cCommit.ID})
 
 	// Create A -> B
-	aCommit := createTestModuleWithDeps(t, svc, "testowner", "a", []cas.File{
+	aCommit := createTestModuleWithDeps(t, svc, "testowner", "a", []registry.File{
 		{Path: "a.proto", Content: "syntax = \"proto3\";\npackage a;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/a"},
 	}, []string{"main"}, []string{bCommit.ID})
@@ -916,43 +916,43 @@ func TestGetGraph_ThreeWayVersionConflict(t *testing.T) {
 	defer cleanup()
 
 	// Create base@v1
-	baseV1 := createTestModule(t, svc, "testowner", "base", []cas.File{
+	baseV1 := createTestModule(t, svc, "testowner", "base", []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V1 {}"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}, []string{"v1"})
 
 	// Create base@v2
-	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []cas.File{
+	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V2 {}"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}, []string{"v2"}, nil)
 
 	// Create base@v3 (newest)
-	baseV3 := createTestModuleWithDeps(t, svc, "testowner", "base", []cas.File{
+	baseV3 := createTestModuleWithDeps(t, svc, "testowner", "base", []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V3 {}"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}, []string{"v3", "main"}, nil)
 
 	// Create mid-a -> base@v1 (oldest)
-	midA := createTestModuleWithDeps(t, svc, "testowner", "mida", []cas.File{
+	midA := createTestModuleWithDeps(t, svc, "testowner", "mida", []registry.File{
 		{Path: "mida.proto", Content: "syntax = \"proto3\";\npackage mida;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mida"},
 	}, []string{"main"}, []string{baseV1.ID})
 
 	// Create mid-b -> base@v3 (newest)
-	midB := createTestModuleWithDeps(t, svc, "testowner", "midb", []cas.File{
+	midB := createTestModuleWithDeps(t, svc, "testowner", "midb", []registry.File{
 		{Path: "midb.proto", Content: "syntax = \"proto3\";\npackage midb;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midb"},
 	}, []string{"main"}, []string{baseV3.ID})
 
 	// Create mid-c -> base@v2 (middle)
-	midC := createTestModuleWithDeps(t, svc, "testowner", "midc", []cas.File{
+	midC := createTestModuleWithDeps(t, svc, "testowner", "midc", []registry.File{
 		{Path: "midc.proto", Content: "syntax = \"proto3\";\npackage midc;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/midc"},
 	}, []string{"main"}, []string{baseV2.ID})
 
 	// Create top -> [mid-a, mid-b, mid-c] (processing order: v1, v3, v2)
-	top := createTestModuleWithDeps(t, svc, "testowner", "top", []cas.File{
+	top := createTestModuleWithDeps(t, svc, "testowner", "top", []registry.File{
 		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
 	}, []string{"main"}, []string{midA.ID, midB.ID, midC.ID})
@@ -1017,37 +1017,37 @@ func TestGetGraph_ComplexDiamond(t *testing.T) {
 	defer cleanup()
 
 	// Create base
-	base := createTestModule(t, svc, "testowner", "base", []cas.File{
+	base := createTestModule(t, svc, "testowner", "base", []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}, []string{"main"})
 
 	// Create d -> base
-	d := createTestModuleWithDeps(t, svc, "testowner", "d", []cas.File{
+	d := createTestModuleWithDeps(t, svc, "testowner", "d", []registry.File{
 		{Path: "d.proto", Content: "syntax = \"proto3\";\npackage d;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/d"},
 	}, []string{"main"}, []string{base.ID})
 
 	// Create a -> [d, base]
-	a := createTestModuleWithDeps(t, svc, "testowner", "a", []cas.File{
+	a := createTestModuleWithDeps(t, svc, "testowner", "a", []registry.File{
 		{Path: "a.proto", Content: "syntax = \"proto3\";\npackage a;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/a"},
 	}, []string{"main"}, []string{d.ID, base.ID})
 
 	// Create b -> [d]
-	b := createTestModuleWithDeps(t, svc, "testowner", "b", []cas.File{
+	b := createTestModuleWithDeps(t, svc, "testowner", "b", []registry.File{
 		{Path: "b.proto", Content: "syntax = \"proto3\";\npackage b;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/b"},
 	}, []string{"main"}, []string{d.ID})
 
 	// Create c -> [d, base]
-	c := createTestModuleWithDeps(t, svc, "testowner", "c", []cas.File{
+	c := createTestModuleWithDeps(t, svc, "testowner", "c", []registry.File{
 		{Path: "c.proto", Content: "syntax = \"proto3\";\npackage c;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/c"},
 	}, []string{"main"}, []string{d.ID, base.ID})
 
 	// Create top -> [a, b, c]
-	top := createTestModuleWithDeps(t, svc, "testowner", "top", []cas.File{
+	top := createTestModuleWithDeps(t, svc, "testowner", "top", []registry.File{
 		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
 	}, []string{"main"}, []string{a.ID, b.ID, c.ID})
@@ -1101,7 +1101,7 @@ func TestGetGraph_SameModuleRequestedTwice(t *testing.T) {
 	defer cleanup()
 
 	// Create a simple module
-	commit := createTestModule(t, svc, "testowner", "module", []cas.File{
+	commit := createTestModule(t, svc, "testowner", "module", []registry.File{
 		{Path: "mod.proto", Content: "syntax = \"proto3\";\npackage mod;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/module"},
 	}, []string{"main"})
@@ -1133,31 +1133,31 @@ func TestGetGraph_TransitiveDependencyVersionConflict(t *testing.T) {
 	defer cleanup()
 
 	// Create base@v1
-	baseV1 := createTestModule(t, svc, "testowner", "base", []cas.File{
+	baseV1 := createTestModule(t, svc, "testowner", "base", []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\n// v1"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}, []string{"v1"})
 
 	// Create base@v2 (newer)
-	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []cas.File{
+	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []registry.File{
 		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\n// v2"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
 	}, []string{"v2", "main"}, nil)
 
 	// Create lib-a -> base@v1
-	libA := createTestModuleWithDeps(t, svc, "testowner", "liba", []cas.File{
+	libA := createTestModuleWithDeps(t, svc, "testowner", "liba", []registry.File{
 		{Path: "liba.proto", Content: "syntax = \"proto3\";\npackage liba;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/liba"},
 	}, []string{"main"}, []string{baseV1.ID})
 
 	// Create lib-b -> base@v2
-	libB := createTestModuleWithDeps(t, svc, "testowner", "libb", []cas.File{
+	libB := createTestModuleWithDeps(t, svc, "testowner", "libb", []registry.File{
 		{Path: "libb.proto", Content: "syntax = \"proto3\";\npackage libb;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/libb"},
 	}, []string{"main"}, []string{baseV2.ID})
 
 	// Create mid -> [lib-a] (transitive dep on base@v1)
-	mid := createTestModuleWithDeps(t, svc, "testowner", "mid", []cas.File{
+	mid := createTestModuleWithDeps(t, svc, "testowner", "mid", []registry.File{
 		{Path: "mid.proto", Content: "syntax = \"proto3\";\npackage mid;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/mid"},
 	}, []string{"main"}, []string{libA.ID})
@@ -1166,7 +1166,7 @@ func TestGetGraph_TransitiveDependencyVersionConflict(t *testing.T) {
 	// mid transitively depends on base@v1
 	// lib-b directly depends on base@v2
 	// base@v2 should win
-	top := createTestModuleWithDeps(t, svc, "testowner", "top", []cas.File{
+	top := createTestModuleWithDeps(t, svc, "testowner", "top", []registry.File{
 		{Path: "top.proto", Content: "syntax = \"proto3\";\npackage top;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/top"},
 	}, []string{"main"}, []string{mid.ID, libB.ID})

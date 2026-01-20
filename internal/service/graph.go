@@ -9,7 +9,7 @@ import (
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 	"github.com/greatliontech/pbr/internal/util"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -127,7 +127,7 @@ func (svc *Service) getModuleAndCommitByName(ctx context.Context, name *v1beta1.
 	}
 
 	// Determine the ref (label name or commit ref)
-	var cmt *cas.Commit
+	var cmt *registry.Commit
 	switch child := name.Child.(type) {
 	case *v1beta1.ResourceRef_Name_LabelName:
 		cmt, err = mod.Commit(ctx, child.LabelName)

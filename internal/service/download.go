@@ -8,7 +8,7 @@ import (
 
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 )
 
 func (svc *Service) Download(ctx context.Context, req *connect.Request[v1beta1.DownloadRequest]) (*connect.Response[v1beta1.DownloadResponse], error) {
@@ -64,7 +64,7 @@ func (svc *Service) downloadByCommitID(ctx context.Context, commitId string) (*v
 	return buildDownloadContent(commitObj, files), nil
 }
 
-func buildDownloadContent(commit *v1beta1.Commit, files []cas.File) *v1beta1.DownloadResponse_Content {
+func buildDownloadContent(commit *v1beta1.Commit, files []registry.File) *v1beta1.DownloadResponse_Content {
 	contents := &v1beta1.DownloadResponse_Content{
 		Commit: commit,
 	}

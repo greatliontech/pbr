@@ -7,7 +7,7 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/config"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 )
 
 func TestGetCommits_NoCASConfigured(t *testing.T) {
@@ -58,7 +58,7 @@ func TestGetCommits_ByID(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with a commit
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	commit := createTestModule(t, svc, "testowner", "testmodule", files, []string{"main"})
@@ -93,7 +93,7 @@ func TestGetCommits_ByName(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with a commit
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "testowner", "testmodule", files, []string{"main"})
@@ -130,7 +130,7 @@ func TestGetCommits_ByNameWithRef(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with a commit and multiple labels
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "testowner", "testmodule", files, []string{"main", "v1.0.0"})
@@ -231,12 +231,12 @@ func TestGetCommits_MultipleCommits(t *testing.T) {
 	defer cleanup()
 
 	// Create two modules
-	files1 := []cas.File{
+	files1 := []registry.File{
 		{Path: "mod1.proto", Content: "syntax = \"proto3\";\npackage mod1;"},
 	}
 	commit1 := createTestModule(t, svc, "testowner", "module1", files1, []string{"main"})
 
-	files2 := []cas.File{
+	files2 := []registry.File{
 		{Path: "mod2.proto", Content: "syntax = \"proto3\";\npackage mod2;"},
 	}
 	commit2 := createTestModule(t, svc, "testowner", "module2", files2, []string{"main"})
@@ -352,7 +352,7 @@ func TestListCommits_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with commits
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "testowner", "testmodule", files, []string{"main"})
@@ -392,7 +392,7 @@ func TestListCommits_WithPagination(t *testing.T) {
 
 	// Create multiple commits
 	for i := 0; i < 5; i++ {
-		files := []cas.File{
+		files := []registry.File{
 			{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test" + string(rune('a'+i)) + ";"},
 		}
 		_, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil)
@@ -432,7 +432,7 @@ func TestListCommits_DefaultPageSize(t *testing.T) {
 	defer cleanup()
 
 	// Create a module
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 	}
 	createTestModule(t, svc, "testowner", "testmodule", files, []string{"main"})

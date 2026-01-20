@@ -10,7 +10,7 @@ import (
 
 	v1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1"
 	"connectrpc.com/connect"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -18,7 +18,7 @@ import (
 var protoImportRegex = regexp.MustCompile(`import\s+"([^"]+)"`)
 
 // extractProtoImports extracts import paths from proto files.
-func extractProtoImports(files []cas.File) []string {
+func extractProtoImports(files []registry.File) []string {
 	imports := make([]string, 0)
 	seen := make(map[string]bool)
 
@@ -98,9 +98,9 @@ func (u *UploadService) uploadContent(ctx context.Context, content *v1.UploadReq
 	}
 
 	// Convert files
-	files := make([]cas.File, 0, len(content.Files))
+	files := make([]registry.File, 0, len(content.Files))
 	for _, f := range content.Files {
-		files = append(files, cas.File{
+		files = append(files, registry.File{
 			Path:    f.Path,
 			Content: string(f.Content),
 		})
@@ -133,7 +133,7 @@ func (u *UploadService) uploadContent(ctx context.Context, content *v1.UploadReq
 }
 
 // detectDependenciesFromImports parses proto imports and tries to resolve them to known modules.
-func (u *UploadService) detectDependenciesFromImports(ctx context.Context, files []cas.File) []string {
+func (u *UploadService) detectDependenciesFromImports(ctx context.Context, files []registry.File) []string {
 	imports := extractProtoImports(files)
 	if len(imports) == 0 {
 		return nil
@@ -239,7 +239,7 @@ func (u *UploadService) extractLabels(refs []*v1.ScopedLabelRef) []string {
 	return labels
 }
 
-func (u *UploadService) commitToProto(commit *cas.Commit) (*v1.Commit, error) {
+func (u *UploadService) commitToProto(commit *registry.Commit) (*v1.Commit, error) {
 	digest, err := hex.DecodeString(commit.ManifestDigest.Hex())
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode digest: %w", err)

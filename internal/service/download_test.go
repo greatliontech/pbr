@@ -7,7 +7,7 @@ import (
 	v1beta1 "buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1"
 	"connectrpc.com/connect"
 	"github.com/greatliontech/pbr/internal/config"
-	"github.com/greatliontech/pbr/internal/registry/cas"
+	"github.com/greatliontech/pbr/internal/registry"
 )
 
 func TestDownload_NoCASConfigured(t *testing.T) {
@@ -88,7 +88,7 @@ func TestDownload_SingleModule(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with files
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmodule"},
 	}
@@ -142,7 +142,7 @@ func TestDownload_WithBufLock(t *testing.T) {
 	defer cleanup()
 
 	// Create a module with buf.lock
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmodule"},
 		{Path: "buf.lock", Content: "version: v1\ndeps: []"},
@@ -183,12 +183,12 @@ func TestDownload_MultipleModules(t *testing.T) {
 	defer cleanup()
 
 	// Create two modules
-	files1 := []cas.File{
+	files1 := []registry.File{
 		{Path: "mod1.proto", Content: "syntax = \"proto3\";\npackage mod1;"},
 	}
 	commit1 := createTestModule(t, svc, "testowner", "module1", files1, []string{"main"})
 
-	files2 := []cas.File{
+	files2 := []registry.File{
 		{Path: "mod2.proto", Content: "syntax = \"proto3\";\npackage mod2;"},
 	}
 	commit2 := createTestModule(t, svc, "testowner", "module2", files2, []string{"main"})
@@ -264,7 +264,7 @@ func TestBuildDownloadContent(t *testing.T) {
 		OwnerId:  "testowner",
 	}
 
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";"},
 		{Path: "buf.yaml", Content: "version: v1"},
 		{Path: "buf.lock", Content: "version: v1\ndeps: []"},
@@ -307,7 +307,7 @@ func TestBuildDownloadContent_NoBufYamlOrLock(t *testing.T) {
 		OwnerId:  "testowner",
 	}
 
-	files := []cas.File{
+	files := []registry.File{
 		{Path: "test.proto", Content: "syntax = \"proto3\";"},
 		{Path: "other.proto", Content: "syntax = \"proto3\";"},
 	}
