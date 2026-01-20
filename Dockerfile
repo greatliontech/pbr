@@ -11,6 +11,9 @@ RUN addgroup -S -g $USER_GID $USERNAME \
 
 COPY pbr /app/pbr
 
+# Create data directory with proper permissions
+RUN mkdir -p /data && chown -R $USERNAME:$USERNAME /data
+
 WORKDIR /app
 
 ENTRYPOINT ["/app/pbr"]

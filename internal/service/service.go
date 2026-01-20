@@ -5,12 +5,15 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
+	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect"
 	"connectrpc.com/connect"
@@ -37,7 +40,10 @@ func contextWithUser(ctx context.Context, user string) context.Context {
 }
 
 func userFromContext(ctx context.Context) string {
-	return ctx.Value(userContextKey).(string)
+	if user, ok := ctx.Value(userContextKey).(string); ok {
+		return user
+	}
+	return ""
 }
 
 type Service struct {
@@ -114,6 +120,17 @@ func New(c *config.Config) (*Service, error) {
 		svc.tokens[v] = k
 	}
 
+	// Load TLS certificate if configured (from files or PEM strings)
+	if c.TLS != nil {
+		cert, err := loadTLSCert(c.TLS)
+		if err != nil {
+			return nil, err
+		}
+		if cert != nil {
+			svc.cert = cert
+		}
+	}
+
 	// Initialize CAS storage
 	storagePath := c.CacheDir + "/cas"
 	blobStore := filesystem.NewBlobStore(storagePath + "/blobs")
@@ -144,6 +161,13 @@ func New(c *config.Config) (*Service, error) {
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewUploadServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewModuleServiceHandler(svc, interceptors))
+	mux.Handle(modulev1connect.NewModuleServiceHandler(NewModuleServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewUploadServiceHandler(NewUploadServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewDownloadServiceHandler(NewDownloadServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewCommitServiceHandler(NewCommitServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewGraphServiceHandler(NewGraphServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewResourceServiceHandler(NewResourceServiceV1(svc), interceptors))
+	mux.Handle(modulev1connect.NewLabelServiceHandler(NewLabelServiceV1(svc), interceptors))
 	mux.Handle(ownerv1connect.NewOwnerServiceHandler(svc, interceptors))
 
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -153,9 +177,16 @@ func New(c *config.Config) (*Service, error) {
 		fmt.Fprint(w, "live")
 	}))
 
+	var handler http.Handler = mux
+	// Debug middleware - enable with PBR_DEBUG_HTTP=1
+	if os.Getenv("PBR_DEBUG_HTTP") == "1" {
+		handler = debugMiddleware(mux)
+		slog.Info("Debug HTTP logging enabled")
+	}
+
 	svc.server = &http.Server{
 		Addr:    svc.conf.Address,
-		Handler: mux,
+		Handler: handler,
 	}
 
 	if svc.cert != nil {
@@ -184,6 +215,30 @@ func (svc *Service) Serve(ctx context.Context) error {
 
 func (svc *Service) Shutdown(ctx context.Context) error {
 	return svc.server.Shutdown(ctx)
+}
+
+func loadTLSCert(tlsConf *config.TLS) (*tls.Certificate, error) {
+	switch {
+	case tlsConf.CertFile != "" && tlsConf.KeyFile != "":
+		// Load from files
+		cert, err := tls.LoadX509KeyPair(tlsConf.CertFile, tlsConf.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load TLS certificate from files: %w", err)
+		}
+		slog.Info("TLS enabled", "cert", tlsConf.CertFile)
+		return &cert, nil
+	case tlsConf.CertPEM != "" && tlsConf.KeyPEM != "":
+		// Load from PEM strings (e.g., from env vars via ${TLS_CERT})
+		cert, err := tls.X509KeyPair([]byte(tlsConf.CertPEM), []byte(tlsConf.KeyPEM))
+		if err != nil {
+			return nil, fmt.Errorf("failed to load TLS certificate from PEM: %w", err)
+		}
+		slog.Info("TLS enabled from PEM")
+		return &cert, nil
+	default:
+		// Incomplete TLS config
+		return nil, nil
+	}
 }
 
 const (
@@ -218,4 +273,47 @@ func newAuthInterceptor(tokens map[string]string) connect.UnaryInterceptorFunc {
 			return next(ctx, req)
 		}
 	}
+}
+
+// debugMiddleware logs all HTTP requests for debugging.
+func debugMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Read body for logging (if small enough)
+		var bodyPreview string
+		if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 1024 {
+			body, err := io.ReadAll(r.Body)
+			if err == nil {
+				bodyPreview = string(body)
+				// Restore body for handler
+				r.Body = io.NopCloser(strings.NewReader(string(body)))
+			}
+		}
+
+		slog.Debug("HTTP request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"content-type", r.Header.Get("Content-Type"),
+			"content-length", r.ContentLength,
+			"body-preview", bodyPreview,
+		)
+
+		// Wrap response writer to capture status
+		wrapped := &statusWriter{ResponseWriter: w, status: 200}
+		next.ServeHTTP(wrapped, r)
+
+		slog.Debug("HTTP response",
+			"path", r.URL.Path,
+			"status", wrapped.status,
+		)
+	})
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
 }

@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package e2e.basic;
+package basic;
 
-option go_package = "e2e/basic";
+option go_package = "pbr.test/e2e/basic";
 
 // Simple message for basic e2e testing
 message BasicMessage {

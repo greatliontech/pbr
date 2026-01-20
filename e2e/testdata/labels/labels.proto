@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package e2e.labels;
+package labels;
 
-option go_package = "e2e/labels";
+option go_package = "pbr.test/e2e/labels";
 
 // Message for testing labels/versions
 message LabeledMessage {

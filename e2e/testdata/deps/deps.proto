@@ -1,15 +1,15 @@
 syntax = "proto3";
 
-package e2e.deps;
+package deps;
 
 import "basic.proto";
 
-option go_package = "e2e/deps";
+option go_package = "pbr.test/e2e/deps";
 
 // Message that depends on basic module
 message DependentMessage {
   string id = 1;
-  e2e.basic.BasicMessage basic = 2;
+  basic.BasicMessage basic = 2;
   repeated string tags = 3;
 }
 

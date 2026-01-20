@@ -29,8 +29,10 @@ type Module struct {
 }
 
 type TLS struct {
-	CertFile string
-	KeyFile  string
+	CertFile string // Path to certificate file
+	KeyFile  string // Path to key file
+	CertPEM  string // Raw certificate PEM (supports ${ENV_VAR} substitution)
+	KeyPEM   string // Raw key PEM (supports ${ENV_VAR} substitution)
 }
 
 type Plugin struct {
@@ -129,6 +131,21 @@ func ParseConfig(b []byte) (*Config, error) {
 			return nil, err
 		}
 		c.Credentials.ContainerRegistry[k] = v
+	}
+	// TLS PEM env substitution
+	if c.TLS != nil {
+		if c.TLS.CertPEM != "" {
+			c.TLS.CertPEM, err = envsubst.EvalEnv(c.TLS.CertPEM)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if c.TLS.KeyPEM != "" {
+			c.TLS.KeyPEM, err = envsubst.EvalEnv(c.TLS.KeyPEM)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return c, nil
 }

@@ -43,9 +43,9 @@ func (svc *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 	modules := []moduleEntry{}
 
 	for _, ref := range req.Msg.ResourceRefs {
-		switch ref := ref.ResourceRef.Value.(type) {
+		switch r := ref.ResourceRef.Value.(type) {
 		case *v1beta1.ResourceRef_Id:
-			info, commit, err := svc.getModuleAndCommitByID(ctx, ref.Id)
+			info, commit, err := svc.getModuleAndCommitByID(ctx, r.Id)
 			if err != nil {
 				slog.ErrorContext(ctx, "getModuleAndCommitByID", "err", err)
 				return nil, err
@@ -59,7 +59,19 @@ func (svc *Service) GetGraph(ctx context.Context, req *connect.Request[v1beta1.G
 				Registry: svc.conf.Host,
 			})
 		case *v1beta1.ResourceRef_Name_:
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("ResourceRef_Name_ not supported"))
+			info, commit, err := svc.getModuleAndCommitByName(ctx, r.Name)
+			if err != nil {
+				slog.ErrorContext(ctx, "getModuleAndCommitByName", "err", err)
+				return nil, err
+			}
+			modules = append(modules, moduleEntry{info: info, commit: commit})
+			key := info.Owner + "/" + info.Name
+			commitMap[key] = commit
+			slog.DebugContext(ctx, "top level dep", "id", commit.Id)
+			resp.Msg.Graph.Commits = append(resp.Msg.Graph.Commits, &v1beta1.Graph_Commit{
+				Commit:   commit,
+				Registry: svc.conf.Host,
+			})
 		}
 	}
 
@@ -97,6 +109,53 @@ func (svc *Service) getModuleAndCommitByID(ctx context.Context, commitID string)
 	}
 
 	return moduleInfo{Owner: mod.Owner(), Name: mod.Name()}, commit, nil
+}
+
+func (svc *Service) getModuleAndCommitByName(ctx context.Context, name *v1beta1.ResourceRef_Name) (moduleInfo, *v1beta1.Commit, error) {
+	if name == nil {
+		return moduleInfo{}, nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+	}
+
+	owner := name.Owner
+	modName := name.Module
+
+	mod, err := svc.casReg.Module(ctx, owner, modName)
+	if err != nil {
+		return moduleInfo{}, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("module not found: %s/%s", owner, modName))
+	}
+
+	// Determine the ref (label name or commit ref)
+	var cmt *cas.Commit
+	switch child := name.Child.(type) {
+	case *v1beta1.ResourceRef_Name_LabelName:
+		cmt, err = mod.Commit(ctx, child.LabelName)
+		if err != nil {
+			return moduleInfo{}, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("label not found: %s", child.LabelName))
+		}
+	case *v1beta1.ResourceRef_Name_Ref:
+		// Ref could be a commit ID or a label name - try commit ID first
+		cmt, err = mod.CommitByID(ctx, child.Ref)
+		if err != nil {
+			// Try as a label
+			cmt, err = mod.Commit(ctx, child.Ref)
+			if err != nil {
+				return moduleInfo{}, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("ref not found: %s", child.Ref))
+			}
+		}
+	default:
+		// No child specified - use default label (main)
+		cmt, err = mod.Commit(ctx, "main")
+		if err != nil {
+			return moduleInfo{}, nil, connect.NewError(connect.CodeNotFound, errors.New("default label 'main' not found"))
+		}
+	}
+
+	commit, err := getCommitObject(cmt.OwnerID, cmt.ModuleID, cmt.ID, cmt.ManifestDigest.Hex())
+	if err != nil {
+		return moduleInfo{}, nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return moduleInfo{Owner: owner, Name: modName}, commit, nil
 }
 
 func (svc *Service) getGraphForModule(ctx context.Context, info moduleInfo, commit *v1beta1.Commit, commits map[string]*v1beta1.Commit, graph *v1beta1.Graph) error {

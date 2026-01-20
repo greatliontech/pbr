@@ -47,6 +47,11 @@ func (m *Module) DefaultLabelName() string {
 	return m.record.DefaultLabelName
 }
 
+// CreateTime returns the module's creation time.
+func (m *Module) CreateTime() time.Time {
+	return m.record.CreateTime
+}
+
 // Commit retrieves a commit by label/ref name.
 // If ref is empty, returns the commit for the default label.
 func (m *Module) Commit(ctx context.Context, ref string) (*Commit, error) {

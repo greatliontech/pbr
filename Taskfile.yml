@@ -132,66 +132,97 @@ tasks:
 
   # E2E tests
   e2e:setup:
-    desc: Setup e2e test environment (generate certs)
+    desc: Generate e2e certificates
+    dir: e2e/certs
+    cmds:
+      - go run gen.go
+
+  e2e:setup:hosts:
+    desc: Add test domain to /etc/hosts (requires sudo)
+    cmds:
+      - grep -q "pbr-example.greatlion.tech" /etc/hosts || echo '127.0.0.1 pbr-example.greatlion.tech' | sudo tee -a /etc/hosts
+
+  e2e:setup:trust-ca:arch:
+    desc: Trust CA certificate (Arch Linux)
+    cmds:
+      - sudo trust anchor e2e/certs/ca.crt
+
+  e2e:setup:trust-ca:ubuntu:
+    desc: Trust CA certificate (Ubuntu/Debian)
+    cmds:
+      - sudo cp e2e/certs/ca.crt /usr/local/share/ca-certificates/pbr-test-ca.crt
+      - sudo update-ca-certificates
+
+  e2e:setup:trust-ca:fedora:
+    desc: Trust CA certificate (Fedora/RHEL)
+    cmds:
+      - sudo cp e2e/certs/ca.crt /etc/pki/ca-trust/source/anchors/pbr-test-ca.crt
+      - sudo update-ca-trust
+
+  e2e:setup:trust-ca:macos:
+    desc: Trust CA certificate (macOS)
+    cmds:
+      - sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain e2e/certs/ca.crt
+
+  e2e:setup:all:
+    desc: Full e2e setup (certs + hosts + trust CA for Arch)
+    cmds:
+      - task: e2e:setup
+      - task: e2e:setup:hosts
+      - task: e2e:setup:trust-ca:arch
+
+  e2e:envoy:
+    desc: Start Envoy proxy for e2e tests
     dir: e2e
     cmds:
-      - go run ./cert
+      - envoy -c envoy.yaml
 
-  e2e:run:
-    desc: Run full e2e test suite (requires server running)
+  e2e:envoy:docker:
+    desc: Start Envoy proxy using Docker
     dir: e2e
     cmds:
-      - ./run_tests.sh
+      - docker run --rm -v $(pwd):/etc/envoy --network host envoyproxy/envoy:v1.28-latest -c /etc/envoy/envoy.yaml
 
-  e2e:run:basic:
-    desc: Run basic module e2e tests only
-    dir: e2e
+  e2e:check:
+    desc: Check e2e prerequisites
     cmds:
-      - ./run_tests.sh --test basic
+      - echo "Checking prerequisites..."
+      - which buf || echo "ERROR - buf CLI not found"
+      - which envoy || echo "WARNING - envoy not found (can use Docker)"
+      - grep -q "pbr-example.greatlion.tech" /etc/hosts && echo "OK - hosts entry exists" || echo "ERROR - run 'task e2e:setup:hosts'"
+      - test -f e2e/certs/ca.crt && echo "OK - certificates exist" || echo "ERROR - run 'task e2e:setup'"
+      - curl -s --max-time 2 http://127.0.0.1:8080 > /dev/null 2>&1 && echo "OK - PBR server running" || echo "WARNING - PBR server not running"
+      - curl -s --max-time 2 https://pbr-example.greatlion.tech > /dev/null 2>&1 && echo "OK - Envoy proxy running" || echo "WARNING - Envoy not running"
 
-  e2e:run:deps:
-    desc: Run dependency e2e tests only
-    dir: e2e
+  e2e:
+    desc: Run e2e tests (requires PBR + Envoy running)
     cmds:
-      - ./run_tests.sh --test deps
+      - go test -v ./e2e/...
 
-  e2e:run:labels:
-    desc: Run labels/versions e2e tests only
-    dir: e2e
+  e2e:basic:
+    desc: Run basic module e2e tests
     cmds:
-      - ./run_tests.sh --test labels
+      - go test -v ./e2e/... -run TestBasicModule
 
-  e2e:run:info:
-    desc: Run module info e2e tests only
-    dir: e2e
+  e2e:deps:
+    desc: Run dependency e2e tests
     cmds:
-      - ./run_tests.sh --test info
+      - go test -v ./e2e/... -run TestModuleWithDependencies
 
-  e2e:legacy:push:
-    desc: Test pushing legacy test module
-    dir: e2e/test
+  e2e:labels:
+    desc: Run labels e2e tests
     cmds:
-      - buf push --create
+      - go test -v ./e2e/... -run TestLabels
 
-  e2e:legacy:pull:
-    desc: Test pulling dependencies for legacy test
-    dir: e2e/test
+  e2e:commits:
+    desc: Run commit operations e2e tests
     cmds:
-      - buf dep update
+      - go test -v ./e2e/... -run TestCommitOperations
 
-  e2e:legacy:list:
-    desc: Test listing legacy test modules
-    dir: e2e/test
+  e2e:errors:
+    desc: Run error cases e2e tests
     cmds:
-      - buf registry module list pbr-example.greatlion.tech/test
-
-  e2e:legacy:export:
-    desc: Test exporting legacy test module
-    dir: e2e/test
-    cmds:
-      - rm -rf ./export
-      - buf export . -o ./export
-      - ls -la ./export
+      - go test -v ./e2e/... -run TestErrorCases
 
   # Module management tasks
   mod:
