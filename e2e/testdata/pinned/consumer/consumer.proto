@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package pinned.consumer;
+
+import "base.proto";
+
+// ConsumerMessage uses BaseMessage from the pinned dependency
+message ConsumerMessage {
+  string name = 1;
+  pinned.base.BaseMessage base = 2;
+}

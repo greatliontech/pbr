@@ -1133,6 +1133,285 @@ func TestGetGraph_SameModuleRequestedTwice(t *testing.T) {
 	}
 }
 
+// TestGetGraph_PinnedByCommitID tests that dependencies pinned by commit ID are resolved correctly
+func TestGetGraph_PinnedByCommitID(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base module with multiple versions
+	baseV1 := createTestModule(t, svc, "testowner", "base", []registry.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V1 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v1"})
+
+	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []registry.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V2 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v2", "main"}, nil)
+
+	// Create consumer that pins to v1 by commit ID (even though v2 exists and is newer)
+	consumer := createTestModuleWithDeps(t, svc, "testowner", "consumer", []registry.File{
+		{Path: "consumer.proto", Content: "syntax = \"proto3\";\npackage consumer;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/consumer"},
+	}, []string{"main"}, []string{baseV1.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+
+	// Request graph by consumer's commit ID - should return the pinned v1
+	req := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: consumer.ID}}},
+		},
+	})
+
+	resp, err := svc.GetGraph(ctx, req)
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	// Should have 2 commits: consumer and base@v1
+	if len(resp.Msg.Graph.Commits) != 2 {
+		t.Errorf("expected 2 commits, got %d", len(resp.Msg.Graph.Commits))
+	}
+
+	// Verify base@v1 is in commits (not v2)
+	commitIDs := make(map[string]bool)
+	for _, c := range resp.Msg.Graph.Commits {
+		commitIDs[c.Commit.Id] = true
+	}
+
+	if !commitIDs[baseV1.ID] {
+		t.Error("expected base@v1 (pinned) to be in commits")
+	}
+	if commitIDs[baseV2.ID] {
+		t.Error("base@v2 should not be in commits (consumer pinned to v1)")
+	}
+}
+
+// TestGetGraph_PinnedByLabel tests that dependencies resolved by label work correctly
+func TestGetGraph_PinnedByLabel(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create base module with v1 label
+	baseV1 := createTestModule(t, svc, "testowner", "base", []registry.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V1 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v1.0.0"})
+
+	// Create base module with v2 label (and update main)
+	baseV2 := createTestModuleWithDeps(t, svc, "testowner", "base", []registry.File{
+		{Path: "base.proto", Content: "syntax = \"proto3\";\npackage base;\nmessage V2 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/base"},
+	}, []string{"v2.0.0", "main"}, nil)
+
+	ctx := contextWithUser(context.Background(), "testuser")
+
+	// Request by label v1.0.0
+	reqV1 := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{
+				ResourceRef: &v1beta1.ResourceRef{
+					Value: &v1beta1.ResourceRef_Name_{
+						Name: &v1beta1.ResourceRef_Name{
+							Owner:  "testowner",
+							Module: "base",
+							Child:  &v1beta1.ResourceRef_Name_LabelName{LabelName: "v1.0.0"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	respV1, err := svc.GetGraph(ctx, reqV1)
+	if err != nil {
+		t.Fatalf("GetGraph for v1.0.0 failed: %v", err)
+	}
+
+	if len(respV1.Msg.Graph.Commits) != 1 {
+		t.Errorf("expected 1 commit for v1.0.0, got %d", len(respV1.Msg.Graph.Commits))
+	}
+	if respV1.Msg.Graph.Commits[0].Commit.Id != baseV1.ID {
+		t.Errorf("expected commit ID %s for v1.0.0, got %s", baseV1.ID, respV1.Msg.Graph.Commits[0].Commit.Id)
+	}
+
+	// Request by label v2.0.0
+	reqV2 := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{
+				ResourceRef: &v1beta1.ResourceRef{
+					Value: &v1beta1.ResourceRef_Name_{
+						Name: &v1beta1.ResourceRef_Name{
+							Owner:  "testowner",
+							Module: "base",
+							Child:  &v1beta1.ResourceRef_Name_LabelName{LabelName: "v2.0.0"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	respV2, err := svc.GetGraph(ctx, reqV2)
+	if err != nil {
+		t.Fatalf("GetGraph for v2.0.0 failed: %v", err)
+	}
+
+	if len(respV2.Msg.Graph.Commits) != 1 {
+		t.Errorf("expected 1 commit for v2.0.0, got %d", len(respV2.Msg.Graph.Commits))
+	}
+	if respV2.Msg.Graph.Commits[0].Commit.Id != baseV2.ID {
+		t.Errorf("expected commit ID %s for v2.0.0, got %s", baseV2.ID, respV2.Msg.Graph.Commits[0].Commit.Id)
+	}
+}
+
+// TestGetGraph_RefResolution tests that Ref field can resolve both commit IDs and labels
+func TestGetGraph_RefResolution(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create a module with a label
+	commit := createTestModule(t, svc, "testowner", "testmod", []registry.File{
+		{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmod"},
+	}, []string{"main", "v1.0.0"})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+
+	// Test resolving by commit ID via Ref field
+	reqByCommitID := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{
+				ResourceRef: &v1beta1.ResourceRef{
+					Value: &v1beta1.ResourceRef_Name_{
+						Name: &v1beta1.ResourceRef_Name{
+							Owner:  "testowner",
+							Module: "testmod",
+							Child:  &v1beta1.ResourceRef_Name_Ref{Ref: commit.ID},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	respByCommitID, err := svc.GetGraph(ctx, reqByCommitID)
+	if err != nil {
+		t.Fatalf("GetGraph by commit ID ref failed: %v", err)
+	}
+
+	if respByCommitID.Msg.Graph.Commits[0].Commit.Id != commit.ID {
+		t.Errorf("ref by commit ID: expected %s, got %s", commit.ID, respByCommitID.Msg.Graph.Commits[0].Commit.Id)
+	}
+
+	// Test resolving by label via Ref field
+	reqByLabel := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{
+				ResourceRef: &v1beta1.ResourceRef{
+					Value: &v1beta1.ResourceRef_Name_{
+						Name: &v1beta1.ResourceRef_Name{
+							Owner:  "testowner",
+							Module: "testmod",
+							Child:  &v1beta1.ResourceRef_Name_Ref{Ref: "v1.0.0"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	respByLabel, err := svc.GetGraph(ctx, reqByLabel)
+	if err != nil {
+		t.Fatalf("GetGraph by label ref failed: %v", err)
+	}
+
+	if respByLabel.Msg.Graph.Commits[0].Commit.Id != commit.ID {
+		t.Errorf("ref by label: expected %s, got %s", commit.ID, respByLabel.Msg.Graph.Commits[0].Commit.Id)
+	}
+}
+
+// TestGetGraph_PinnedDepsPreservedInLockFile tests that when a module has pinned dependencies,
+// the graph correctly represents the pinned versions even when newer versions exist
+func TestGetGraph_PinnedDepsPreservedInLockFile(t *testing.T) {
+	svc, cleanup := setupTestService(t)
+	defer cleanup()
+
+	// Create shared dependency with multiple versions
+	sharedV1 := createTestModule(t, svc, "testowner", "shared", []registry.File{
+		{Path: "shared.proto", Content: "syntax = \"proto3\";\npackage shared;\nmessage SharedV1 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/shared"},
+	}, []string{"v1.0.0"})
+
+	sharedV2 := createTestModuleWithDeps(t, svc, "testowner", "shared", []registry.File{
+		{Path: "shared.proto", Content: "syntax = \"proto3\";\npackage shared;\nmessage SharedV2 {}"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/shared"},
+	}, []string{"v2.0.0", "main"}, nil)
+
+	// Create lib-a that explicitly pins to shared@v1.0.0
+	libA := createTestModuleWithDeps(t, svc, "testowner", "liba", []registry.File{
+		{Path: "liba.proto", Content: "syntax = \"proto3\";\npackage liba;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/liba"},
+	}, []string{"main"}, []string{sharedV1.ID})
+
+	// Create lib-b that uses shared@v2.0.0 (latest)
+	libB := createTestModuleWithDeps(t, svc, "testowner", "libb", []registry.File{
+		{Path: "libb.proto", Content: "syntax = \"proto3\";\npackage libb;"},
+		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/libb"},
+	}, []string{"main"}, []string{sharedV2.ID})
+
+	ctx := contextWithUser(context.Background(), "testuser")
+
+	// Get graph for lib-a - should have shared@v1
+	reqLibA := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: libA.ID}}},
+		},
+	})
+
+	respLibA, err := svc.GetGraph(ctx, reqLibA)
+	if err != nil {
+		t.Fatalf("GetGraph for lib-a failed: %v", err)
+	}
+
+	// Verify lib-a's graph has shared@v1
+	libACommitIDs := make(map[string]bool)
+	for _, c := range respLibA.Msg.Graph.Commits {
+		libACommitIDs[c.Commit.Id] = true
+	}
+	if !libACommitIDs[sharedV1.ID] {
+		t.Error("lib-a graph should contain shared@v1.0.0")
+	}
+	if libACommitIDs[sharedV2.ID] {
+		t.Error("lib-a graph should not contain shared@v2.0.0")
+	}
+
+	// Get graph for lib-b - should have shared@v2
+	reqLibB := connect.NewRequest(&v1beta1.GetGraphRequest{
+		ResourceRefs: []*v1beta1.GetGraphRequest_ResourceRef{
+			{ResourceRef: &v1beta1.ResourceRef{Value: &v1beta1.ResourceRef_Id{Id: libB.ID}}},
+		},
+	})
+
+	respLibB, err := svc.GetGraph(ctx, reqLibB)
+	if err != nil {
+		t.Fatalf("GetGraph for lib-b failed: %v", err)
+	}
+
+	// Verify lib-b's graph has shared@v2
+	libBCommitIDs := make(map[string]bool)
+	for _, c := range respLibB.Msg.Graph.Commits {
+		libBCommitIDs[c.Commit.Id] = true
+	}
+	if libBCommitIDs[sharedV1.ID] {
+		t.Error("lib-b graph should not contain shared@v1.0.0")
+	}
+	if !libBCommitIDs[sharedV2.ID] {
+		t.Error("lib-b graph should contain shared@v2.0.0")
+	}
+}
+
 // TestGetGraph_TransitiveDependencyVersionConflict tests version resolution when
 // the conflict is not at the direct dependency level but deeper in the tree
 func TestGetGraph_TransitiveDependencyVersionConflict(t *testing.T) {

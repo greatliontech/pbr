@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package pinned.base;
+
+// BaseMessage is a simple message for testing pinned dependencies
+message BaseMessage {
+  string id = 1;
+}

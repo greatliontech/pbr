@@ -1,0 +1,8 @@
+version: v1
+name: pbr.test/e2e/pinned-consumer
+deps:
+  - pbr.test/e2e/pinned-base
+lint:
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+    - PACKAGE_VERSION_SUFFIX
