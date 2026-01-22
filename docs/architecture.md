@@ -62,6 +62,7 @@ Implements the Buf Registry API using Connect RPC:
 | `GraphService` | v1, v1beta1 | Dependency graph resolution |
 | `CommitService` | v1, v1beta1 | Commit operations |
 | `OwnerService` | v1 | Owner (organization) operations |
+| `AuthnService` | v1alpha1 | Authentication (user info) |
 | `CodeGenerationService` | v1alpha1 | Remote code generation |
 
 ### Registry Layer
@@ -118,6 +119,57 @@ The GraphService builds a complete dependency graph:
 4. Handle version conflicts (newer wins)
 5. Return graph with all commits and edges
 
+## Authentication
+
+PBR supports multiple authentication methods for `buf login`:
+
+### OAuth2 Device Flow
+
+```
+buf login pbr.example.com
+        │
+        ▼
+POST /oauth2/device/registration
+        │ (get client_id)
+        ▼
+POST /oauth2/device/authorization
+        │ (get device_code, user_code, verification_uri)
+        │
+        ├─ User opens verification_uri in browser
+        │   │
+        │   ├─ (Simple auth) Show login form
+        │   │   └─ User enters username/password
+        │   │
+        │   └─ (OIDC) Redirect to identity provider
+        │       └─ User authenticates with IdP
+        │       └─ IdP redirects to /oauth2/oidc/callback
+        │
+        └─ buf CLI polls POST /oauth2/device/token
+            │ (until authorized or expired)
+            ▼
+        Return access_token
+```
+
+### Token Validation
+
+All API requests (except OAuth2 endpoints) require authentication:
+
+1. Client sends `Authorization: Bearer <token>` header
+2. Auth interceptor validates token against stored tokens
+3. On success, user context is set for the request
+4. Services can access the authenticated user via context
+
+### OIDC Integration
+
+When OIDC is configured:
+
+1. Device approval redirects to OIDC provider
+2. User authenticates with external IdP
+3. IdP redirects back with authorization code
+4. PBR exchanges code for tokens
+5. PBR generates a new API token for the user
+6. Token is stored and returned to buf CLI
+
 ## Code Generation
 
 Remote code generation flow:
@@ -150,10 +202,14 @@ internal/
 │   ├── plugin.go     # Plugin execution
 │   └── runner.go     # Container runtime
 ├── config/           # Configuration parsing
+│   └── config.go     # Config struct and parsing
 ├── registry/         # Module/commit/owner logic
 │   └── module.go     # Module operations
 ├── service/          # Connect RPC handlers
-│   ├── service.go    # Service setup
+│   ├── service.go    # Service setup and auth interceptor
+│   ├── authn.go      # AuthnService (user info)
+│   ├── oauth2.go     # OAuth2 device flow endpoints
+│   ├── oidc.go       # OIDC provider integration
 │   ├── upload.go     # UploadService
 │   ├── download.go   # DownloadService (v1beta1)
 │   ├── download_v1.go # DownloadService (v1)

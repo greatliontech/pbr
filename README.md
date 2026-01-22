@@ -4,7 +4,7 @@ A self-hosted Buf Schema Registry (BSR) compatible server. PBR allows you to hos
 
 ## Features
 
-- Full compatibility with `buf push`, `buf dep update`, and `buf generate`
+- Full compatibility with `buf push`, `buf dep update`, `buf generate`, and `buf login`
 - Support for both buf.yaml v1 and v2 formats
 - B4 and B5 digest support
 - Multi-module workspace support (buf.yaml v2)
@@ -12,6 +12,8 @@ A self-hosted Buf Schema Registry (BSR) compatible server. PBR allows you to hos
 - Git repository mirroring for protobuf modules
 - CAS (Content Addressable Storage) with pluggable backends
 - TLS support (native or via proxy)
+- OAuth2 device flow for `buf login` (interactive browser-based login)
+- OIDC integration (Keycloak, Auth0, Okta, etc.)
 
 ## Quick Start
 
@@ -117,8 +119,12 @@ tls:
 
 ### Authentication
 
+PBR supports multiple authentication methods:
+
+#### Simple Username/Password
+
 ```yaml
-# Basic auth users
+# Basic auth users (password is also the token)
 users:
   username1: "password1"
   username2: "${PASSWORD_FROM_ENV}"
@@ -129,6 +135,48 @@ admintoken: "${ADMIN_TOKEN}"
 # Disable login requirement (not recommended for production)
 nologin: false
 ```
+
+When using simple authentication, the password is used as the API token. Login with:
+
+```bash
+# Interactive login (opens browser)
+buf registry login pbr.example.com
+
+# Or with token directly
+buf registry login pbr.example.com --token-stdin <<< "password1"
+```
+
+#### OIDC Integration
+
+PBR can integrate with external identity providers via OpenID Connect:
+
+```yaml
+oidc:
+  issuer: "https://keycloak.example.com/realms/myrealm"
+  client_id: "pbr-registry"
+  client_secret: "${OIDC_CLIENT_SECRET}"
+  # Optional: custom scopes (default: openid, email, profile)
+  scopes:
+    - openid
+    - email
+    - profile
+  # Optional: claim to use as username (default: preferred_username)
+  username_claim: preferred_username
+```
+
+With OIDC configured, `buf login` will redirect users to your identity provider for authentication.
+
+#### OAuth2 Device Flow
+
+PBR implements the OAuth2 Device Authorization Grant (RFC 8628) for `buf login`:
+
+1. User runs `buf registry login pbr.example.com`
+2. buf CLI requests a device code from PBR
+3. User opens the verification URL in a browser
+4. User authenticates (via OIDC or username/password form)
+5. buf CLI receives the access token
+
+This flow works well for CLI tools and headless environments.
 
 ### Git Mirroring
 
@@ -198,7 +246,18 @@ PBR implements the following Buf Registry APIs:
 | Service | Status |
 |---------|--------|
 | `OwnerService` (v1) | Implemented |
+| `AuthnService` (v1alpha1) | Implemented |
 | `CodeGenerationService` (v1alpha1) | Implemented |
+
+### OAuth2 Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /oauth2/device/registration` | Register a new device client |
+| `POST /oauth2/device/authorization` | Request device authorization |
+| `POST /oauth2/device/token` | Poll for access token |
+| `GET /oauth2/device/approve` | User approval page |
+| `GET /oauth2/oidc/callback` | OIDC callback handler |
 
 ## buf.yaml v1 vs v2
 

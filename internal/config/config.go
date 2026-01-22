@@ -2,6 +2,9 @@ package config
 
 import (
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/drone/envsubst"
 	"gopkg.in/yaml.v3"
@@ -14,12 +17,31 @@ type Config struct {
 	Users       map[string]string
 	TLS         *TLS
 	Storage     *Storage
+	OIDC        *OIDC
 	Host        string
 	Address     string
 	LogLevel    string
 	CacheDir    string
 	AdminToken  string
 	NoLogin     bool
+	// TokenTTL is the duration for which OIDC tokens are valid (e.g., "7d", "24h", "168h").
+	// Tokens are refreshed on each use (sliding expiration). Default: "7d" (7 days).
+	TokenTTL string `yaml:"token_ttl"`
+}
+
+// OIDC configures OpenID Connect authentication.
+// When configured, users can authenticate via an external identity provider.
+type OIDC struct {
+	// Issuer is the OIDC issuer URL (e.g., "https://keycloak.example.com/realms/myrealm")
+	Issuer string `yaml:"issuer"`
+	// ClientID is the OIDC client ID registered with the provider
+	ClientID string `yaml:"client_id"`
+	// ClientSecret is the OIDC client secret (supports ${ENV_VAR} substitution)
+	ClientSecret string `yaml:"client_secret"`
+	// Scopes are the OIDC scopes to request (default: ["openid", "email", "profile"])
+	Scopes []string `yaml:"scopes"`
+	// UsernameClaim is the claim to use as the username (default: "preferred_username")
+	UsernameClaim string `yaml:"username_claim"`
 }
 
 // Storage configures the backend storage using gocloud.dev URLs.
@@ -173,6 +195,15 @@ func ParseConfig(b []byte) (*Config, error) {
 			}
 		}
 	}
+	// OIDC env substitution
+	if c.OIDC != nil {
+		if c.OIDC.ClientSecret != "" {
+			c.OIDC.ClientSecret, err = envsubst.EvalEnv(c.OIDC.ClientSecret)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return c, nil
 }
 
@@ -182,4 +213,52 @@ func FromFile(f string) (*Config, error) {
 		return nil, err
 	}
 	return ParseConfig(b)
+}
+
+// DefaultTokenTTL is the default token time-to-live (7 days).
+const DefaultTokenTTL = 7 * 24 * time.Hour
+
+// GetTokenTTL returns the configured token TTL duration.
+// If not configured or invalid, returns DefaultTokenTTL.
+func (c *Config) GetTokenTTL() time.Duration {
+	if c.TokenTTL == "" {
+		return DefaultTokenTTL
+	}
+	d, err := ParseDuration(c.TokenTTL)
+	if err != nil {
+		return DefaultTokenTTL
+	}
+	return d
+}
+
+// ParseDuration parses a duration string with support for days (e.g., "7d", "24h", "1d12h").
+// Supports: "ns", "us", "ms", "s", "m", "h", "d" (days).
+func ParseDuration(s string) (time.Duration, error) {
+	// Handle days specially since time.ParseDuration doesn't support them
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+
+	// Check if there's a 'd' for days
+	if idx := strings.Index(s, "d"); idx != -1 {
+		// Extract the number before 'd'
+		daysPart := s[:idx]
+		days, err := strconv.Atoi(daysPart)
+		if err != nil {
+			return 0, err
+		}
+		remainder := s[idx+1:]
+		var remainderDuration time.Duration
+		if remainder != "" {
+			remainderDuration, err = time.ParseDuration(remainder)
+			if err != nil {
+				return 0, err
+			}
+		}
+		return time.Duration(days)*24*time.Hour + remainderDuration, nil
+	}
+
+	// No days, use standard parsing
+	return time.ParseDuration(s)
 }

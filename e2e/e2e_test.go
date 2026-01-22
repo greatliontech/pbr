@@ -1008,3 +1008,306 @@ func generateEnvoyConfig(host string) string {
                       port_value: 8080
 `, host)
 }
+
+// testEnvAuth is like testEnv but with authentication enabled
+type testEnvAuth struct {
+	*testEnv
+	username string
+	password string
+}
+
+// setupTestEnvWithAuth creates a test environment with authentication enabled
+func setupTestEnvWithAuth(t *testing.T, mode tlsMode, registryHost, username, password string) *testEnvAuth {
+	t.Helper()
+	ctx := context.Background()
+
+	// Create temp dir for certs
+	certsDir, err := os.MkdirTemp("", "pbr-e2e-auth-certs-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+
+	// Generate certificates
+	if err := generateCerts(certsDir, registryHost); err != nil {
+		os.RemoveAll(certsDir)
+		t.Fatalf("failed to generate certs: %v", err)
+	}
+
+	// Get testdata directory
+	wd, _ := os.Getwd()
+	testdataDir := filepath.Join(wd, "testdata")
+
+	// Create Docker network
+	net, err := network.New(ctx)
+	if err != nil {
+		os.RemoveAll(certsDir)
+		t.Fatalf("failed to create network: %v", err)
+	}
+
+	env := &testEnvAuth{
+		testEnv: &testEnv{
+			network:      net,
+			certsDir:     certsDir,
+			testdataDir:  testdataDir,
+			registryHost: registryHost,
+			mode:         mode,
+		},
+		username: username,
+		password: password,
+	}
+
+	// Create PBR config with authentication
+	var pbrConfig string
+	switch mode {
+	case tlsModeEnvoy:
+		pbrConfig = fmt.Sprintf(`host: %s
+address: ":8080"
+loglevel: debug
+cachedir: /data
+users:
+  %s: "%s"
+`, registryHost, username, password)
+	case tlsModeNative:
+		pbrConfig = fmt.Sprintf(`host: %s
+address: ":443"
+loglevel: debug
+cachedir: /data
+users:
+  %s: "%s"
+tls:
+  certfile: /certs/server.crt
+  keyfile: /certs/server.key
+`, registryHost, username, password)
+	}
+
+	pbrConfigPath := filepath.Join(certsDir, "config.yaml")
+	if err := os.WriteFile(pbrConfigPath, []byte(pbrConfig), 0644); err != nil {
+		env.cleanup(ctx)
+		t.Fatalf("failed to write pbr config: %v", err)
+	}
+
+	// Start PBR container
+	switch mode {
+	case tlsModeEnvoy:
+		env.setupEnvoyModeAuth(t, ctx, registryHost, certsDir, pbrConfigPath)
+	case tlsModeNative:
+		env.setupNativeTLSModeAuth(t, ctx, registryHost, certsDir, pbrConfigPath)
+	}
+
+	return env
+}
+
+func (e *testEnvAuth) setupEnvoyModeAuth(t *testing.T, ctx context.Context, registryHost, certsDir, pbrConfigPath string) {
+	t.Helper()
+
+	// Create envoy config
+	envoyConfig := generateEnvoyConfig(registryHost)
+	envoyConfigPath := filepath.Join(certsDir, "envoy.yaml")
+	if err := os.WriteFile(envoyConfigPath, []byte(envoyConfig), 0644); err != nil {
+		e.cleanup(ctx)
+		t.Fatalf("failed to write envoy config: %v", err)
+	}
+
+	// Build PBR image from current source
+	pbrContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    "..",
+				Dockerfile: "Dockerfile",
+			},
+			Networks:       []string{e.network.Name},
+			NetworkAliases: map[string][]string{e.network.Name: {"pbr"}},
+			ExposedPorts:   []string{"8080/tcp"},
+			Files: []testcontainers.ContainerFile{
+				{HostFilePath: pbrConfigPath, ContainerFilePath: "/config/config.yaml", FileMode: 0644},
+			},
+			Env: map[string]string{
+				"PBR_DEBUG_HTTP": "1",
+			},
+			WaitingFor: wait.ForHTTP("/readyz").WithPort("8080/tcp").WithStartupTimeout(120 * time.Second),
+		},
+		Started: true,
+	})
+	if err != nil {
+		e.cleanup(ctx)
+		t.Fatalf("failed to start PBR container: %v", err)
+	}
+	e.pbrContainer = pbrContainer
+
+	// Start Envoy container for TLS termination
+	envoyContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image:          envoyImage,
+			Networks:       []string{e.network.Name},
+			NetworkAliases: map[string][]string{e.network.Name: {registryHost}},
+			ExposedPorts:   []string{"443/tcp"},
+			Files: []testcontainers.ContainerFile{
+				{HostFilePath: envoyConfigPath, ContainerFilePath: "/etc/envoy/envoy.yaml", FileMode: 0644},
+				{HostFilePath: filepath.Join(certsDir, "server.crt"), ContainerFilePath: "/etc/envoy/server.crt", FileMode: 0644},
+				{HostFilePath: filepath.Join(certsDir, "server.key"), ContainerFilePath: "/etc/envoy/server.key", FileMode: 0644},
+			},
+			Cmd:        []string{"-c", "/etc/envoy/envoy.yaml"},
+			WaitingFor: wait.ForListeningPort("443/tcp").WithStartupTimeout(30 * time.Second),
+		},
+		Started: true,
+	})
+	if err != nil {
+		e.cleanup(ctx)
+		t.Fatalf("failed to start Envoy container: %v", err)
+	}
+	e.envoyContainer = envoyContainer
+}
+
+func (e *testEnvAuth) setupNativeTLSModeAuth(t *testing.T, ctx context.Context, registryHost, certsDir, pbrConfigPath string) {
+	t.Helper()
+
+	// Build PBR image with TLS enabled
+	pbrContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    "..",
+				Dockerfile: "Dockerfile",
+			},
+			Networks:       []string{e.network.Name},
+			NetworkAliases: map[string][]string{e.network.Name: {registryHost}},
+			ExposedPorts:   []string{"443/tcp"},
+			Files: []testcontainers.ContainerFile{
+				{HostFilePath: pbrConfigPath, ContainerFilePath: "/config/config.yaml", FileMode: 0644},
+				{HostFilePath: filepath.Join(certsDir, "server.crt"), ContainerFilePath: "/certs/server.crt", FileMode: 0644},
+				{HostFilePath: filepath.Join(certsDir, "server.key"), ContainerFilePath: "/certs/server.key", FileMode: 0644},
+			},
+			Env: map[string]string{
+				"PBR_DEBUG_HTTP": "1",
+			},
+			WaitingFor: wait.ForHTTP("/readyz").WithPort("443/tcp").WithTLS(true).WithAllowInsecure(true).WithStartupTimeout(120 * time.Second),
+		},
+		Started: true,
+	})
+	if err != nil {
+		e.cleanup(ctx)
+		t.Fatalf("failed to start PBR container with TLS: %v", err)
+	}
+	e.pbrContainer = pbrContainer
+}
+
+// runBufWithAuth runs buf command with authentication configured via BUF_TOKEN env var
+func (e *testEnvAuth) runBufWithAuth(t *testing.T, ctx context.Context, workDir string, args ...string) (string, error) {
+	t.Helper()
+
+	uid := os.Getuid()
+	gid := os.Getgid()
+
+	req := testcontainers.ContainerRequest{
+		Image:    bufImage,
+		Networks: []string{e.network.Name},
+		Cmd:      args,
+		User:     fmt.Sprintf("%d:%d", uid, gid),
+		Files: []testcontainers.ContainerFile{
+			{HostFilePath: filepath.Join(e.certsDir, "ca.crt"), ContainerFilePath: "/etc/ssl/certs/ca.crt", FileMode: 0644},
+		},
+		HostConfigModifier: func(hc *container.HostConfig) {
+			hc.Mounts = []mount.Mount{
+				{
+					Type:   mount.TypeBind,
+					Source: workDir,
+					Target: "/workspace",
+				},
+			}
+		},
+		WorkingDir: "/workspace",
+		Env: map[string]string{
+			"SSL_CERT_FILE":            "/etc/ssl/certs/ca.crt",
+			"HOME":                     "/tmp",
+			"BUF_TOKEN":                e.password, // Use token for authentication
+			"BUF_ALPHA_SUPPRESS_WARNINGS": "1",
+		},
+		WaitingFor: wait.ForExit(),
+	}
+
+	bufContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to start buf container: %w", err)
+	}
+	defer bufContainer.Terminate(ctx)
+
+	// Wait and get exit code
+	state, err := bufContainer.State(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get container state: %w", err)
+	}
+
+	// Get logs
+	logs, err := bufContainer.Logs(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get logs: %w", err)
+	}
+	defer logs.Close()
+	output, _ := io.ReadAll(logs)
+
+	if state.ExitCode != 0 {
+		return string(output), fmt.Errorf("buf exited with code %d: %s", state.ExitCode, string(output))
+	}
+
+	return string(output), nil
+}
+
+func (e *testEnvAuth) runBufWithAuthExpectSuccess(t *testing.T, ctx context.Context, workDir string, args ...string) string {
+	t.Helper()
+	output, err := e.runBufWithAuth(t, ctx, workDir, args...)
+	if err != nil {
+		e.dumpPBRLogs(t, ctx)
+		t.Fatalf("buf %s failed: %v", strings.Join(args, " "), err)
+	}
+	return output
+}
+
+// TestE2EAuthentication tests buf login and authentication flow
+func TestE2EAuthentication(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e tests in short mode")
+	}
+
+	ctx := context.Background()
+	username := "testuser"
+	password := "supersecrettoken123"
+
+	env := setupTestEnvWithAuth(t, tlsModeNative, registryHost, username, password)
+	defer env.cleanup(ctx)
+
+	t.Run("UnauthenticatedRequestFails", func(t *testing.T) {
+		// Without authentication, pushing should fail
+		dir := filepath.Join(env.testdataDir, "basic")
+		output, err := env.runBuf(t, ctx, dir, "push", "--create")
+		if err == nil {
+			t.Fatalf("expected unauthenticated push to fail, but it succeeded: %s", output)
+		}
+		if !strings.Contains(strings.ToLower(output), "unauthenticated") && !strings.Contains(strings.ToLower(output), "unauthorized") && !strings.Contains(strings.ToLower(output), "token") {
+			t.Logf("push failed (as expected), but error message doesn't mention auth: %s", output)
+		}
+	})
+
+	t.Run("AuthenticatedPushSucceeds", func(t *testing.T) {
+		// With authentication via BUF_TOKEN, pushing should succeed
+		dir := filepath.Join(env.testdataDir, "basic")
+		env.runBufWithAuthExpectSuccess(t, ctx, dir, "push", "--create")
+	})
+
+	t.Run("AuthenticatedDepUpdate", func(t *testing.T) {
+		// First push basic module
+		basicDir := filepath.Join(env.testdataDir, "basic")
+		env.runBufWithAuthExpectSuccess(t, ctx, basicDir, "push", "--create")
+
+		// Then dep update on deps module
+		depsDir := filepath.Join(env.testdataDir, "deps")
+		env.runBufWithAuthExpectSuccess(t, ctx, depsDir, "dep", "update")
+	})
+
+	t.Run("AuthenticatedBuild", func(t *testing.T) {
+		// Build should also work with auth
+		depsDir := filepath.Join(env.testdataDir, "deps")
+		env.runBufWithAuthExpectSuccess(t, ctx, depsDir, "build")
+	})
+}

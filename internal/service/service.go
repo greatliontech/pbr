@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"buf.build/gen/go/bufbuild/buf/connectrpc/go/buf/alpha/registry/v1alpha1/registryv1alpha1connect"
 	"buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect"
@@ -50,12 +52,27 @@ func userFromContext(ctx context.Context) string {
 	return ""
 }
 
+// tokenInfo holds information about an authentication token.
+type tokenInfo struct {
+	Username  string
+	ExpiresAt time.Time // Zero value means never expires (for static tokens)
+}
+
+// IsExpired returns true if the token has expired.
+func (t *tokenInfo) IsExpired() bool {
+	if t.ExpiresAt.IsZero() {
+		return false // Never expires
+	}
+	return time.Now().After(t.ExpiresAt)
+}
+
 type Service struct {
 	registryv1alpha1connect.UnimplementedCodeGenerationServiceHandler
 	conf     *config.Config
 	server   *http.Server
 	cert     *tls.Certificate
-	tokens   map[string]string
+	mu       sync.RWMutex // protects tokens and users
+	tokens   map[string]*tokenInfo
 	users    map[string]string
 	plugins  map[string]*codegen.Plugin
 	ofs      *ocifs.OCIFS
@@ -71,7 +88,7 @@ func New(c *config.Config) (*Service, error) {
 
 	svc := &Service{
 		conf:     c,
-		tokens:   map[string]string{},
+		tokens:   map[string]*tokenInfo{},
 		users:    map[string]string{},
 		regCreds: map[string]authn.AuthConfig{},
 		plugins:  map[string]*codegen.Plugin{},
@@ -117,11 +134,13 @@ func New(c *config.Config) (*Service, error) {
 
 	if svc.conf.AdminToken != "" {
 		svc.users["admin"] = svc.conf.AdminToken
-		svc.tokens[svc.conf.AdminToken] = "admin"
+		// Admin token never expires
+		svc.tokens[svc.conf.AdminToken] = &tokenInfo{Username: "admin"}
 	}
 
 	for k, v := range svc.users {
-		svc.tokens[v] = k
+		// Static user tokens never expire
+		svc.tokens[v] = &tokenInfo{Username: k}
 	}
 
 	// Load TLS certificate if configured (from files or PEM strings)
@@ -177,12 +196,13 @@ func New(c *config.Config) (*Service, error) {
 	intcptrs = append(intcptrs, otelInt)
 
 	if !c.NoLogin {
-		intcptrs = append(intcptrs, newAuthInterceptor(svc.tokens))
+		intcptrs = append(intcptrs, newAuthInterceptor(svc))
 	}
 
 	interceptors := connect.WithInterceptors(intcptrs...)
 
 	mux.Handle(registryv1alpha1connect.NewCodeGenerationServiceHandler(svc, interceptors))
+	mux.Handle(registryv1alpha1connect.NewAuthnServiceHandler(NewAuthnService(svc), interceptors))
 	mux.Handle(modulev1beta1connect.NewCommitServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewGraphServiceHandler(svc, interceptors))
 	mux.Handle(modulev1beta1connect.NewDownloadServiceHandler(svc, interceptors))
@@ -199,6 +219,12 @@ func New(c *config.Config) (*Service, error) {
 	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "live")
 	}))
+
+	// OAuth2 device authorization flow for buf login (proxies to OIDC provider)
+	oauth2Svc := NewOAuth2Service(svc)
+	mux.Handle(DeviceRegistrationPath, oauth2Svc.Handler())
+	mux.Handle(DeviceAuthorizationPath, oauth2Svc.Handler())
+	mux.Handle(DeviceTokenPath, oauth2Svc.Handler())
 
 	var handler http.Handler = mux
 	// Debug middleware - enable with PBR_DEBUG_HTTP=1
@@ -269,7 +295,7 @@ const (
 	authenticationTokenPrefix = "Bearer "
 )
 
-func newAuthInterceptor(tokens map[string]string) connect.UnaryInterceptorFunc {
+func newAuthInterceptor(svc *Service) connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			hdr := req.Header().Get(authenticationHeader)
@@ -286,12 +312,31 @@ func newAuthInterceptor(tokens map[string]string) connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token missing"))
 			}
 
-			user, ok := tokens[tokenString]
+			// Use mutex for thread-safe token lookup (tokens can be added dynamically via OIDC)
+			svc.mu.RLock()
+			info, ok := svc.tokens[tokenString]
+			svc.mu.RUnlock()
 			if !ok {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))
 			}
 
-			ctx = contextWithUser(ctx, user)
+			// Check if token is expired
+			if info.IsExpired() {
+				// Remove expired token
+				svc.mu.Lock()
+				delete(svc.tokens, tokenString)
+				svc.mu.Unlock()
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("token expired"))
+			}
+
+			// Slide expiration for dynamic tokens (those with non-zero ExpiresAt)
+			if !info.ExpiresAt.IsZero() {
+				svc.mu.Lock()
+				info.ExpiresAt = time.Now().Add(svc.conf.GetTokenTTL())
+				svc.mu.Unlock()
+			}
+
+			ctx = contextWithUser(ctx, info.Username)
 
 			return next(ctx, req)
 		}

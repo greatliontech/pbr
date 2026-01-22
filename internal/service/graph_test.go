@@ -34,7 +34,7 @@ func setupTestService(t *testing.T) (*Service, func()) {
 			Host: "test.registry.com",
 		},
 		casReg: casReg,
-		tokens: map[string]string{"testtoken": "testuser"},
+		tokens: map[string]*tokenInfo{"testtoken": {Username: "testuser"}},
 		users:  map[string]string{"testuser": "testtoken"},
 	}
 
@@ -81,7 +81,7 @@ func TestGetGraph_NoCASConfigured(t *testing.T) {
 	svc := &Service{
 		conf:   &config.Config{Host: "test.registry.com"},
 		casReg: nil,
-		tokens: map[string]string{"testtoken": "testuser"},
+		tokens: map[string]*tokenInfo{"testtoken": {Username: "testuser"}},
 	}
 
 	ctx := contextWithUser(context.Background(), "testuser")
