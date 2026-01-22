@@ -1,0 +1,12 @@
+version: v2
+modules:
+  - path: .
+    name: pbr.test/e2e/v2deps
+deps:
+  - pbr.test/e2e/v2basic
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+    - PACKAGE_VERSION_SUFFIX

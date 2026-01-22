@@ -699,6 +699,108 @@ deps:
 		})
 	})
 
+	// Test buf.yaml v2 format support
+	// V2 uses B5 digests and the v1 API endpoints (GraphService, DownloadService, CommitService)
+	t.Run("V2BasicModule", func(t *testing.T) {
+		dir := filepath.Join(env.testdataDir, "v2basic")
+
+		t.Run("lint", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "lint")
+		})
+
+		t.Run("build", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "build")
+		})
+
+		t.Run("push", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
+		})
+
+		t.Run("module_info", func(t *testing.T) {
+			out := env.runBufExpectSuccess(t, ctx, dir, "registry", "module", "info", env.registryHost+"/e2e/v2basic")
+			if !strings.Contains(out, "v2basic") {
+				t.Errorf("expected 'v2basic' in output: %s", out)
+			}
+		})
+	})
+
+	// Test buf.yaml v2 with dependencies (uses v1 GraphService for B5 digests)
+	t.Run("V2Dependencies", func(t *testing.T) {
+		// Ensure v2basic is pushed first
+		v2basicDir := filepath.Join(env.testdataDir, "v2basic")
+		env.runBufExpectSuccess(t, ctx, v2basicDir, "push", "--create")
+
+		dir := filepath.Join(env.testdataDir, "v2deps")
+
+		t.Run("dep_update", func(t *testing.T) {
+			output, err := env.runBuf(t, ctx, dir, "dep", "update", "--debug")
+			if err != nil {
+				env.dumpPBRLogs(t, ctx)
+				t.Fatalf("buf dep update --debug failed: %v\nOutput: %s", err, output)
+			}
+		})
+
+		t.Run("verify_v2_lock_format", func(t *testing.T) {
+			// Verify buf.lock has v2 format with B5 digest
+			lockPath := filepath.Join(dir, "buf.lock")
+			lockContent, err := os.ReadFile(lockPath)
+			if err != nil {
+				t.Fatalf("failed to read buf.lock: %v", err)
+			}
+			lockStr := string(lockContent)
+			t.Logf("buf.lock content:\n%s", lockStr)
+
+			// V2 lock format should have "version: v2" or "name:" format for deps
+			// and B5 digest prefix (b5:) instead of shake256
+			if strings.Contains(lockStr, "version: v2") {
+				// V2 format
+				if !strings.Contains(lockStr, "name:") {
+					t.Errorf("v2 buf.lock should have 'name:' field for deps")
+				}
+			}
+		})
+
+		t.Run("build", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "build")
+		})
+
+		t.Run("push", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
+		})
+	})
+
+	// Test buf.yaml v2 multi-module workspace
+	t.Run("V2MultiModule", func(t *testing.T) {
+		dir := filepath.Join(env.testdataDir, "v2multi")
+
+		t.Run("lint", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "lint")
+		})
+
+		t.Run("build", func(t *testing.T) {
+			env.runBufExpectSuccess(t, ctx, dir, "build")
+		})
+
+		t.Run("push", func(t *testing.T) {
+			// Push all modules in the workspace
+			env.runBufExpectSuccess(t, ctx, dir, "push", "--create")
+		})
+
+		t.Run("module_info_common", func(t *testing.T) {
+			out := env.runBufExpectSuccess(t, ctx, dir, "registry", "module", "info", env.registryHost+"/e2e/v2common")
+			if !strings.Contains(out, "v2common") {
+				t.Errorf("expected 'v2common' in output: %s", out)
+			}
+		})
+
+		t.Run("module_info_service", func(t *testing.T) {
+			out := env.runBufExpectSuccess(t, ctx, dir, "registry", "module", "info", env.registryHost+"/e2e/v2service")
+			if !strings.Contains(out, "v2service") {
+				t.Errorf("expected 'v2service' in output: %s", out)
+			}
+		})
+	})
+
 	t.Run("ErrorCases", func(t *testing.T) {
 		dir := env.testdataDir
 

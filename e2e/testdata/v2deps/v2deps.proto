@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package v2deps;
+
+option go_package = "pbr.test/e2e/v2deps";
+
+import "v2basic.proto";
+
+// Message that uses v2basic types
+message V2DepsMessage {
+  string id = 1;
+  v2basic.V2BasicMessage basic = 2;
+}
+
+// Service that uses v2basic
+service V2DepsService {
+  rpc GetWithDeps(GetWithDepsRequest) returns (GetWithDepsResponse);
+}
+
+message GetWithDepsRequest {
+  string id = 1;
+}
+
+message GetWithDepsResponse {
+  V2DepsMessage message = 1;
+}

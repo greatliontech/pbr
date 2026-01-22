@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package v2common;
+
+option go_package = "pbr.test/e2e/v2common";
+
+// Common types for multi-module workspace test
+message CommonId {
+  string value = 1;
+}
+
+message CommonMetadata {
+  string created_at = 1;
+  string updated_at = 2;
+}

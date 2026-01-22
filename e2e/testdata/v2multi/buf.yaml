@@ -1,0 +1,12 @@
+version: v2
+modules:
+  - path: common
+    name: pbr.test/e2e/v2common
+  - path: service
+    name: pbr.test/e2e/v2service
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+    - PACKAGE_VERSION_SUFFIX

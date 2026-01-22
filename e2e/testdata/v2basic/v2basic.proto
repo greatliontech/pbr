@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package v2basic;
+
+option go_package = "pbr.test/e2e/v2basic";
+
+// Message for testing buf.yaml v2 format
+message V2BasicMessage {
+  string id = 1;
+  string name = 2;
+  int32 value = 3;
+}
+
+// Service for testing buf.yaml v2 format
+service V2BasicService {
+  rpc GetV2Basic(GetV2BasicRequest) returns (GetV2BasicResponse);
+}
+
+message GetV2BasicRequest {
+  string id = 1;
+}
+
+message GetV2BasicResponse {
+  V2BasicMessage message = 1;
+}

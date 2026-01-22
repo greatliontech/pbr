@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package v2service;
+
+option go_package = "pbr.test/e2e/v2service";
+
+import "common.proto";
+
+// Service module that depends on common module
+message DoSomethingRequest {
+  v2common.CommonId id = 1;
+}
+
+message DoSomethingResponse {
+  v2common.CommonId id = 1;
+  v2common.CommonMetadata metadata = 2;
+  string result = 3;
+}
+
+service V2Service {
+  rpc DoSomething(DoSomethingRequest) returns (DoSomethingResponse);
+}
