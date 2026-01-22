@@ -88,13 +88,17 @@ func (o *OAuth2Service) Handler() http.Handler {
 // handleDeviceRegistration returns the configured OIDC client_id.
 // No proxy needed - we just return what's in our config.
 func (o *OAuth2Service) handleDeviceRegistration(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("handleDeviceRegistration called", "method", r.Method, "path", r.URL.Path)
+
 	if r.Method != http.MethodPost {
+		slog.Debug("handleDeviceRegistration: method not allowed", "method", r.Method)
 		writeOAuth2Error(w, http.StatusMethodNotAllowed, "invalid_request", "method not allowed")
 		return
 	}
 
 	// If OIDC is not configured, return error
 	if o.oidc == nil {
+		slog.Debug("handleDeviceRegistration: OIDC not configured")
 		writeOAuth2Error(w, http.StatusServiceUnavailable, "server_error", "OIDC not configured")
 		return
 	}
@@ -105,18 +109,23 @@ func (o *OAuth2Service) handleDeviceRegistration(w http.ResponseWriter, r *http.
 		ClientIDIssuedAt: time.Now().Unix(),
 	}
 
+	slog.Debug("handleDeviceRegistration: returning response", "client_id", resp.ClientID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 
 // handleDeviceAuthorization proxies to OIDC provider's device authorization endpoint.
 func (o *OAuth2Service) handleDeviceAuthorization(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("handleDeviceAuthorization called", "method", r.Method, "path", r.URL.Path)
+
 	if r.Method != http.MethodPost {
+		slog.Debug("handleDeviceAuthorization: method not allowed", "method", r.Method)
 		writeOAuth2Error(w, http.StatusMethodNotAllowed, "invalid_request", "method not allowed")
 		return
 	}
 
 	if o.oidc == nil {
+		slog.Debug("handleDeviceAuthorization: OIDC not configured")
 		writeOAuth2Error(w, http.StatusServiceUnavailable, "server_error", "OIDC not configured")
 		return
 	}
@@ -124,13 +133,16 @@ func (o *OAuth2Service) handleDeviceAuthorization(w http.ResponseWriter, r *http
 	// Read the incoming request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		slog.Debug("handleDeviceAuthorization: failed to read request body", "error", err)
 		writeOAuth2Error(w, http.StatusBadRequest, "invalid_request", "failed to read request")
 		return
 	}
+	slog.Debug("handleDeviceAuthorization: request body", "body", string(body))
 
 	// Parse the form data to potentially add client_secret
 	values, err := url.ParseQuery(string(body))
 	if err != nil {
+		slog.Debug("handleDeviceAuthorization: invalid form data", "error", err)
 		writeOAuth2Error(w, http.StatusBadRequest, "invalid_request", "invalid form data")
 		return
 	}
@@ -145,10 +157,16 @@ func (o *OAuth2Service) handleDeviceAuthorization(w http.ResponseWriter, r *http
 		values.Set("scope", strings.Join(o.oidc.GetScopes(), " "))
 	}
 
+	slog.Debug("handleDeviceAuthorization: proxying to OIDC provider",
+		"endpoint", o.oidc.discovery.DeviceAuthorizationEndpoint,
+		"client_id", values.Get("client_id"),
+		"scope", values.Get("scope"))
+
 	// Proxy to OIDC provider's device authorization endpoint
 	proxyReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
 		o.oidc.discovery.DeviceAuthorizationEndpoint, strings.NewReader(values.Encode()))
 	if err != nil {
+		slog.Debug("handleDeviceAuthorization: failed to create proxy request", "error", err)
 		writeOAuth2Error(w, http.StatusInternalServerError, "server_error", "failed to create proxy request")
 		return
 	}
@@ -166,36 +184,53 @@ func (o *OAuth2Service) handleDeviceAuthorization(w http.ResponseWriter, r *http
 	// Read response body to normalize field names
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		slog.Debug("handleDeviceAuthorization: failed to read provider response", "error", err)
 		writeOAuth2Error(w, http.StatusInternalServerError, "server_error", "failed to read provider response")
 		return
 	}
+
+	slog.Debug("handleDeviceAuthorization: OIDC provider response",
+		"status", resp.StatusCode,
+		"body", string(respBody))
 
 	// If successful, normalize the response to include both verification_uri and verification_url
 	// Google uses verification_url but RFC 8628 specifies verification_uri
 	if resp.StatusCode == http.StatusOK {
 		var deviceResp map[string]interface{}
 		if err := json.Unmarshal(respBody, &deviceResp); err == nil {
+			slog.Debug("handleDeviceAuthorization: parsed response",
+				"verification_uri", deviceResp["verification_uri"],
+				"verification_url", deviceResp["verification_url"])
+
 			// Normalize: if we have verification_url but not verification_uri, add it
 			if url, ok := deviceResp["verification_url"].(string); ok {
 				if _, hasURI := deviceResp["verification_uri"]; !hasURI {
 					deviceResp["verification_uri"] = url
+					slog.Debug("handleDeviceAuthorization: added verification_uri from verification_url")
 				}
 			}
 			// Normalize: if we have verification_uri but not verification_url, add it
 			if uri, ok := deviceResp["verification_uri"].(string); ok {
 				if _, hasURL := deviceResp["verification_url"]; !hasURL {
 					deviceResp["verification_url"] = uri
+					slog.Debug("handleDeviceAuthorization: added verification_url from verification_uri")
 				}
 			}
+
+			finalResp, _ := json.Marshal(deviceResp)
+			slog.Debug("handleDeviceAuthorization: sending response", "response", string(finalResp))
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(resp.StatusCode)
 			json.NewEncoder(w).Encode(deviceResp)
 			return
+		} else {
+			slog.Debug("handleDeviceAuthorization: failed to parse response as JSON", "error", err)
 		}
 	}
 
 	// Pass through error responses as-is
+	slog.Debug("handleDeviceAuthorization: passing through error response", "status", resp.StatusCode)
 	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 	w.WriteHeader(resp.StatusCode)
 	w.Write(respBody)
