@@ -213,23 +213,30 @@ func (o *OAuth2Service) handleDeviceAuthorization(w http.ResponseWriter, r *http
 				"verification_uri", deviceResp["verification_uri"],
 				"verification_url", deviceResp["verification_url"])
 
-			// Normalize: if we have verification_url but not verification_uri, add it
+			// Normalize: Google uses verification_url but buf CLI expects verification_uri
 			if url, ok := deviceResp["verification_url"].(string); ok {
 				if _, hasURI := deviceResp["verification_uri"]; !hasURI {
 					deviceResp["verification_uri"] = url
 					slog.Debug("handleDeviceAuthorization: added verification_uri from verification_url")
 				}
 			}
-			// Normalize: if we have verification_uri but not verification_url, add it
-			if uri, ok := deviceResp["verification_uri"].(string); ok {
-				if _, hasURL := deviceResp["verification_url"]; !hasURL {
-					deviceResp["verification_url"] = uri
-					slog.Debug("handleDeviceAuthorization: added verification_url from verification_uri")
+
+			// If verification_uri_complete is missing, construct it from verification_uri + user_code
+			// Google doesn't return verification_uri_complete, but buf CLI requires it
+			if _, hasComplete := deviceResp["verification_uri_complete"]; !hasComplete {
+				if uri, ok := deviceResp["verification_uri"].(string); ok {
+					if userCode, ok := deviceResp["user_code"].(string); ok {
+						deviceResp["verification_uri_complete"] = uri + "?user_code=" + userCode
+						slog.Debug("handleDeviceAuthorization: constructed verification_uri_complete",
+							"uri", deviceResp["verification_uri_complete"])
+					}
 				}
 			}
 
-			finalResp, _ := json.Marshal(deviceResp)
-			slog.Debug("handleDeviceAuthorization: sending response", "response", string(finalResp))
+			// Remove verification_url as buf CLI doesn't use it
+			delete(deviceResp, "verification_url")
+
+			slog.Debug("handleDeviceAuthorization: sending response", "response", deviceResp)
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(resp.StatusCode)
