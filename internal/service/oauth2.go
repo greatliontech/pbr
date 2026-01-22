@@ -26,10 +26,12 @@ type DeviceRegistrationRequest struct {
 
 // DeviceRegistrationResponse is the response for device registration.
 type DeviceRegistrationResponse struct {
-	ClientID              string `json:"client_id"`
-	ClientSecret          string `json:"client_secret,omitempty"`
-	ClientIDIssuedAt      int64  `json:"client_id_issued_at"`
-	ClientSecretExpiresAt int64  `json:"client_secret_expires_at,omitempty"`
+	ClientID                    string `json:"client_id"`
+	ClientSecret                string `json:"client_secret,omitempty"`
+	ClientIDIssuedAt            int64  `json:"client_id_issued_at"`
+	ClientSecretExpiresAt       int64  `json:"client_secret_expires_at,omitempty"`
+	DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint,omitempty"`
+	TokenEndpoint               string `json:"token_endpoint,omitempty"`
 }
 
 // DeviceAccessTokenResponse is the response for device access token.
@@ -103,13 +105,22 @@ func (o *OAuth2Service) handleDeviceRegistration(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Return the configured client_id from OIDC config
+	// Build the base URL for our OAuth2 endpoints
+	scheme := "https"
+	baseURL := scheme + "://" + o.svc.conf.Host
+
+	// Return the configured client_id from OIDC config along with our endpoint URLs
+	// This tells buf CLI to use our proxy endpoints instead of going directly to the OIDC provider
 	resp := DeviceRegistrationResponse{
-		ClientID:         o.svc.conf.OIDC.ClientID,
-		ClientIDIssuedAt: time.Now().Unix(),
+		ClientID:                    o.svc.conf.OIDC.ClientID,
+		ClientIDIssuedAt:            time.Now().Unix(),
+		DeviceAuthorizationEndpoint: baseURL + DeviceAuthorizationPath,
+		TokenEndpoint:               baseURL + DeviceTokenPath,
 	}
 
-	slog.Debug("handleDeviceRegistration: returning response", "client_id", resp.ClientID)
+	slog.Debug("handleDeviceRegistration: returning response", "client_id", resp.ClientID,
+		"device_authorization_endpoint", resp.DeviceAuthorizationEndpoint,
+		"token_endpoint", resp.TokenEndpoint)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
