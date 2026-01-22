@@ -27,6 +27,9 @@ go test ./e2e/... -v -run TestE2EEnvoyTLS
 # Run only Native TLS mode
 go test ./e2e/... -v -run TestE2ENativeTLS
 
+# Run only v2 tests
+go test ./e2e/... -v -run "V2"
+
 # Skip e2e tests (short mode)
 go test ./e2e/... -v -short
 ```
@@ -43,10 +46,43 @@ e2e/
 ├── e2e_test.go       # Main test file with testcontainers setup
 ├── README.md         # This file
 └── testdata/         # Test proto modules
-    ├── basic/        # Simple module
-    ├── deps/         # Module with dependencies
-    └── labels/       # Version labels test
+    ├── basic/        # Simple module (v1 format)
+    ├── deps/         # Module with dependencies (v1 format)
+    ├── labels/       # Version labels test
+    ├── nested/       # Nested dependency chain
+    │   ├── base/
+    │   ├── mid-a/
+    │   ├── mid-b/
+    │   └── top/
+    ├── pinned/       # Pinned dependency versions
+    │   ├── base/
+    │   └── consumer/
+    ├── v2basic/      # Simple module (v2 format, B5 digests)
+    ├── v2deps/       # Module with dependencies (v2 format)
+    └── v2multi/      # Multi-module workspace (v2 format)
+        ├── common/
+        └── service/
 ```
+
+## Test Coverage
+
+### buf.yaml v1 Tests
+
+| Test | Description |
+|------|-------------|
+| `BasicModule` | Push and retrieve a simple module |
+| `ModuleWithDependencies` | Module depending on another module |
+| `Labels` | Push with version labels (main, v1.0.0) |
+| `NestedDependencies` | Multi-level dependency chain |
+| `PinnedDependencies` | Pin to specific commit versions |
+
+### buf.yaml v2 Tests
+
+| Test | Description |
+|------|-------------|
+| `V2BasicModule` | Single module with v2 format |
+| `V2Dependencies` | V2 module with dependencies (B5 digests) |
+| `V2MultiModule` | Multi-module workspace |
 
 ## Architecture
 
@@ -98,3 +134,8 @@ tls:
 ```
 
 This is useful when mounting Kubernetes secrets as environment variables.
+
+## Debugging Failed Tests
+
+Enable PBR debug logging by setting `PBR_DEBUG_HTTP=1` in the test environment.
+The test will dump PBR container logs on failure.

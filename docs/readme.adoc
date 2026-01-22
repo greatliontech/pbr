@@ -1,5 +1,0 @@
-= protobuf registry
-
-  work in progress
-
-
