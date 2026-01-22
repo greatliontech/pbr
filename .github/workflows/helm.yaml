@@ -18,15 +18,20 @@ jobs:
         id: chart
         run: |
           echo "name=$(yq '.name' ${{ env.CHART_PATH }}/Chart.yaml)" >> $GITHUB_OUTPUT
-      - name: Update appVersion
+      - name: Update chart version and appVersion
+        id: version
         run: |
-          yq -i '.appVersion = "${{ github.event.release.tag_name }}"' ${{ env.CHART_PATH }}/Chart.yaml
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"  # Strip 'v' prefix if present
+          yq -i ".version = \"${VERSION}\"" ${{ env.CHART_PATH }}/Chart.yaml
+          yq -i ".appVersion = \"${VERSION}\"" ${{ env.CHART_PATH }}/Chart.yaml
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
       - name: Push Helm chart
         uses: appany/helm-oci-chart-releaser@v0.5.0
         with:
           name: ${{ steps.chart.outputs.name }}
           repository: ${{ env.REGISTRY_REPO }}
-          tag: ${{ github.event.release.tag_name }}
+          tag: ${{ steps.version.outputs.version }}
           path: ${{ env.CHART_PATH }}
           registry: ${{ env.REGISTRY }}
           registry_username: ${{ github.actor }}
