@@ -438,19 +438,19 @@ func openDocstoreCollections(urlBase, cacheDir string) (owners, modules, commits
 
 	// For other docstore URLs, open collections using the URL
 	// The URL should be the base, and we append collection names
-	owners, err = docstore.OpenCollection(context.Background(), urlBase+"/owners?id_field=ID")
+	owners, err = docstore.OpenCollection(context.Background(), urlBase+"/owners?name_field=id")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to open owners collection: %w", err)
 	}
-	modules, err = docstore.OpenCollection(context.Background(), urlBase+"/modules?id_field=ID")
+	modules, err = docstore.OpenCollection(context.Background(), urlBase+"/modules?name_field=id")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to open modules collection: %w", err)
 	}
-	commits, err = docstore.OpenCollection(context.Background(), urlBase+"/commits?id_field=ID")
+	commits, err = docstore.OpenCollection(context.Background(), urlBase+"/commits?name_field=id")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to open commits collection: %w", err)
 	}
-	labels, err = docstore.OpenCollection(context.Background(), urlBase+"/labels?id_field=ID")
+	labels, err = docstore.OpenCollection(context.Background(), urlBase+"/labels?name_field=id")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to open labels collection: %w", err)
 	}
