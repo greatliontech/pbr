@@ -29,7 +29,8 @@ type CommitRecord struct {
 	ID               string // first 32 chars of manifest digest hex
 	ModuleID         string
 	OwnerID          string
-	ManifestDigest   Digest
+	ManifestDigest   Digest       // shake256 digest of manifest content
+	B5Digest         ModuleDigest // b5 module digest (files + dependencies)
 	CreateTime       time.Time
 	CreatedByUserID  string
 	SourceControlURL string

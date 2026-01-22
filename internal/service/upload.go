@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -122,8 +121,14 @@ func (u *UploadService) uploadContent(ctx context.Context, content *v1.UploadReq
 		}
 	}
 
-	// Create commit with dependency commit IDs
-	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl, depCommitIDs)
+	// Get B5 digests for all dependencies
+	depDigests, err := u.svc.casReg.GetDepB5Digests(ctx, depCommitIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dependency digests: %w", err)
+	}
+
+	// Create commit with dependency commit IDs and their B5 digests
+	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl, depCommitIDs, depDigests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create commit: %w", err)
 	}
@@ -240,11 +245,6 @@ func (u *UploadService) extractLabels(refs []*v1.ScopedLabelRef) []string {
 }
 
 func (u *UploadService) commitToProto(commit *registry.Commit) (*v1.Commit, error) {
-	digest, err := hex.DecodeString(commit.ManifestDigest.Hex())
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode digest: %w", err)
-	}
-
 	return &v1.Commit{
 		Id:         commit.ID,
 		OwnerId:    commit.OwnerID,
@@ -252,7 +252,7 @@ func (u *UploadService) commitToProto(commit *registry.Commit) (*v1.Commit, erro
 		CreateTime: timestamppb.New(commit.CreateTime),
 		Digest: &v1.Digest{
 			Type:  v1.DigestType_DIGEST_TYPE_B5,
-			Value: digest,
+			Value: commit.B5Digest.Value,
 		},
 	}, nil
 }

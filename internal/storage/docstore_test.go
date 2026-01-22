@@ -141,11 +141,21 @@ func TestMetadataStore_Commit(t *testing.T) {
 		digest.Value[i] = byte(i)
 	}
 
+	b5Digest := ModuleDigest{
+		Type:  DigestTypeB5,
+		Value: make([]byte, 64),
+	}
+	// Set a different recognizable pattern
+	for i := range b5Digest.Value {
+		b5Digest.Value[i] = byte(i + 100)
+	}
+
 	commit := &CommitRecord{
 		ID:             "commit-123",
 		ModuleID:       "module-123",
 		OwnerID:        "owner-123",
 		ManifestDigest: digest,
+		B5Digest:       b5Digest,
 		CreateTime:     time.Now().UTC(),
 	}
 

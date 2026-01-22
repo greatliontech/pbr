@@ -395,7 +395,7 @@ func TestListCommits_WithPagination(t *testing.T) {
 		files := []registry.File{
 			{Path: "test.proto", Content: "syntax = \"proto3\";\npackage test" + string(rune('a'+i)) + ";"},
 		}
-		_, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil)
+		_, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil, nil)
 		if err != nil {
 			t.Fatalf("failed to create commit: %v", err)
 		}

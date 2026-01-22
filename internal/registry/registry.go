@@ -81,6 +81,39 @@ func (r *Registry) ModuleByCommitID(ctx context.Context, commitID string) (*Modu
 	return r.ModuleByID(ctx, commit.ModuleID)
 }
 
+// CommitByID retrieves a commit by its ID (from any module).
+func (r *Registry) CommitByID(ctx context.Context, commitID string) (*Commit, error) {
+	slog.DebugContext(ctx, "Registry.CommitByID", "commitID", commitID)
+
+	record, err := r.metadata.GetCommit(ctx, commitID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Commit{
+		ID:             record.ID,
+		ModuleID:       record.ModuleID,
+		OwnerID:        record.OwnerID,
+		ManifestDigest: record.ManifestDigest,
+		B5Digest:       record.B5Digest,
+		CreateTime:     record.CreateTime,
+		DepCommitIDs:   record.DepCommitIDs,
+	}, nil
+}
+
+// GetDepB5Digests retrieves B5 digests for a list of dependency commit IDs.
+func (r *Registry) GetDepB5Digests(ctx context.Context, depCommitIDs []string) ([]storage.ModuleDigest, error) {
+	digests := make([]storage.ModuleDigest, 0, len(depCommitIDs))
+	for _, commitID := range depCommitIDs {
+		commit, err := r.CommitByID(ctx, commitID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get dependency commit %s: %w", commitID, err)
+		}
+		digests = append(digests, commit.B5Digest)
+	}
+	return digests, nil
+}
+
 // CreateModule creates a new module.
 func (r *Registry) CreateModule(ctx context.Context, owner, name, description string) (*Module, error) {
 	slog.DebugContext(ctx, "Registry.CreateModule", "owner", owner, "name", name)
@@ -202,6 +235,7 @@ type Commit struct {
 	ModuleID       string
 	OwnerID        string
 	ManifestDigest storage.Digest
+	B5Digest       storage.ModuleDigest // b5 module digest (files + dependencies)
 	CreateTime     time.Time
 	DepCommitIDs   []string // dependency commit IDs
 }

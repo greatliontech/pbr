@@ -63,7 +63,13 @@ func createTestModuleWithDeps(t *testing.T, svc *Service, owner, name string, fi
 		t.Fatalf("failed to create module: %v", err)
 	}
 
-	commit, err := mod.CreateCommit(ctx, files, labels, "", depCommitIDs)
+	// Get B5 digests for dependencies
+	depDigests, err := svc.casReg.GetDepB5Digests(ctx, depCommitIDs)
+	if err != nil {
+		t.Fatalf("failed to get dependency digests: %v", err)
+	}
+
+	commit, err := mod.CreateCommit(ctx, files, labels, "", depCommitIDs, depDigests)
 	if err != nil {
 		t.Fatalf("failed to create commit: %v", err)
 	}

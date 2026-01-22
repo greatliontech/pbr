@@ -37,6 +37,7 @@ type CommitDoc struct {
 	ModuleID         string    `docstore:"module_id"`
 	OwnerID          string    `docstore:"owner_id"`
 	ManifestDigest   string    `docstore:"manifest_digest"` // stored as string "algorithm:hex"
+	B5Digest         string    `docstore:"b5_digest"`       // stored as string "b5:hex"
 	CreateTime       time.Time `docstore:"create_time"`
 	CreatedByUserID  string    `docstore:"created_by_user_id,omitempty"`
 	SourceControlURL string    `docstore:"source_control_url,omitempty"`
@@ -357,11 +358,19 @@ func commitDocToRecord(doc *CommitDoc) (*CommitRecord, error) {
 	if err != nil {
 		return nil, err
 	}
+	var b5Digest ModuleDigest
+	if doc.B5Digest != "" {
+		b5Digest, err = ParseModuleDigest(doc.B5Digest)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &CommitRecord{
 		ID:               doc.ID,
 		ModuleID:         doc.ModuleID,
 		OwnerID:          doc.OwnerID,
 		ManifestDigest:   digest,
+		B5Digest:         b5Digest,
 		CreateTime:       doc.CreateTime,
 		CreatedByUserID:  doc.CreatedByUserID,
 		SourceControlURL: doc.SourceControlURL,
@@ -375,6 +384,7 @@ func commitRecordToDoc(c *CommitRecord) *CommitDoc {
 		ModuleID:         c.ModuleID,
 		OwnerID:          c.OwnerID,
 		ManifestDigest:   c.ManifestDigest.String(),
+		B5Digest:         c.B5Digest.String(),
 		CreateTime:       c.CreateTime,
 		CreatedByUserID:  c.CreatedByUserID,
 		SourceControlURL: c.SourceControlURL,

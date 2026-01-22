@@ -89,6 +89,7 @@ func (m *Module) CommitByID(ctx context.Context, id string) (*Commit, error) {
 		ModuleID:       record.ModuleID,
 		OwnerID:        record.OwnerID,
 		ManifestDigest: record.ManifestDigest,
+		B5Digest:       record.B5Digest,
 		CreateTime:     record.CreateTime,
 		DepCommitIDs:   record.DepCommitIDs,
 	}, nil
@@ -179,7 +180,8 @@ func (m *Module) parseBufLock(files []File) (*BufLock, error) {
 
 // CreateCommit creates a new commit with the given files.
 // Returns the created commit or an existing commit if content is identical.
-func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string, sourceControlURL string, depCommitIDs []string) (*Commit, error) {
+// depDigests should contain the B5 digests of all dependencies (in the same order as depCommitIDs).
+func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string, sourceControlURL string, depCommitIDs []string, depDigests []storage.ModuleDigest) (*Commit, error) {
 	slog.DebugContext(ctx, "Module.CreateCommit", "owner", m.Owner(), "module", m.Name(), "files", len(files), "labels", labels, "depCommitIDs", len(depCommitIDs))
 
 	// Store blobs and build manifest
@@ -203,6 +205,12 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		return nil, fmt.Errorf("failed to store manifest: %w", err)
 	}
 
+	// Compute B5 digest (files + dependencies)
+	b5Digest, err := storage.ComputeB5Digest(manifest, depDigests)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute B5 digest: %w", err)
+	}
+
 	// Check for existing commit with same digest (deduplication)
 	existingCommit, err := m.registry.metadata.GetCommitByDigest(ctx, manifestDigest)
 	if err == nil && existingCommit != nil && existingCommit.ModuleID == m.record.ID {
@@ -218,6 +226,7 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 			ModuleID:       existingCommit.ModuleID,
 			OwnerID:        existingCommit.OwnerID,
 			ManifestDigest: existingCommit.ManifestDigest,
+			B5Digest:       existingCommit.B5Digest,
 			CreateTime:     existingCommit.CreateTime,
 			DepCommitIDs:   existingCommit.DepCommitIDs,
 		}, nil
@@ -232,6 +241,7 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		ModuleID:         m.record.ID,
 		OwnerID:          m.record.OwnerID,
 		ManifestDigest:   manifestDigest,
+		B5Digest:         b5Digest,
 		CreateTime:       time.Now(),
 		SourceControlURL: sourceControlURL,
 		DepCommitIDs:     depCommitIDs,
@@ -253,6 +263,7 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		ModuleID:       m.record.ID,
 		OwnerID:        m.record.OwnerID,
 		ManifestDigest: manifestDigest,
+		B5Digest:       b5Digest,
 		CreateTime:     commitRecord.CreateTime,
 		DepCommitIDs:   depCommitIDs,
 	}, nil
@@ -282,6 +293,7 @@ func (m *Module) ListCommits(ctx context.Context, limit int, pageToken string) (
 			ModuleID:       record.ModuleID,
 			OwnerID:        record.OwnerID,
 			ManifestDigest: record.ManifestDigest,
+			B5Digest:       record.B5Digest,
 			CreateTime:     record.CreateTime,
 			DepCommitIDs:   record.DepCommitIDs,
 		}

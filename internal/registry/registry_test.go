@@ -92,7 +92,7 @@ func TestRegistry_CreateCommit(t *testing.T) {
 		{Path: "buf.yaml", Content: "version: v1\nname: buf.build/testowner/testmodule"},
 	}
 
-	commit, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil)
+	commit, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateCommit failed: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestRegistry_ModuleByCommitID(t *testing.T) {
 		{Path: "test.proto", Content: "syntax = \"proto3\";"},
 	}
 
-	commit, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil)
+	commit, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateCommit failed: %v", err)
 	}
@@ -181,12 +181,12 @@ func TestRegistry_CommitDeduplication(t *testing.T) {
 	}
 
 	// Create same content twice
-	commit1, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil)
+	commit1, err := mod.CreateCommit(ctx, files, []string{"main"}, "", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateCommit failed: %v", err)
 	}
 
-	commit2, err := mod.CreateCommit(ctx, files, []string{"v1.0.0"}, "", nil)
+	commit2, err := mod.CreateCommit(ctx, files, []string{"v1.0.0"}, "", nil, nil)
 	if err != nil {
 		t.Fatalf("CreateCommit failed: %v", err)
 	}
