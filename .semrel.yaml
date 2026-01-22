@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/greatliontech/semrel/refs/heads/main/config.schema.json
+patchTypes:
+  - fix
+  - chore
+  - refactor
+minorTypes:
+  - feat
+development: true
+prefix: v

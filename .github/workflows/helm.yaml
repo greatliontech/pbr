@@ -1,26 +1,33 @@
-name: oci helm chart
+name: Helm
 on:
   release:
-    types:
-      - published
+    types: [published]
+env:
+  CHART_PATH: chart
+  REGISTRY: ghcr.io
+  REGISTRY_REPO: greatliontech
 jobs:
-  oci:
+  helm-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Change app version
+      - uses: actions/checkout@v5
+      - name: Get chart name from Chart.yaml
+        id: chart
         run: |
-          yq -i '.appVersion = "${{github.event.release.tag_name}}"' chart/Chart.yaml
-
-      - name: Chart | Push
-        uses: appany/helm-oci-chart-releaser@v0.3.0
+          echo "name=$(yq '.name' ${{ env.CHART_PATH }}/Chart.yaml)" >> $GITHUB_OUTPUT
+      - name: Update appVersion
+        run: |
+          yq -i '.appVersion = "${{ github.event.release.tag_name }}"' ${{ env.CHART_PATH }}/Chart.yaml
+      - name: Push Helm chart
+        uses: appany/helm-oci-chart-releaser@v0.5.0
         with:
-          name: pbr-chart
-          repository: greatliontech
-          tag: ${{github.event.release.tag_name}}
-          path: chart
-          registry: ghcr.io
-          registry_username: thegrumpylion
-          registry_password: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          name: ${{ steps.chart.outputs.name }}
+          repository: ${{ env.REGISTRY_REPO }}
+          tag: ${{ github.event.release.tag_name }}
+          path: ${{ env.CHART_PATH }}
+          registry: ${{ env.REGISTRY }}
+          registry_username: ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
