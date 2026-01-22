@@ -70,6 +70,115 @@ buf push --create
 buf dep update
 ```
 
+## Kubernetes Deployment
+
+### Helm Installation
+
+PBR includes a Helm chart for Kubernetes deployment.
+
+```bash
+# Add the Helm repository
+helm repo add pbr https://greatliontech.github.io/pbr
+helm repo update
+
+# Install with default values
+helm install pbr pbr/pbr-chart
+
+# Or install from local chart
+helm install pbr ./chart
+```
+
+### Helm Values
+
+Create a `values.yaml` file to customize your deployment:
+
+```yaml
+# PBR configuration (maps to config.yaml)
+config:
+  host: "pbr.example.com"
+  address: ":8080"
+  loglevel: info
+  cachedir: /data
+  storage:
+    blob_url: "file:///data/blobs"
+    docstore_url: "mem://"
+  # Add users, OIDC, plugins, etc.
+
+# Use external secret for sensitive values
+secret:
+  enable: true
+  secretRef: pbr-secrets  # Secret containing ADMIN_TOKEN, OIDC_CLIENT_SECRET, etc.
+
+# Replica count
+replicaCount: 1
+
+# Image configuration
+image:
+  repository: ghcr.io/greatliontech/pbr
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to appVersion
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Enable GRPCRoute for Gateway API
+grpcroute:
+  enable: false
+```
+
+### Example with OIDC and Ingress
+
+```yaml
+config:
+  host: "pbr.example.com"
+  address: ":8080"
+  cachedir: /data
+  storage:
+    blob_url: "s3://my-pbr-bucket?region=us-east-1"
+    docstore_url: "mem://"
+  oidc:
+    issuer: "https://keycloak.example.com/realms/myrealm"
+    client_id: "pbr-registry"
+    client_secret: "${OIDC_CLIENT_SECRET}"
+  token_ttl: "7d"
+
+secret:
+  enable: true
+  secretRef: pbr-secrets
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+```
+
+Create the secret separately:
+
+```bash
+kubectl create secret generic pbr-secrets \
+  --from-literal=ADMIN_TOKEN=your-admin-token \
+  --from-literal=OIDC_CLIENT_SECRET=your-oidc-secret
+```
+
+Then install:
+
+```bash
+helm install pbr ./chart -f values.yaml
+```
+
 ## Configuration Reference
 
 ### Server Settings
@@ -168,27 +277,6 @@ PBR implements the OAuth2 Device Authorization Grant (RFC 8628) for `buf login`:
 
 This flow works well for CLI tools and headless environments.
 
-### Git Mirroring
-
-Mirror protobuf modules from Git repositories:
-
-```yaml
-modules:
-  myorg/mymodule:
-    remote: "https://github.com/myorg/myrepo.git"
-    path: "proto"  # Subdirectory containing protos
-    filters:
-      - "api/**"   # Optional: only include matching paths
-    shallow: true  # Optional: shallow clone
-
-credentials:
-  git:
-    "github.com/*":
-      token: "${GITHUB_TOKEN}"
-    "gitlab.com/*":
-      sshkey: "${SSH_PRIVATE_KEY}"
-```
-
 ### Remote Code Generation
 
 Configure OCI-based plugins for remote code generation:
@@ -243,11 +331,9 @@ PBR implements the following Buf Registry APIs:
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /oauth2/device/registration` | Register a new device client |
-| `POST /oauth2/device/authorization` | Request device authorization |
-| `POST /oauth2/device/token` | Poll for access token |
-| `GET /oauth2/device/approve` | User approval page |
-| `GET /oauth2/oidc/callback` | OIDC callback handler |
+| `POST /oauth2/device/registration` | Get client ID for device flow |
+| `POST /oauth2/device/authorization` | Request device authorization (proxied to OIDC) |
+| `POST /oauth2/device/token` | Exchange device code for access token |
 
 ## buf.yaml v1 vs v2
 

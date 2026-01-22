@@ -123,31 +123,33 @@ The GraphService builds a complete dependency graph:
 
 PBR supports multiple authentication methods for `buf login`:
 
-### OAuth2 Device Flow
+### OAuth2 Device Flow (OIDC Proxy Mode)
+
+When OIDC is configured, PBR proxies the OAuth2 device flow to the external identity provider:
 
 ```
 buf login pbr.example.com
         │
         ▼
 POST /oauth2/device/registration
-        │ (get client_id)
+        │ (returns configured OIDC client_id)
         ▼
-POST /oauth2/device/authorization
+POST /oauth2/device/authorization ──► Proxied to OIDC provider
         │ (get device_code, user_code, verification_uri)
         │
-        ├─ User opens verification_uri in browser
-        │   │
-        │   ├─ (Simple auth) Show login form
-        │   │   └─ User enters username/password
-        │   │
-        │   └─ (OIDC) Redirect to identity provider
-        │       └─ User authenticates with IdP
-        │       └─ IdP redirects to /oauth2/oidc/callback
+        ├─ User opens verification_uri (at OIDC provider)
+        │   └─ User authenticates with IdP
         │
         └─ buf CLI polls POST /oauth2/device/token
-            │ (until authorized or expired)
+            │
             ▼
-        Return access_token
+        PBR proxies to OIDC token endpoint
+            │
+            ▼
+        On success: PBR calls userinfo, generates PBR token
+            │
+            ▼
+        Return PBR access_token (not OIDC token)
 ```
 
 ### Token Validation
@@ -156,19 +158,16 @@ All API requests (except OAuth2 endpoints) require authentication:
 
 1. Client sends `Authorization: Bearer <token>` header
 2. Auth interceptor validates token against stored tokens
-3. On success, user context is set for the request
-4. Services can access the authenticated user via context
+3. Checks token expiration (OIDC tokens expire, static tokens don't)
+4. Slides expiration on valid requests (extends token lifetime)
+5. On success, user context is set for the request
 
-### OIDC Integration
+### Token Expiration
 
-When OIDC is configured:
-
-1. Device approval redirects to OIDC provider
-2. User authenticates with external IdP
-3. IdP redirects back with authorization code
-4. PBR exchanges code for tokens
-5. PBR generates a new API token for the user
-6. Token is stored and returned to buf CLI
+- **Static tokens** (from `users:` config): Never expire
+- **OIDC tokens**: Expire after configured TTL (default: 7 days)
+- **Sliding expiration**: Each API call extends the token's lifetime
+- **Re-login**: Replaces the old token with a new one
 
 ## Code Generation
 
