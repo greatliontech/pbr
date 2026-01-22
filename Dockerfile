@@ -10,8 +10,10 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build static binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o pbr ./cmd/pbr/
+# Build static binary with cache mount for faster rebuilds
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -o pbr ./cmd/pbr/
 
 # Runtime stage
 FROM alpine:3.20.1
