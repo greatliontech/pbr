@@ -42,12 +42,7 @@ func (r *OCIFSRunner) Start(ctx context.Context, spec Spec) (Process, error) {
 	}
 
 	// Read OCI config to get default ENTRYPOINT/CMD, unless overridden
-	conf, err := im.ConfigFile()
-	if err != nil {
-		_ = im.Unmount()
-		_ = os.Remove(im.MountPoint())
-		return nil, fmt.Errorf("runner: read config: %w", err)
-	}
+	conf := im.ConfigFile()
 
 	entrypoint := conf.Config.Entrypoint
 	cmd := conf.Config.Cmd

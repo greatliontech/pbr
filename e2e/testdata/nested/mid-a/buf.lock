@@ -4,5 +4,5 @@ deps:
   - remote: pbr.test
     owner: e2e
     repository: base
-    commit: 019be54f5a05727db480f49b51318745
+    commit: 019be6bee6957601927cf93e32ad1b44
     digest: shake256:07e5d218cd77f50ecfda9184d18fd3c7cfdd672a8e0bd4ceb9ce9aef3315730d83b0f1df43bce9d7e212de66cb7021c68e7e98a600d4e8eefacbdca6c9d637fa

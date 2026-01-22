@@ -51,10 +51,7 @@ func (p *Plugin) CodeGen(ver string, in *pluginpb.CodeGeneratorRequest) (*plugin
 	defer os.Remove(im.MountPoint())
 
 	// get config
-	conf, err := im.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
+	conf := im.ConfigFile()
 
 	// get the entrypoint
 	entrypoint := conf.Config.Entrypoint
