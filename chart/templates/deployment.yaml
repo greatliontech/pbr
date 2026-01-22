@@ -26,7 +26,7 @@ spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -53,9 +53,7 @@ spec:
                 name: {{ .Values.secret.secretRef }}
           {{- end }}
           env:
-            - name: CACHE_DIR
-              value: /cache
-            - name: SEVICE_INSTANCE_ID
+            - name: SERVICE_INSTANCE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
@@ -67,8 +65,6 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
-            - name: cache
-              mountPath: /cache
             - name: tmp
               mountPath: /tmp
       {{- with .Values.nodeSelector }}
@@ -87,9 +83,6 @@ spec:
         - name: config
           configMap:
             name: pbr
-        - name: cache
-          emptyDir:
-            sizeLimit: 500Mi
         - name: tmp
           emptyDir:
             sizeLimit: 500Mi

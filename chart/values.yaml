@@ -1,8 +1,61 @@
+# PBR Configuration
+# All options under 'config:' are passed directly to the PBR config file.
+# Environment variable substitution is supported via ${VAR} syntax.
 config:
+  # Server listen address
   address: ":8080"
+  # Public hostname (used for authentication redirects)
+  # host: pbr.example.com
+  # Log level: debug, info, warn, error
+  # loglevel: info
+  # Cache directory (only needed for local file storage, not for GCS/S3/Firestore)
+  # cachedir: /data
+  # Disable authentication (allow anonymous access)
+  # nologin: false
+  # Admin token for administrative API access (supports ${ENV_VAR})
+  # admin_token: ${ADMIN_TOKEN}
+  # Token TTL for OIDC tokens (e.g., "7d", "24h", "168h"). Default: 7d
+  # token_ttl: "7d"
+
+  # Storage backend configuration (gocloud.dev URLs)
+  # storage:
+  #   # Blob storage URL (file://, s3://, gs://, azblob://)
+  #   blob_url: "gs://my-bucket"
+  #   # Document store URL (mem://, firestore://project/collection)
+  #   docstore_url: "firestore://my-project/pbr"
+
+  # OIDC authentication configuration
+  # oidc:
+  #   issuer: "https://accounts.google.com"
+  #   client_id: "my-client-id"
+  #   client_secret: ${OIDC_CLIENT_SECRET}
+  #   scopes: ["openid", "email", "profile"]
+  #   username_claim: "email"
+
+  # Code generation plugins (OCI images)
+  # plugins:
+  #   org/plugin-name:
+  #     image: ghcr.io/org/protoc-gen-plugin
+  #     default: "v1"  # default version/tag
+
+  # Container registry credentials for pulling plugin images
+  # credentials:
+  #   containerregistry:
+  #     ghcr.io/org:
+  #       auth: ${GHCR_AUTH}  # base64(username:password)
+
+  # TLS configuration (optional, usually handled by ingress)
+  # tls:
+  #   cert_file: /certs/tls.crt
+  #   key_file: /certs/tls.key
+  #   # Or use PEM directly:
+  #   # cert_pem: ${TLS_CERT}
+  #   # key_pem: ${TLS_KEY}
 
 terminationGracePeriodSeconds: 30
 
+# External secret reference for environment variables
+# Useful for injecting secrets like OIDC_CLIENT_SECRET, GHCR_AUTH
 secret:
   enable: false
   secretRef: pbr
@@ -22,49 +75,42 @@ fullnameOverride: ""
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
+  # Annotations to add to the service account (e.g., for Workload Identity)
   annotations: {}
+    # iam.gke.io/gcp-service-account: my-sa@project.iam.gserviceaccount.com
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations: {}
 
-podSecurityContext:
-  {}
+podSecurityContext: {}
   # fsGroup: 2000
 
-securityContext:
-  {}
+# Container security context
+# Note: For OCI plugin execution, privileged mode with SYS_ADMIN is required for FUSE mounts
+securityContext: {}
+  # For plugin support with FUSE:
+  # privileged: true
   # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  #   add: ["SYS_ADMIN"]
 
 service:
   type: ClusterIP
   port: 8080
 
-resources:
-  {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+resources: {}
   # limits:
   #   cpu: 100m
   #   memory: 128Mi
+  #   smarter-devices/fuse: 1  # For OCI plugin FUSE support
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
+  #   smarter-devices/fuse: 1
 
 nodeSelector: {}
 
 tolerations: []
 
 affinity: {}
-
-grpcroute:
-  enable: false

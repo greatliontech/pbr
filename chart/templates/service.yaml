@@ -11,5 +11,6 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+      appProtocol: h2c
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
