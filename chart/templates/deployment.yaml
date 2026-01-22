@@ -47,10 +47,12 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.secret.enable }}
+          {{- with .Values.secrets }}
           envFrom:
+            {{- range . }}
             - secretRef:
-                name: {{ .Values.secret.secretRef }}
+                name: {{ . }}
+            {{- end }}
           {{- end }}
           env:
             - name: SERVICE_INSTANCE_ID

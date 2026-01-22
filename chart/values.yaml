@@ -54,11 +54,11 @@ config:
 
 terminationGracePeriodSeconds: 30
 
-# External secret reference for environment variables
-# Useful for injecting secrets like OIDC_CLIENT_SECRET, GHCR_AUTH
-secret:
-  enable: false
-  secretRef: pbr
+# External secret references for environment variables
+# Useful for injecting secrets like OIDC_CLIENT_SECRET, GHCR_AUTH, ADMIN_TOKEN
+secrets: []
+  # - pbr-oidc
+  # - pbr-registry
 
 replicaCount: 1
 
