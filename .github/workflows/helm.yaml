@@ -25,7 +25,9 @@ jobs:
 
       - name: Update appVersion
         run: |
-          yq -i '.appVersion = "${{ github.event.release.tag_name }}"' ${{ env.CHART_PATH }}/Chart.yaml
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          yq -i ".appVersion = \"${VERSION}\"" ${{ env.CHART_PATH }}/Chart.yaml
 
       - name: Push Helm chart
         uses: appany/helm-oci-chart-releaser@v0.5.0
