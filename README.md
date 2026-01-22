@@ -1,16 +1,14 @@
 # PBR - Protocol Buffer Registry
 
-A self-hosted Buf Schema Registry (BSR) compatible server. PBR allows you to host your own protobuf module registry that works seamlessly with the `buf` CLI.
+A `buf` CLI compatible server.
 
 ## Features
 
 - Full compatibility with `buf push`, `buf dep update`, `buf generate`, and `buf login`
 - Support for both buf.yaml v1 and v2 formats
-- B4 and B5 digest support
 - Multi-module workspace support (buf.yaml v2)
 - Remote code generation with OCI-based plugins
-- Git repository mirroring for protobuf modules
-- CAS (Content Addressable Storage) with pluggable backends
+- Configurable storage backends via Go Cloud (local filesystem, S3, GCS, etc.)
 - TLS support (native or via proxy)
 - OAuth2 device flow for `buf login` (interactive browser-based login)
 - OIDC integration (Keycloak, Auth0, Okta, etc.)
@@ -107,14 +105,6 @@ storage:
 tls:
   certfile: /path/to/server.crt
   keyfile: /path/to/server.key
-```
-
-#### PEM strings with environment variable support
-
-```yaml
-tls:
-  certpem: "${TLS_CERT}"
-  keypem: "${TLS_KEY}"
 ```
 
 ### Authentication
