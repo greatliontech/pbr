@@ -163,10 +163,42 @@ func (o *OAuth2Service) handleDeviceAuthorization(w http.ResponseWriter, r *http
 	}
 	defer resp.Body.Close()
 
-	// Copy response headers and body
+	// Read response body to normalize field names
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		writeOAuth2Error(w, http.StatusInternalServerError, "server_error", "failed to read provider response")
+		return
+	}
+
+	// If successful, normalize the response to include both verification_uri and verification_url
+	// Google uses verification_url but RFC 8628 specifies verification_uri
+	if resp.StatusCode == http.StatusOK {
+		var deviceResp map[string]interface{}
+		if err := json.Unmarshal(respBody, &deviceResp); err == nil {
+			// Normalize: if we have verification_url but not verification_uri, add it
+			if url, ok := deviceResp["verification_url"].(string); ok {
+				if _, hasURI := deviceResp["verification_uri"]; !hasURI {
+					deviceResp["verification_uri"] = url
+				}
+			}
+			// Normalize: if we have verification_uri but not verification_url, add it
+			if uri, ok := deviceResp["verification_uri"].(string); ok {
+				if _, hasURL := deviceResp["verification_url"]; !hasURL {
+					deviceResp["verification_url"] = uri
+				}
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(resp.StatusCode)
+			json.NewEncoder(w).Encode(deviceResp)
+			return
+		}
+	}
+
+	// Pass through error responses as-is
 	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	w.Write(respBody)
 }
 
 // handleDeviceToken proxies to OIDC provider, then swaps the token for a PBR token.
