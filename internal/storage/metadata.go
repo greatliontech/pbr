@@ -26,11 +26,11 @@ type ModuleRecord struct {
 
 // CommitRecord represents stored commit metadata.
 type CommitRecord struct {
-	ID               string // first 32 chars of manifest digest hex
+	ID               string
 	ModuleID         string
 	OwnerID          string
-	ManifestDigest   Digest       // shake256 digest of manifest content
-	B5Digest         ModuleDigest // b5 module digest (files + dependencies)
+	FilesDigest      Digest       // SHAKE256 digest of the files manifest
+	ModuleDigest     ModuleDigest // module digest (B4 or B5)
 	CreateTime       time.Time
 	CreatedByUserID  string
 	SourceControlURL string
@@ -70,7 +70,7 @@ type MetadataStore interface {
 
 	// Commit operations
 	GetCommit(ctx context.Context, id string) (*CommitRecord, error)
-	GetCommitByDigest(ctx context.Context, digest Digest) (*CommitRecord, error)
+	GetCommitByFilesDigest(ctx context.Context, digest Digest) (*CommitRecord, error)
 	ListCommits(ctx context.Context, moduleID string, limit int, pageToken string) ([]*CommitRecord, string, error)
 	CreateCommit(ctx context.Context, commit *CommitRecord) error
 

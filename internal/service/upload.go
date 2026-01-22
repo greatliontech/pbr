@@ -121,13 +121,13 @@ func (u *UploadService) uploadContent(ctx context.Context, content *v1.UploadReq
 		}
 	}
 
-	// Get B5 digests for all dependencies
-	depDigests, err := u.svc.casReg.GetDepB5Digests(ctx, depCommitIDs)
+	// Get module digests for all dependencies
+	depDigests, err := u.svc.casReg.GetDepModuleDigests(ctx, depCommitIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dependency digests: %w", err)
 	}
 
-	// Create commit with dependency commit IDs and their B5 digests
+	// Create commit with dependency commit IDs and their module digests
 	commit, err := mod.CreateCommit(ctx, files, labels, content.SourceControlUrl, depCommitIDs, depDigests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create commit: %w", err)
@@ -252,7 +252,7 @@ func (u *UploadService) commitToProto(commit *registry.Commit) (*v1.Commit, erro
 		CreateTime: timestamppb.New(commit.CreateTime),
 		Digest: &v1.Digest{
 			Type:  v1.DigestType_DIGEST_TYPE_B5,
-			Value: commit.B5Digest.Value,
+			Value: commit.ModuleDigest.Value,
 		},
 	}, nil
 }

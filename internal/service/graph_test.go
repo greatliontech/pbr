@@ -63,8 +63,8 @@ func createTestModuleWithDeps(t *testing.T, svc *Service, owner, name string, fi
 		t.Fatalf("failed to create module: %v", err)
 	}
 
-	// Get B5 digests for dependencies
-	depDigests, err := svc.casReg.GetDepB5Digests(ctx, depCommitIDs)
+	// Get module digests for dependencies
+	depDigests, err := svc.casReg.GetDepModuleDigests(ctx, depCommitIDs)
 	if err != nil {
 		t.Fatalf("failed to get dependency digests: %v", err)
 	}
@@ -205,7 +205,7 @@ deps:
     owner: testowner
     repository: depmodule
     commit: ` + depCommit.ID + `
-    digest: shake256:` + depCommit.ManifestDigest.Hex()},
+    digest: shake256:` + depCommit.FilesDigest.Hex()},
 	}
 	mainCommit := createTestModuleWithDeps(t, svc, "testowner", "mainmodule", mainFiles, []string{"main"}, []string{depCommit.ID})
 
@@ -268,7 +268,7 @@ deps:
     owner: testowner
     repository: modulec
     commit: ` + cCommit.ID + `
-    digest: shake256:` + cCommit.ManifestDigest.Hex()},
+    digest: shake256:` + cCommit.FilesDigest.Hex()},
 	}
 	bCommit := createTestModuleWithDeps(t, svc, "testowner", "moduleb", bFiles, []string{"main"}, []string{cCommit.ID})
 
@@ -282,7 +282,7 @@ deps:
     owner: testowner
     repository: moduleb
     commit: ` + bCommit.ID + `
-    digest: shake256:` + bCommit.ManifestDigest.Hex()},
+    digest: shake256:` + bCommit.FilesDigest.Hex()},
 	}
 	aCommit := createTestModuleWithDeps(t, svc, "testowner", "modulea", aFiles, []string{"main"}, []string{bCommit.ID})
 
@@ -592,7 +592,7 @@ deps:
     owner: testowner
     repository: moduled
     commit: ` + dCommit.ID + `
-    digest: shake256:` + dCommit.ManifestDigest.Hex()},
+    digest: shake256:` + dCommit.FilesDigest.Hex()},
 	}
 	bCommit := createTestModuleWithDeps(t, svc, "testowner", "moduleb", bFiles, []string{"main"}, []string{dCommit.ID})
 
@@ -606,7 +606,7 @@ deps:
     owner: testowner
     repository: moduled
     commit: ` + dCommit.ID + `
-    digest: shake256:` + dCommit.ManifestDigest.Hex()},
+    digest: shake256:` + dCommit.FilesDigest.Hex()},
 	}
 	cCommit := createTestModuleWithDeps(t, svc, "testowner", "modulec", cFiles, []string{"main"}, []string{dCommit.ID})
 
@@ -620,12 +620,12 @@ deps:
     owner: testowner
     repository: moduleb
     commit: ` + bCommit.ID + `
-    digest: shake256:` + bCommit.ManifestDigest.Hex() + `
+    digest: shake256:` + bCommit.FilesDigest.Hex() + `
   - remote: test.registry.com
     owner: testowner
     repository: modulec
     commit: ` + cCommit.ID + `
-    digest: shake256:` + cCommit.ManifestDigest.Hex()},
+    digest: shake256:` + cCommit.FilesDigest.Hex()},
 	}
 	aCommit := createTestModuleWithDeps(t, svc, "testowner", "modulea", aFiles, []string{"main"}, []string{bCommit.ID, cCommit.ID})
 

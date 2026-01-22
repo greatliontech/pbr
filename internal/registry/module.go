@@ -85,13 +85,13 @@ func (m *Module) CommitByID(ctx context.Context, id string) (*Commit, error) {
 	}
 
 	return &Commit{
-		ID:             record.ID,
-		ModuleID:       record.ModuleID,
-		OwnerID:        record.OwnerID,
-		ManifestDigest: record.ManifestDigest,
-		B5Digest:       record.B5Digest,
-		CreateTime:     record.CreateTime,
-		DepCommitIDs:   record.DepCommitIDs,
+		ID:           record.ID,
+		ModuleID:     record.ModuleID,
+		OwnerID:      record.OwnerID,
+		FilesDigest:  record.FilesDigest,
+		ModuleDigest: record.ModuleDigest,
+		CreateTime:   record.CreateTime,
+		DepCommitIDs: record.DepCommitIDs,
 	}, nil
 }
 
@@ -123,7 +123,7 @@ func (m *Module) FilesAndCommitByCommitID(ctx context.Context, commitID string) 
 
 // filesForCommit retrieves all files for a given commit.
 func (m *Module) filesForCommit(ctx context.Context, commit *Commit) ([]File, error) {
-	manifest, err := m.registry.manifests.GetManifest(ctx, commit.ManifestDigest)
+	manifest, err := m.registry.manifests.GetManifest(ctx, commit.FilesDigest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifest: %w", err)
 	}
@@ -199,20 +199,20 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		})
 	}
 
-	// Store manifest
-	manifestDigest, err := m.registry.manifests.PutManifest(ctx, manifest)
+	// Store manifest and get files digest
+	filesDigest, err := m.registry.manifests.PutManifest(ctx, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store manifest: %w", err)
 	}
 
-	// Compute B5 digest (files + dependencies)
-	b5Digest, err := storage.ComputeB5Digest(manifest, depDigests)
+	// Compute module digest (files + dependencies)
+	moduleDigest, err := storage.ComputeB5Digest(manifest, depDigests)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute B5 digest: %w", err)
+		return nil, fmt.Errorf("failed to compute module digest: %w", err)
 	}
 
-	// Check for existing commit with same digest (deduplication)
-	existingCommit, err := m.registry.metadata.GetCommitByDigest(ctx, manifestDigest)
+	// Check for existing commit with same files digest (deduplication)
+	existingCommit, err := m.registry.metadata.GetCommitByFilesDigest(ctx, filesDigest)
 	if err == nil && existingCommit != nil && existingCommit.ModuleID == m.record.ID {
 		slog.DebugContext(ctx, "commit already exists", "commitID", existingCommit.ID)
 		// Update labels to point to existing commit
@@ -225,8 +225,8 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 			ID:             existingCommit.ID,
 			ModuleID:       existingCommit.ModuleID,
 			OwnerID:        existingCommit.OwnerID,
-			ManifestDigest: existingCommit.ManifestDigest,
-			B5Digest:       existingCommit.B5Digest,
+			FilesDigest:  existingCommit.FilesDigest,
+			ModuleDigest: existingCommit.ModuleDigest,
 			CreateTime:     existingCommit.CreateTime,
 			DepCommitIDs:   existingCommit.DepCommitIDs,
 		}, nil
@@ -240,8 +240,8 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 		ID:               commitID,
 		ModuleID:         m.record.ID,
 		OwnerID:          m.record.OwnerID,
-		ManifestDigest:   manifestDigest,
-		B5Digest:         b5Digest,
+		FilesDigest:      filesDigest,
+		ModuleDigest:     moduleDigest,
 		CreateTime:       time.Now(),
 		SourceControlURL: sourceControlURL,
 		DepCommitIDs:     depCommitIDs,
@@ -259,13 +259,13 @@ func (m *Module) CreateCommit(ctx context.Context, files []File, labels []string
 	}
 
 	return &Commit{
-		ID:             commitID,
-		ModuleID:       m.record.ID,
-		OwnerID:        m.record.OwnerID,
-		ManifestDigest: manifestDigest,
-		B5Digest:       b5Digest,
-		CreateTime:     commitRecord.CreateTime,
-		DepCommitIDs:   depCommitIDs,
+		ID:           commitID,
+		ModuleID:     m.record.ID,
+		OwnerID:      m.record.OwnerID,
+		FilesDigest:  filesDigest,
+		ModuleDigest: moduleDigest,
+		CreateTime:   commitRecord.CreateTime,
+		DepCommitIDs: depCommitIDs,
 	}, nil
 }
 
@@ -292,8 +292,8 @@ func (m *Module) ListCommits(ctx context.Context, limit int, pageToken string) (
 			ID:             record.ID,
 			ModuleID:       record.ModuleID,
 			OwnerID:        record.OwnerID,
-			ManifestDigest: record.ManifestDigest,
-			B5Digest:       record.B5Digest,
+			FilesDigest:  record.FilesDigest,
+			ModuleDigest: record.ModuleDigest,
 			CreateTime:     record.CreateTime,
 			DepCommitIDs:   record.DepCommitIDs,
 		}

@@ -132,31 +132,31 @@ func TestMetadataStore_Commit(t *testing.T) {
 	store := setupTestMetadataStore(t)
 	ctx := context.Background()
 
-	digest := Digest{
-		Algorithm: "shake256",
+	filesDigest := Digest{
+		Algorithm: DigestAlgorithmShake256,
 		Value:     make([]byte, 64),
 	}
 	// Set a recognizable pattern
-	for i := range digest.Value {
-		digest.Value[i] = byte(i)
+	for i := range filesDigest.Value {
+		filesDigest.Value[i] = byte(i)
 	}
 
-	b5Digest := ModuleDigest{
+	moduleDigest := ModuleDigest{
 		Type:  DigestTypeB5,
 		Value: make([]byte, 64),
 	}
 	// Set a different recognizable pattern
-	for i := range b5Digest.Value {
-		b5Digest.Value[i] = byte(i + 100)
+	for i := range moduleDigest.Value {
+		moduleDigest.Value[i] = byte(i + 100)
 	}
 
 	commit := &CommitRecord{
-		ID:             "commit-123",
-		ModuleID:       "module-123",
-		OwnerID:        "owner-123",
-		ManifestDigest: digest,
-		B5Digest:       b5Digest,
-		CreateTime:     time.Now().UTC(),
+		ID:           "commit-123",
+		ModuleID:     "module-123",
+		OwnerID:      "owner-123",
+		FilesDigest:  filesDigest,
+		ModuleDigest: moduleDigest,
+		CreateTime:   time.Now().UTC(),
 	}
 
 	// Create commit
@@ -173,10 +173,10 @@ func TestMetadataStore_Commit(t *testing.T) {
 		t.Errorf("expected module ID %q, got %q", commit.ModuleID, got.ModuleID)
 	}
 
-	// Get by digest
-	got, err = store.GetCommitByDigest(ctx, digest)
+	// Get by files digest
+	got, err = store.GetCommitByFilesDigest(ctx, filesDigest)
 	if err != nil {
-		t.Fatalf("GetCommitByDigest failed: %v", err)
+		t.Fatalf("GetCommitByFilesDigest failed: %v", err)
 	}
 	if got.ID != commit.ID {
 		t.Errorf("expected ID %q, got %q", commit.ID, got.ID)

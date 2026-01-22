@@ -56,7 +56,7 @@ func (svc *Service) downloadByCommitID(ctx context.Context, commitId string) (*v
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	commitObj, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+	commitObj, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.FilesDigest.Hex())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

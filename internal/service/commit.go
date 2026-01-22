@@ -74,7 +74,7 @@ func (svc *Service) getCommitByID(ctx context.Context, commitID string) (*v1beta
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+	return getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.FilesDigest.Hex())
 }
 
 func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1beta1.Commit, error) {
@@ -100,7 +100,7 @@ func (svc *Service) getCommit(ctx context.Context, owner, modl, ref string) (*v1
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("commit not found for ref: %s", ref))
 	}
 
-	comt, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+	comt, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.FilesDigest.Hex())
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to construct commit object")
@@ -149,7 +149,7 @@ func (svc *Service) ListCommits(ctx context.Context, req *connect.Request[v1beta
 	}
 
 	for _, commit := range commits {
-		c, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.ManifestDigest.Hex())
+		c, err := getCommitObject(commit.OwnerID, commit.ModuleID, commit.ID, commit.FilesDigest.Hex())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

@@ -7,15 +7,16 @@ import (
 	"io"
 )
 
+// DigestAlgorithmShake256 is the SHAKE256 algorithm identifier used for content-addressable storage.
+const DigestAlgorithmShake256 = "shake256"
+
 // DigestType represents the type of module digest.
 type DigestType int
 
 const (
-	// DigestTypeB4 represents the legacy b4 digest type (files + config only).
-	// String representation uses "shake256:" prefix for backwards compatibility.
+	// DigestTypeB4 represents the legacy b4 digest type (files only).
 	DigestTypeB4 DigestType = iota + 1
 	// DigestTypeB5 represents the current b5 digest type (files + dependencies).
-	// String representation uses "b5:" prefix.
 	DigestTypeB5
 )
 
@@ -23,7 +24,7 @@ const (
 func (dt DigestType) String() string {
 	switch dt {
 	case DigestTypeB4:
-		return "shake256"
+		return DigestAlgorithmShake256
 	case DigestTypeB5:
 		return "b5"
 	default:
@@ -34,7 +35,7 @@ func (dt DigestType) String() string {
 // ParseDigestType parses a digest type from its string representation.
 func ParseDigestType(s string) (DigestType, error) {
 	switch s {
-	case "shake256":
+	case DigestAlgorithmShake256:
 		return DigestTypeB4, nil
 	case "b5":
 		return DigestTypeB5, nil

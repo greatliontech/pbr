@@ -91,25 +91,25 @@ func (r *Registry) CommitByID(ctx context.Context, commitID string) (*Commit, er
 	}
 
 	return &Commit{
-		ID:             record.ID,
-		ModuleID:       record.ModuleID,
-		OwnerID:        record.OwnerID,
-		ManifestDigest: record.ManifestDigest,
-		B5Digest:       record.B5Digest,
-		CreateTime:     record.CreateTime,
-		DepCommitIDs:   record.DepCommitIDs,
+		ID:           record.ID,
+		ModuleID:     record.ModuleID,
+		OwnerID:      record.OwnerID,
+		FilesDigest:  record.FilesDigest,
+		ModuleDigest: record.ModuleDigest,
+		CreateTime:   record.CreateTime,
+		DepCommitIDs: record.DepCommitIDs,
 	}, nil
 }
 
-// GetDepB5Digests retrieves B5 digests for a list of dependency commit IDs.
-func (r *Registry) GetDepB5Digests(ctx context.Context, depCommitIDs []string) ([]storage.ModuleDigest, error) {
+// GetDepModuleDigests retrieves module digests for a list of dependency commit IDs.
+func (r *Registry) GetDepModuleDigests(ctx context.Context, depCommitIDs []string) ([]storage.ModuleDigest, error) {
 	digests := make([]storage.ModuleDigest, 0, len(depCommitIDs))
 	for _, commitID := range depCommitIDs {
 		commit, err := r.CommitByID(ctx, commitID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dependency commit %s: %w", commitID, err)
 		}
-		digests = append(digests, commit.B5Digest)
+		digests = append(digests, commit.ModuleDigest)
 	}
 	return digests, nil
 }
@@ -231,13 +231,13 @@ type File struct {
 
 // Commit represents a commit in the registry.
 type Commit struct {
-	ID             string
-	ModuleID       string
-	OwnerID        string
-	ManifestDigest storage.Digest
-	B5Digest       storage.ModuleDigest // b5 module digest (files + dependencies)
-	CreateTime     time.Time
-	DepCommitIDs   []string // dependency commit IDs
+	ID           string
+	ModuleID     string
+	OwnerID      string
+	FilesDigest  storage.Digest       // SHAKE256 digest of the files manifest
+	ModuleDigest storage.ModuleDigest // module digest (B5)
+	CreateTime   time.Time
+	DepCommitIDs []string // dependency commit IDs
 }
 
 // BufLock represents a parsed buf.lock file.

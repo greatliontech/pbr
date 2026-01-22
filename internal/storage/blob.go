@@ -59,7 +59,7 @@ func (s *BlobStoreImpl) Put(ctx context.Context, r io.Reader) (Digest, error) {
 	h.Read(hashBytes[:])
 
 	digest := Digest{
-		Algorithm: "shake256",
+		Algorithm: DigestAlgorithmShake256,
 		Value:     hashBytes[:],
 	}
 

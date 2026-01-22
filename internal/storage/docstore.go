@@ -36,8 +36,8 @@ type CommitDoc struct {
 	ID               string    `docstore:"id"`
 	ModuleID         string    `docstore:"module_id"`
 	OwnerID          string    `docstore:"owner_id"`
-	ManifestDigest   string    `docstore:"manifest_digest"` // stored as string "algorithm:hex"
-	B5Digest         string    `docstore:"b5_digest"`       // stored as string "b5:hex"
+	FilesDigest      string    `docstore:"files_digest"`  // SHAKE256 digest as "shake256:hex"
+	ModuleDigest     string    `docstore:"module_digest"` // module digest as "b5:hex" or "shake256:hex"
 	CreateTime       time.Time `docstore:"create_time"`
 	CreatedByUserID  string    `docstore:"created_by_user_id,omitempty"`
 	SourceControlURL string    `docstore:"source_control_url,omitempty"`
@@ -272,9 +272,9 @@ func (s *MetadataStoreImpl) GetCommit(ctx context.Context, id string) (*CommitRe
 	return commitDocToRecord(doc)
 }
 
-func (s *MetadataStoreImpl) GetCommitByDigest(ctx context.Context, digest Digest) (*CommitRecord, error) {
+func (s *MetadataStoreImpl) GetCommitByFilesDigest(ctx context.Context, digest Digest) (*CommitRecord, error) {
 	digestStr := digest.String()
-	iter := s.commits.Query().Where("manifest_digest", "=", digestStr).Get(ctx)
+	iter := s.commits.Query().Where("files_digest", "=", digestStr).Get(ctx)
 	defer iter.Stop()
 
 	doc := &CommitDoc{}
@@ -354,13 +354,13 @@ func (s *MetadataStoreImpl) CreateCommit(ctx context.Context, commit *CommitReco
 }
 
 func commitDocToRecord(doc *CommitDoc) (*CommitRecord, error) {
-	digest, err := ParseDigest(doc.ManifestDigest)
+	filesDigest, err := ParseDigest(doc.FilesDigest)
 	if err != nil {
 		return nil, err
 	}
-	var b5Digest ModuleDigest
-	if doc.B5Digest != "" {
-		b5Digest, err = ParseModuleDigest(doc.B5Digest)
+	var moduleDigest ModuleDigest
+	if doc.ModuleDigest != "" {
+		moduleDigest, err = ParseModuleDigest(doc.ModuleDigest)
 		if err != nil {
 			return nil, err
 		}
@@ -369,8 +369,8 @@ func commitDocToRecord(doc *CommitDoc) (*CommitRecord, error) {
 		ID:               doc.ID,
 		ModuleID:         doc.ModuleID,
 		OwnerID:          doc.OwnerID,
-		ManifestDigest:   digest,
-		B5Digest:         b5Digest,
+		FilesDigest:      filesDigest,
+		ModuleDigest:     moduleDigest,
 		CreateTime:       doc.CreateTime,
 		CreatedByUserID:  doc.CreatedByUserID,
 		SourceControlURL: doc.SourceControlURL,
@@ -383,8 +383,8 @@ func commitRecordToDoc(c *CommitRecord) *CommitDoc {
 		ID:               c.ID,
 		ModuleID:         c.ModuleID,
 		OwnerID:          c.OwnerID,
-		ManifestDigest:   c.ManifestDigest.String(),
-		B5Digest:         c.B5Digest.String(),
+		FilesDigest:      c.FilesDigest.String(),
+		ModuleDigest:     c.ModuleDigest.String(),
 		CreateTime:       c.CreateTime,
 		CreatedByUserID:  c.CreatedByUserID,
 		SourceControlURL: c.SourceControlURL,

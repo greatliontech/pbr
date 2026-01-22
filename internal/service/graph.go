@@ -105,7 +105,7 @@ func (svc *Service) getModuleAndCommitByID(ctx context.Context, commitID string)
 		return moduleInfo{}, nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	commit, err := getCommitObject(cmt.OwnerID, cmt.ModuleID, cmt.ID, cmt.ManifestDigest.Hex())
+	commit, err := getCommitObject(cmt.OwnerID, cmt.ModuleID, cmt.ID, cmt.FilesDigest.Hex())
 	if err != nil {
 		return moduleInfo{}, nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -152,7 +152,7 @@ func (svc *Service) getModuleAndCommitByName(ctx context.Context, name *v1beta1.
 		}
 	}
 
-	commit, err := getCommitObject(cmt.OwnerID, cmt.ModuleID, cmt.ID, cmt.ManifestDigest.Hex())
+	commit, err := getCommitObject(cmt.OwnerID, cmt.ModuleID, cmt.ID, cmt.FilesDigest.Hex())
 	if err != nil {
 		return moduleInfo{}, nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -303,7 +303,7 @@ func (svc *Service) getStoredDeps(ctx context.Context, owner, name, commitID str
 			Owner:      depMod.Owner(),
 			Repository: depMod.Name(),
 			Commit:     depCommitID,
-			Digest:     "shake256:" + depCommit.ManifestDigest.Hex(),
+			Digest:     "shake256:" + depCommit.FilesDigest.Hex(),
 		})
 	}
 
